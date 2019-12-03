@@ -1,5 +1,4 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 """
 Created on Sun Jun 18 15:19:44 2018
 @author Shuai Zhang at UNC: 
@@ -50,7 +49,7 @@ def majority_vote(list_tmp):
                 max_value = max_value
         return max_value
     except:
-        print sum(list_tmp)
+        print(sum(list_tmp))
 
 
 #Convert to utm projection
@@ -150,7 +149,7 @@ def write_raster_netcdf(fout,size_x,size_y,x_min,y_min,utm_num,h,h_uc,area,area_
     write_variable(dataset,'height',h,'m')
     
     for s in var_list_tbd:            
-        print 'Writing TBD varibale ',s,'...'       
+        print('Writing TBD varibale ',s,'...')       
         out_var_tmp = []
         out_var = [[0 for i in range(size_x)] for i in range (size_y)]#total pixel number withn each grid 
         locals()['var_'+s] = dataset.createVariable(s, np.float32,('ydim','xdim'),fill_value = -1)
@@ -191,7 +190,7 @@ def to_raster(f_file):
     
    
     b = np.isnan(lats)
-    print 'Converting projection ...'
+    print('Converting projection ...')
     # set the parameters for each projection and calculate the size of raster image
 
     utm_proj =convert_projection(b,klass,lats,lons)    
@@ -204,7 +203,7 @@ def to_raster(f_file):
     out_index = utm_proj[5]
 
 # Aggregating to raster for each variable
-    print 'Writing variables...'
+    print('Writing variables...')
  
     out_h = [[0 for i in range(size_x)] for i in range (size_y)]
     out_h_uc = [[0 for i in range(size_x)] for i in range (size_y)]
@@ -238,5 +237,5 @@ pc_file = scan_input(fin_folder)
 #Rasterize the pixel clouds files and write these files to hard disk  
 for s in pc_file:
     fin_path = fin_folder+s
-    print fin_path
+    print(fin_path)
     to_raster(fin_path)

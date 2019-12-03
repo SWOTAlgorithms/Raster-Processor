@@ -1,8 +1,3 @@
-##1. in height_uncert_multilook, looks_to_efflooks
-##2. height_only, how to obtain a 'good' mask or which kind of pixels should be filtered out? extremely high or low values?
-#1. height_uncert_multilook,   power(1,2)        = the rare two channel interferpgram powers, minus y and plu_y which one is which
-#2. phase_std = (0.5 / num_looks) * (1.0-coh**2)/(coh**2) negative values? 
-# 3. phase_std it's already reported in the product. Can we directly use it?
 '''
 Description:
 These are general functions to be used in the river node, raster, 
@@ -18,6 +13,7 @@ Author (s): Brent Williams
 '''
 
 import numpy as np
+import scipy.stats
 
 def simple(in_var, metric='mean'):
     """
@@ -37,11 +33,12 @@ def simple(in_var, metric='mean'):
         out_var = np.std(in_var)
     elif metric == 'count':
         out_var = np.sum(np.ones(np.shape(in_var)))
+    elif metric == 'mode':
+        out_var,_ = scipy.stats.mode(in_var)
     return out_var
 
 def height_only(height, good, height_std=1.0, method='weight'):
     """
-    #good from old river obs
     Return the aggregate height
     implements methods: weight (default), median, uniform 
     good is a mask used to filter out heights that are expected to be bad 
@@ -86,11 +83,11 @@ def height_only(height, good, height_std=1.0, method='weight'):
     weight_norm = weight/weight_sum_pixc
     return height_out, weight_norm
 
-def height_uncert_std(height, good, num_rare_looks, num_med_looks):
+def height_uncert_std(height, good, num_rare_looks, num_med_looks, height_std=1.0, method='weight'):
     """
     Compute the sample standard devieation of the heights and scale by the
     appropriate factor instead of 1/sqrt(N), since the medium pixels are
-     correlated
+    correlated
 
     INPUTS:
     height         = 1d array of heights over the water feature
@@ -102,15 +99,29 @@ def height_uncert_std(height, good, num_rare_looks, num_med_looks):
     "SWOT Hydrology Height and Area Uncertainty Estimation," 
     Brent Williams, 2018, JPL Memo
     """
-    h_std  = simple(height[good], metric='std')
+    
+    # need to do a weighted sample std when aggregating with weights
+    # TODO: for median, should probably throw out outliers...
+    weight = np.ones(np.shape(height))# default to uniform
+    if method == 'weight':
+        weight = np.ones(np.shape(height))/(height_std)**2
+    height_agg = simple(weight[good]*height[good], metric='sum')
+    weight_sum = simple(weight[good], metric='sum')
+    height_mean = height_agg/weight_sum
+    height_agg2 = simple(
+        weight[good]*(height[good]-height_mean)**2.0, metric='sum')
+    h_std = np.sqrt(height_agg2/weight_sum)
+    
     num_pixels = simple(height[good], metric='count')
+    # num_med_looks is rare_looks*num_pix_in_adaptive_window,
+    # so need to normalize out rare to get number of independent pixels
     num_ind_pixels = simple(num_med_looks[good]/num_rare_looks[good],'mean')
     height_std_out = h_std * np.sqrt(num_ind_pixels/num_pixels)
     return height_std_out
 
 def height_uncert_multilook(
-        ifgram, power1, power2, weight_norm, good,
-        num_rare_looks, looks_to_efflooks, dh_dphi):
+        ifgram, power1, power2, weight_norm, good, num_rare_looks,
+        looks_to_efflooks, dh_dphi, dlat_dphi, dlon_dphi):
     """
     compute height uncertainty bound by multilooking 
     everything over feature to compute average coh
@@ -146,24 +157,38 @@ def height_uncert_multilook(
     coh = abs(agg_real + 1j *agg_imag)/np.sqrt(agg_p1*agg_p2)
 
     # get total num_eff_looks
-    rare_looks = num_rare_looks/looks_to_efflooks
+    rare_looks = num_rare_looks#/looks_to_efflooks
     agg_looks = simple(rare_looks[good])
 
     num_looks = agg_looks * num_pixels
 
-    # get phase noise std using CRB
-    phase_std = (0.5 / num_looks) * (1.0-coh**2)/(coh**2)
+    # get phase noise variance using CRB
+    phase_var = (0.5 / num_looks) * (1.0-coh**2)/(coh**2)
+    
     agg_dh_dphi = simple(dh_dphi[good]*weight_norm[good])
     agg_dh_dphi2 = simple(dh_dphi[good]**2*weight_norm[good])
 
+    agg_dlat_dphi = simple(dlat_dphi[good]*weight_norm[good])
+    agg_dlat_dphi2 = simple(dlat_dphi[good]**2*weight_norm[good])
+
+    agg_dlon_dphi = simple(dlon_dphi[good]*weight_norm[good])
+    agg_dlon_dphi2 = simple(dlon_dphi[good]**2*weight_norm[good])
+
     height_uncert_out = np.sqrt(
-        np.abs(phase_std)) * np.abs(np.array(agg_dh_dphi2)/np.array(agg_dh_dphi))
-    return height_uncert_out
+        phase_var) * np.abs(np.array(agg_dh_dphi2)/np.array(agg_dh_dphi))
+
+    lat_uncert_out = np.sqrt(
+        phase_var) * np.abs(np.array(agg_dlat_dphi2)/np.array(agg_dlat_dphi))
+
+    lon_uncert_out = np.sqrt(
+        phase_var) * np.abs(np.array(agg_dlon_dphi2)/np.array(agg_dlon_dphi))
+
+    return height_uncert_out, lat_uncert_out, lon_uncert_out
 
 def height_with_uncerts(
         height,  good, num_rare_looks, num_med_looks,
         ifgram, power1, power2, look_to_efflooks, dh_dphi,
-        height_std=1.0, method='weight'):
+        dlat_dphi, dlon_dphi, height_std=1.0, method='weight'):
     """
     Return the aggregate height with corresponding uncertainty
     implements methods: weight(default), median, uniform
@@ -172,19 +197,21 @@ def height_with_uncerts(
     """
     # first aggregate the heights
     height_out, weight_norm = height_only(
-        height,  good, height_std=height_std, method=method)
+        height, good, height_std=height_std, method=method)
 
     # now compute uncertainties
     height_std_out = height_uncert_std(
-        height, good, num_rare_looks, num_med_looks)
-
-    height_uncert_out = height_uncert_multilook(
-        ifgram, power1, power2, weight_norm, good,
-        num_rare_looks, look_to_efflooks, dh_dphi)
+        height, good, num_rare_looks, num_med_looks,
+        height_std=height_std, method=method)
     
-    return height_out, height_std_out, height_uncert_out
+    height_uncert_out, lat_uncert_out, lon_uncert_out = height_uncert_multilook(
+        ifgram, power1, power2, weight_norm, good,
+        num_rare_looks, look_to_efflooks, dh_dphi, dlat_dphi, dlon_dphi)
 
-def area_only(pixel_area, klass, good,
+    return (height_out, height_std_out, height_uncert_out, lat_uncert_out,
+            lon_uncert_out)
+
+def area_only(pixel_area, water_fraction, klass, good,
               interior_water_klass=4, water_edge_klass=3, land_edge_klass=2,
               method='composite'):
     """
@@ -192,12 +219,13 @@ def area_only(pixel_area, klass, good,
     implements methods: weight (default), median, uniform 
     good is a mask used to filter out heights that are expected to be bad 
     or outliers, if desired
-    
+
     INPUTS:
-    pixel_area  = 1d array of pixel_area
-    klass       = classification, with edges
-    good        = mask for filtering out some pixels
-    method      = type of aggregator ('simple', 'water_fraction', 'composite')
+    pixel_area     = 1d array of pixel_area
+    water_fraction = 1d array of water fraction
+    klass          = classification, with edges
+    good           = mask for filtering out some pixels
+    method         = type of aggregator('simple', 'water_fraction', 'composite')
 
     OUTPUTS:
     area_out  = aggregated height
@@ -223,16 +251,18 @@ def area_only(pixel_area, klass, good,
     I[(Idw + Idw_in+ Ide) > 0] = 1.0 #all pixels near water
 
     if method == 'simple':
-        area_agg = simple(pixel_area[good]*Idw[good], metric='sum')
+        area_agg = simple(pixel_area[good] * Idw[good], metric='sum')
         num_pixels = simple(Idw[good], metric='sum')
     elif method == 'water_fraction':
-        area_agg = simple(pixel_area[good]*I[good], metric='sum')
+        area_agg = simple(
+            pixel_area[good] * water_fraction[good] * I[good], metric='sum')
         num_pixels = simple(I[good], metric='sum')
     elif method == 'composite':
-        area_agg_in = simple(pixel_area[good]*Idw_in[good], metric='sum')
-        area_agg_edge = simple(pixel_area[good]*Ide[good], metric='sum')
+        area_agg_in = simple(pixel_area[good] * Idw_in[good], metric='sum')
+        area_agg_edge = simple(
+            pixel_area[good] * water_fraction[good] * Ide[good], metric='sum')
         area_agg = area_agg_in + area_agg_edge
-        num_pixels = simple(Idw_in[good]+Ide[good], metric='sum')
+        num_pixels = simple(Idw_in[good] + Ide[good], metric='sum')
     else:
         raise Exception("Unknown area aggregation method: {}".format(method))
     return area_agg, num_pixels
@@ -317,14 +347,14 @@ def area_uncert(
         # use detected water prob for bias??
         Bdwf = Bdw * Ptf + Pw * Bf
 
-        Bdwf_bar = simple(pixel_area[good] * Bdwf * I[good], metric='sum')
+        Bdwf_bar = simple(pixel_area[good] * Bdwf[good] * I[good], metric='sum')
         Bdwf2_bar = simple(
             pixel_area[good]**2 * Bdwf[good]**2 * I[good], metric='sum')
         B_term_dw = Bdwf_bar**2 - Bdwf2_bar #
         # sqrt of Eq. 12, std_dw = sigma_{A_f}
         std_dw = np.sqrt(
             var_samp_bar + var_pix_area_dw_bar + var_area_dw_bar + B_term_dw)
-
+        
     if method == 'water_fraction' or method == 'composite':
         # use water_fraction (only for edge pixels if composite)
         # implements Eq. 26
@@ -355,7 +385,7 @@ def area_uncert(
         std_alpha = np.sqrt(
             var_area_alpha_bar + var_pix_area_alpha_bar +
             B_term_alpha)#/abs(area_bar)
-
+        
     if method == 'composite':
         # assume that Pde is constant over each feature
         N_edges = simple(Ide, metric='sum')
@@ -384,7 +414,7 @@ def area_uncert(
                                 + var_area_composite_bar
                                 + var_pix_area_composite_bar
                                 + B_term_composite)
-    std_out = std_composite
+        std_out = std_composite
     if method == 'simple':
         std_out = std_dw
     if method == 'water_fraction':
@@ -393,21 +423,22 @@ def area_uncert(
 
 def area_with_uncert(
     pixel_area, water_fraction, water_fraction_uncert, darea_dheight, klass,
-    Pfd, Pmd, good, interior_water_klass=4, water_edge_klass=3,
+    Pfd, Pmd, good, Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+    interior_water_klass=4, water_edge_klass=3,
     land_edge_klass=2, method='composite'):
 
     area_agg, num_pixels = area_only(
-        pixel_area, klass, good, method=method,
+        pixel_area, water_fraction, klass, good, method=method,
         interior_water_klass=interior_water_klass,
         water_edge_klass=water_edge_klass,
         land_edge_klass=land_edge_klass)
 
     area_unc = area_uncert(
         pixel_area, water_fraction, water_fraction_uncert, darea_dheight,
-        klass, Pfd, Pmd, good, Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+        klass, Pfd, Pmd, good, Pca=Pca, Pw=Pw, Ptf=Ptf, ref_dem_std=ref_dem_std,
         interior_water_klass=interior_water_klass,
         water_edge_klass=water_edge_klass, land_edge_klass=land_edge_klass,
-        method='composite')
+        method=method)
 
     # normalize to get area percent error
     area_pcnt_uncert = area_unc/abs(area_agg)*100.0
