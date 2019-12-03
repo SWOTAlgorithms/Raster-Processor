@@ -8,8 +8,8 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 import utm
 import logging
 import numpy as np
-import aggregate as ag
 import raster_products
+import SWOTWater.aggregate as ag
 
 from netCDF4 import Dataset
 from collections import Counter
