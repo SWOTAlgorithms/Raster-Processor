@@ -9,7 +9,7 @@ from collections import OrderedDict as odict
 from netCDF4 import Dataset
 import numpy as np
 
-from swot.product import Product
+from SWOTWater.products.product import Product
 
 class Raster(Product):
     UID = "raster"
