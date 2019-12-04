@@ -275,10 +275,10 @@ def create_projection_from_bbox(
     out_1st = corners[2]
     out_last = corners[3]
 
-    x_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))-buff
-    y_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))-buff
-    x_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))+buff
-    y_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))+buff
+    x_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))-buff
+    y_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))-buff
+    x_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))+buff
+    y_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))+buff
 
     # find the UTM zone number for the middle of the swath-tile
     if proj_type=='utm':
@@ -286,9 +286,9 @@ def create_projection_from_bbox(
         lon_mid = (in_1st[1] + in_last[1] + out_1st[1] + out_last[1])/4.0
         x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid,lon_mid)
 
-        x_min, y_min, u_num, u_zone = utm.from_latlon(x_min, y_min,
+        x_min, y_min, u_num, u_zone = utm.from_latlon(y_min, x_min,
             force_zone_number=utm_num)
-        x_max, y_max, u_num1, u_zone1 = utm.from_latlon(x_max, y_max,
+        x_max, y_max, u_num1, u_zone1 = utm.from_latlon(y_max, x_max,
             force_zone_number=utm_num)
 
     proj_info = {}
@@ -306,7 +306,8 @@ def create_projection_from_bbox(
     elif proj_type=='geo':
         proj_info['size_x'] = int((x_max - x_min) / proj_res) + 2
         proj_info['size_y'] = int((y_max - y_min) / proj_res) + 2
-
+        proj_info['utm_num'] = np.nan
+        
     return proj_info
 
 
