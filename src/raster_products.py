@@ -1,9 +1,9 @@
-"""
+'''
 Product description for the raster processor
 
 Author (s): Alexander Corben
 
-"""
+'''
 
 from collections import OrderedDict as odict
 from netCDF4 import Dataset

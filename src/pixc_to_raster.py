@@ -33,10 +33,11 @@ def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description = description)
-    parser.add_argument("pixc_file", type=str)
-    parser.add_argument("rdf_file", type=str)
-    parser.add_argument("out_file", type=str)
-    parser.add_argument("-d", "--debug", action='store_true')
+    parser.add_argument("pixc_file", type=str, help='input pixelcloud file')
+    parser.add_argument("rdf_file", type=str, help='rdf config file')
+    parser.add_argument("out_file", type=str, help='output raster file')
+    parser.add_argument("-d", "--debug", action='store_true',
+                        help='flag to write debug version of raster product')
     args = parser.parse_args()
     
     cfg = rdf.parse(os.path.abspath(args.rdf_file), comment='!')
