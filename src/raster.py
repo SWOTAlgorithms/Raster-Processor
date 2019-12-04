@@ -105,7 +105,8 @@ class Worker(object):
 
         logging.info(self.proj_info)
 
-        proj_mapping = get_raster_mapping(lats, lon_360to180(lons), klass_tmp, mask, self.proj_info)
+        proj_mapping = get_raster_mapping(lats, lon_360to180(lons), klass_tmp,
+                                          mask, self.proj_info)
 
         # Create a product with additional fields if in debug mode
         if self.debug_flag:
@@ -134,24 +135,36 @@ class Worker(object):
             for j in range(0, self.proj_info['size_x']):
                 if len(proj_mapping[i][j]) != 0:
                     good = mask[proj_mapping[i][j]]
-                    grid_height = ag.height_with_uncerts(heights[proj_mapping[i][j]],
-                        good, num_rare_looks[proj_mapping[i][j]],
-                        num_med_looks[proj_mapping[i][j]], ifgram[proj_mapping[i][j]],
-                        power1[proj_mapping[i][j]], power2[proj_mapping[i][j]],
-                        looks_to_efflooks, dh_dphi[proj_mapping[i][j]],
-                        dlat_dphi[proj_mapping[i][j]], dlon_dphi[proj_mapping[i][j]],
+                    grid_height = ag.height_with_uncerts(
+                        heights[proj_mapping[i][j]],
+                        good,
+                        num_rare_looks[proj_mapping[i][j]],
+                        num_med_looks[proj_mapping[i][j]],
+                        ifgram[proj_mapping[i][j]],
+                        power1[proj_mapping[i][j]],
+                        power2[proj_mapping[i][j]],
+                        looks_to_efflooks,
+                        dh_dphi[proj_mapping[i][j]],
+                        dlat_dphi[proj_mapping[i][j]],
+                        dlon_dphi[proj_mapping[i][j]],
                         method=self.config['height_agg_method'])
 
                     out_h[i][j] = grid_height[0]
                     out_h_uc[i][j] = grid_height[2]
 
-                    grid_area = ag.area_with_uncert(pixel_area[proj_mapping[i][j]],
+                    grid_area = ag.area_with_uncert(
+                        pixel_area[proj_mapping[i][j]],
                         water_fraction[proj_mapping[i][j]],
                         water_fraction_uncert[proj_mapping[i][j]],
-                        darea_dheight[proj_mapping[i][j]], klass_tmp[proj_mapping[i][j]],
-                        Pfd[proj_mapping[i][j]], Pmd[proj_mapping[i][j]], good,
-                        method=self.config['area_agg_method'], interior_water_klass=INTERIOR_WATER_KLASS,
-                        water_edge_klass=WATER_EDGE_KLASS, land_edge_klass=LAND_EDGE_KLASS)
+                        darea_dheight[proj_mapping[i][j]],
+                        klass_tmp[proj_mapping[i][j]],
+                        Pfd[proj_mapping[i][j]],
+                        Pmd[proj_mapping[i][j]],
+                        good,
+                        method=self.config['area_agg_method'],
+                        interior_water_klass=INTERIOR_WATER_KLASS,
+                        water_edge_klass=WATER_EDGE_KLASS,
+                        land_edge_klass=LAND_EDGE_KLASS)
 
                     out_area_frac[i][j] = grid_area[0]/(self.proj_info['proj_res']**2)
 
@@ -172,7 +185,8 @@ class Worker(object):
                         out_classification[i][j] = ag.simple(
                             klass[proj_mapping[i][j]][good], metric='mode')
 
-        # TODO: rethink handling of this, but for now uncert can be inf or nan if water area is 0
+        # TODO: rethink handling of this, but for now uncert can be inf or nan
+        # if water area is 0. Set to fill value.
         out_area_uc[np.logical_or(np.isnan(out_area_uc),
             np.isinf(out_area_uc))] = raster_data['water_area_uncert'].fill_value
         out_h_uc[np.isnan(out_h_uc)] = raster_data['height_uncert'].fill_value
@@ -272,8 +286,10 @@ def create_projection_from_bbox(
         lon_mid = (in_1st[1] + in_last[1] + out_1st[1] + out_last[1])/4.0
         x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid,lon_mid)
 
-        x_min, y_min, u_num, u_zone = utm.from_latlon(x_min,y_min,force_zone_number=utm_num)
-        x_max, y_max, u_num1, u_zone1 = utm.from_latlon(x_max,y_max,force_zone_number=utm_num)
+        x_min, y_min, u_num, u_zone = utm.from_latlon(x_min, y_min,
+            force_zone_number=utm_num)
+        x_max, y_max, u_num1, u_zone1 = utm.from_latlon(x_max, y_max,
+            force_zone_number=utm_num)
 
     proj_info = {}
     proj_info['proj_type'] = proj_type
