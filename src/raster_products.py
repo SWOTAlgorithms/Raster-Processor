@@ -36,8 +36,6 @@ class Raster(Product):
          odict([['dtype', 'f4']])],
         ['num_pixels',
          odict([['dtype', 'i4']])],
-        ['classification',
-         odict([['dtype', 'i1']])],
         ['sigma0',
          odict([['dtype', 'f4']])],
         ['sigma0_uncert',
@@ -85,3 +83,20 @@ class Raster(Product):
         reference['dimensions'] = odict([['ydim', 0], ['xdim', 0]])
     VARIABLES['x']['dimensions'] = odict([['xdim', 0]])
     VARIABLES['y']['dimensions'] = odict([['ydim', 0]])
+
+class RasterDebug(Raster):
+    ATTRIBUTES = odict({key:Raster.ATTRIBUTES[key].copy()
+                        for key in Raster.ATTRIBUTES})
+    DIMENSIONS = odict({key:Raster.DIMENSIONS[key]
+                        for key in Raster.DIMENSIONS})
+    VARIABLES = odict({key:Raster.VARIABLES[key].copy()
+                        for key in Raster.VARIABLES})
+    VARIABLES.update(odict([
+        ['classification',
+         odict([['dtype', 'i1']])],
+    ]))    
+    for name, reference in VARIABLES.items():
+        reference['dimensions'] = odict([['ydim', 0], ['xdim', 0]])
+    VARIABLES['x']['dimensions'] = odict([['xdim', 0]])
+    VARIABLES['y']['dimensions'] = odict([['ydim', 0]])
+    

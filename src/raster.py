@@ -24,11 +24,13 @@ class Worker(object):
     '''Turns PixelClouds into Rasters'''
     def __init__( self,
                   config=None,
-                  pixc=None ):
+                  pixc=None,
+                  debug_flag=False ):
         '''Initialize'''
         logging.info('Initializing')
         self.config = config
         self.pixc = pixc
+        self.debug_flag = debug_flag
         self.proj_info = None
 
     def parse_config_defaults(self):
@@ -93,9 +95,9 @@ class Worker(object):
         logging.info('Calculating Projection Parameters')
 
         corners = ((self.pixc.inner_first_latitude, lon_360to180(self.pixc.inner_first_longitude)),
-                    (self.pixc.inner_last_latitude, lon_360to180(self.pixc.inner_last_longitude)),
-                    (self.pixc.outer_first_latitude, lon_360to180(self.pixc.outer_first_longitude)),
-                    (self.pixc.outer_last_latitude, lon_360to180(self.pixc.outer_last_longitude)))
+                   (self.pixc.inner_last_latitude, lon_360to180(self.pixc.inner_last_longitude)),
+                   (self.pixc.outer_first_latitude, lon_360to180(self.pixc.outer_first_longitude)),
+                   (self.pixc.outer_last_latitude, lon_360to180(self.pixc.outer_last_longitude)))
 
         self.proj_info = create_projection_from_bbox(corners,
                                                      self.config['projection_type'],
@@ -105,7 +107,12 @@ class Worker(object):
 
         proj_mapping = get_raster_mapping(lats, lon_360to180(lons), klass_tmp, mask, self.proj_info)
 
-        raster_data = raster_products.Raster()
+        # Create a product with additional fields if in debug mode
+        if self.debug_flag:
+            raster_data = raster_products.RasterDebug()
+        else:
+            raster_data = raster_products.Raster()
+
         ones_result = np.array([[1 for i in range(self.proj_info['size_x'])]
                                 for i in range(self.proj_info['size_y'])])
 
@@ -117,9 +124,11 @@ class Worker(object):
         out_cross_trk = raster_data['cross_track'].fill_value*ones_result
         out_sig0 = raster_data['sigma0'].fill_value*ones_result
         out_num_pixels = raster_data['num_pixels'].fill_value*ones_result
-        out_classification = raster_data['classification'].fill_value*ones_result
         out_dark_frac = raster_data['dark_frac'].fill_value*ones_result
 
+        if self.debug_flag:
+            out_classification = raster_data['classification'].fill_value*ones_result
+        
         logging.info('Rasterizing data')
         for i in range(0, self.proj_info['size_y']):
             for j in range(0, self.proj_info['size_x']):
@@ -154,12 +163,14 @@ class Worker(object):
                     out_sig0[i][j] = ag.simple(
                         sigma0[proj_mapping[i][j]][good], metric='mean')
                     out_num_pixels[i][j] = ag.simple(good, metric='sum')
-                    out_classification[i][j] = ag.simple(
-                        klass[proj_mapping[i][j]][good], metric='mode')
                     out_dark_frac[i][j] = self.calc_dark_frac(
                         pixel_area[proj_mapping[i][j]][good],
                         klass[proj_mapping[i][j]][good],
                         water_fraction[proj_mapping[i][j]][good])
+
+                    if self.debug_flag:
+                        out_classification[i][j] = ag.simple(
+                            klass[proj_mapping[i][j]][good], metric='mode')
 
         # TODO: rethink handling of this, but for now uncert can be inf or nan if water area is 0
         out_area_uc[np.logical_or(np.isnan(out_area_uc),
@@ -189,8 +200,11 @@ class Worker(object):
         raster_data['cross_track'] = out_cross_trk
         raster_data['sigma0'] = out_sig0
         raster_data['num_pixels'] = out_num_pixels
-        raster_data['classification'] = out_classification
         raster_data['dark_frac'] = out_dark_frac
+
+        if self.debug_flag:
+            raster_data['classification'] = out_classification
+                
         return raster_data
 
     def get_mask(self):

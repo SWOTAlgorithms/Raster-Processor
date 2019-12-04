@@ -36,11 +36,12 @@ def main():
     parser.add_argument("pixc_file", type=str)
     parser.add_argument("rdf_file", type=str)
     parser.add_argument("out_file", type=str)
+    parser.add_argument("-d", "--debug", action='store_true')
     args = parser.parse_args()
     
     cfg = rdf.parse(os.path.abspath(args.rdf_file), comment='!')
     pixc_data = MutableProduct.from_ncfile(args.pixc_file)
-    processor = raster.Worker(cfg, pixc_data)
+    processor = raster.Worker(cfg, pixc_data, args.debug)
     raster_data = processor.rasterize()
     raster_data.to_ncfile(args.out_file)
 
