@@ -1,10 +1,10 @@
  Description of SWOT Rasterization Software
 
-1. Introduction
+_1. Introduction_
 
 This document describes the conversion of variables from SWOT pixel-cloud data produced by the SWOT hydrology simulator to the SWOT raster product. The variables included in the raster product are: water fraction, water fraction uncertainty, height, height uncertainty and cross track distance in current version. Other variables such as frozen flag, geoid height and dry/wet tropo correction, which need input from future iterations of the pixel cloud product, are set as null values. This document focuses on the input, output and equations used in the software for rasterization.
 
-2. How to setup and run the software
+_2. How to setup and run the software_
 
 The software consists of three files (pixc_to_raster.py, raster.py and raster_products.py). To run the processor, use the 'pixc_to_raster.py’ command. All parameters for running the software should configured with an .rdf file used as input to pixc_to_raster.py. Example configuration parameters are listed below: 
 
@@ -23,11 +23,11 @@ The software is dependent on the open source RiverObs code at: https://github.co
 Fig. 1. Flowchart
 
 
-3. Aggregation of pixel cloud points to raster grid
+_3. Aggregation of pixel cloud points to raster grid_
 
 The first step to convert pixel-cloud product to raster is re-projection (Fig. 1). Pixels under GEO lat/lon are re-projected to the appropriate UTM projection. Since each raster grid may contain multiple pixel-cloud pixels, an aggregation operation is needed. Details of inputs and outputs of each variable of aggregation are provided in appendix.
 
-3.1 Height and water area
+_3.1 Height and water area_
 
 The equation for calculating water fraction in raster product is in equation (1), where hi is the height of the ith grid in raster product. h(x) is the height for pixel-cloud pixel x, which is assigned to the ith grid in raster product. N is total number of pixel-cloud pixels which are assigned to the ith grid of raster product (N can be calculated through re-projection).
 
@@ -43,11 +43,11 @@ where Ai is the water area of the ith raster grid. Idw,in(x) stands for interior
 
 Fig. 2 Water fraction on SWOT raster image over Sacramento river
 
-3.2 Uncertainty estimates
+_3.2 Uncertainty estimates_
 
 The uncertainty of water fraction and water height are quantified in the raster product by using the algorithm proposed by Williams (2018). The input variable needed for estimating the height and water area uncertainties (e. g. probability of detecting water when there is no water, missed detection rate, correct detection rate) are provided in the pixel-cloud product.
 
-3.3 Cross-track distances
+_3.3 Cross-track distances_
 
 The aggregation of cross crack distances is similar with water height in 3.1. A simple average is chosen to aggregate the cross-track distances from pixel-cloud pixels to raster grids.
 
