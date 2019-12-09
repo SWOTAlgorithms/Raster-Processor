@@ -16,7 +16,7 @@ from SWOTWater.products.product import MutableProduct
 description = """
 description:
     pixc_to_raster.py rasterizes a given pixelcloud using configuration 
-    paramaters in a given rdf file
+    parameters in a given rdf file
 
 example RDF variables:
     projection_type           (-) = utm
