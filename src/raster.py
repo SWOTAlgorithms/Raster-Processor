@@ -269,9 +269,7 @@ def lon_360to180(longitude):
 
 
 def create_projection_from_bbox(
-        corners, proj_type ='utm', proj_res = 100.0,
-        x_max = -1e9, y_max = -1e9, x_min = 1e9, y_min = 1e9,
-        size_x = 0, size_y = 0, buff = 0.1):
+        corners, proj_type='utm', proj_res=100.0, buff=0.1):
     """ Needed to get same sampling for gdem truth and pixc,
     also simplifies the projection computation
     Modified from Shuai Zhang's raster.py (Tamlin's student at UNC) """
