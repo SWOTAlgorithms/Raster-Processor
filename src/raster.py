@@ -124,6 +124,7 @@ class Worker(object):
         out_area_uc = raster_data['water_area_uncert'].fill_value*ones_result
         out_cross_trk = raster_data['cross_track'].fill_value*ones_result
         out_sig0 = raster_data['sigma0'].fill_value*ones_result
+        out_sig0_std = raster_data['sigma0_uncert'].fill_value*ones_result
         out_num_pixels = raster_data['num_pixels'].fill_value*ones_result
         out_dark_frac = raster_data['dark_frac'].fill_value*ones_result
 
@@ -175,6 +176,12 @@ class Worker(object):
 
                     out_sig0[i][j] = ag.simple(
                         sigma0[proj_mapping[i][j]][good], metric='mean')
+                    out_sig0_std[i][j] = ag.height_uncert_std(
+                        sigma0[proj_mapping[i][j]],
+                        good,
+                        num_rare_looks[proj_mapping[i][j]],
+                        num_med_looks[proj_mapping[i][j]])
+
                     out_num_pixels[i][j] = ag.simple(good, metric='sum')
                     out_dark_frac[i][j] = self.calc_dark_frac(
                         pixel_area[proj_mapping[i][j]][good],
@@ -213,6 +220,7 @@ class Worker(object):
         raster_data['water_frac'] = out_area_frac
         raster_data['cross_track'] = out_cross_trk
         raster_data['sigma0'] = out_sig0
+        raster_data['sigma0_uncert'] = out_sig0_std
         raster_data['num_pixels'] = out_num_pixels
         raster_data['dark_frac'] = out_dark_frac
 
