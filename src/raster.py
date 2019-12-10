@@ -15,6 +15,8 @@ from netCDF4 import Dataset
 from collections import Counter
 from SWOTWater.constants import PIXC_CLASSES
 
+LOGGER = logging.getLogger(__name__)
+
 # Internal class values used in processing
 INTERIOR_WATER_KLASS = 1
 WATER_EDGE_KLASS = 2
@@ -27,7 +29,7 @@ class Worker(object):
                   pixc=None,
                   debug_flag=False ):
         '''Initialize'''
-        logging.info('Initializing')
+        LOGGER.info('Initializing')
         self.config = config
         self.pixc = pixc
         self.debug_flag = debug_flag
@@ -92,7 +94,7 @@ class Worker(object):
         if pixc_group['latitude'].size == 0:
             return raster_products.Raster()
 
-        logging.info('Calculating Projection Parameters')
+        LOGGER.info('Calculating Projection Parameters')
 
         corners = ((self.pixc.inner_first_latitude, lon_360to180(self.pixc.inner_first_longitude)),
                    (self.pixc.inner_last_latitude, lon_360to180(self.pixc.inner_last_longitude)),
@@ -103,7 +105,7 @@ class Worker(object):
                                                      self.config['projection_type'],
                                                      self.config['resolution'])
 
-        logging.info(self.proj_info)
+        LOGGER.info(self.proj_info)
 
         proj_mapping = get_raster_mapping(lats, lon_360to180(lons), klass_tmp,
                                           mask, self.proj_info)
@@ -131,7 +133,7 @@ class Worker(object):
         if self.debug_flag:
             out_classification = raster_data['classification'].fill_value*ones_result
         
-        logging.info('Rasterizing data')
+        LOGGER.info('Rasterizing data')
         for i in range(0, self.proj_info['size_y']):
             for j in range(0, self.proj_info['size_x']):
                 if len(proj_mapping[i][j]) != 0:
@@ -199,7 +201,7 @@ class Worker(object):
         out_h_uc[np.isnan(out_h_uc)] = raster_data['height_uncert'].fill_value
 
         # Assemble the product
-        logging.info('Assembling Raster Product')
+        LOGGER.info('Assembling Raster Product')
         raster_data.proj_type = self.proj_info['proj_type']
         raster_data.proj_res = self.proj_info['proj_res']
         raster_data.utm_num = self.proj_info['utm_num']
