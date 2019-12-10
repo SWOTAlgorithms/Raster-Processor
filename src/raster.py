@@ -277,7 +277,7 @@ def create_projection_from_bbox(
     Modified from Shuai Zhang's raster.py (Tamlin's student at UNC) """
 
     # catch invalid projection type
-    if proj_type!='utm' or proj_type!='geo':
+    if proj_type!='utm' and proj_type!='geo':
         raise Exception('Unknown projection type: {}'.format(proj_type))
 
     # get corners separately
