@@ -20,13 +20,13 @@ class Raster(Product):
     ATTRIBUTES = odict([
         ['description', {'dtype': 'str',
                          'value': 'Preliminary Raster Product'}],
-        ['proj_type', odict()],
-        ['proj_res', odict()],
-        ['utm_num', odict()],
-        ['x_min', odict()],
-        ['x_max', odict()],
-        ['y_min', odict()],
-        ['y_max', odict()],
+        ['proj_type', {'dtype': 'str'}],
+        ['proj_res', {'dtype': 'f4'}],
+        ['utm_num', {'dtype': 'i2'}],
+        ['x_min', {'dtype': 'f4'}],
+        ['x_max', {'dtype': 'f4'}],
+        ['y_min', {'dtype': 'f4'}],
+        ['y_max', {'dtype': 'f4'}],
     ])
     ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
     VARIABLES = odict([
