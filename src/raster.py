@@ -275,7 +275,10 @@ def create_projection_from_bbox(
     """ Needed to get same sampling for gdem truth and pixc,
     also simplifies the projection computation
     Modified from Shuai Zhang's raster.py (Tamlin's student at UNC) """
-    # TODO: should check if proj_type is not utm or geo and break if not...
+
+    # catch invalid projection type
+    if proj_type!='utm' and proj_type!='geo':
+        raise Exception('Unknown projection type: {}'.format(proj_type))
 
     # get corners separately
     in_1st = corners[0]
