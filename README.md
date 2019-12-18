@@ -18,7 +18,7 @@ The software consists of three files (pixc_to_raster.py, raster.py and raster_pr
 
 The software is dependent on the open source RiverObs code at: https://github.com/SWOTAlgorithms/RiverObs
 
-![alt text](https://github.com/tamuzhang/Raster-Processor/blob/master/img/Fig1.png)
+![alt text](img/Fig1.png)
 
 Fig. 1. Flowchart
 
@@ -39,7 +39,7 @@ A_i=∑_x A(x)(I_(dw,in) (x)+α(x)I_de (x))
 	(2)
 
 where Ai is the water area of the ith raster grid. Idw,in(x) stands for interior water pixels from pixel-cloud products, and Ide(x) indicates edge pixels of pixel-cloud products. A(x) is the area of pixel-cloud pixel, α(x) is the water fraction of edge pixel in pixel-cloud product. An example of water fraction over Sacramento river in Fig. 2 shows the water fractions of the river centerline are usually higher than pixels along river edge. Note that water faction of some pixels may exceed 1 due to noise in the SWOT pixel cloud inundation extent calculation. At the current stage, we retain these values in the raster product so that the summation across many raster cells will remain unbiased.
-![alt text](https://github.com/tamuzhang/Raster-Processor/blob/master/img/Fig2.png)
+![alt text](img/Fig2.png)
 
 Fig. 2 Water fraction on SWOT raster image over Sacramento river
 
