@@ -11,8 +11,7 @@ import numpy as np
 import raster_products
 import SWOTWater.aggregate as ag
 
-from netCDF4 import Dataset
-from collections import Counter
+from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
 
 LOGGER = logging.getLogger(__name__)
@@ -40,9 +39,12 @@ class Worker(object):
                            'resolution':100,
                            'height_agg_method':'weight',
                            'area_agg_method':'composite',
-                           'interior_water_classes':PIXC_CLASSES['open_water'],
-                           'water_edge_classes':PIXC_CLASSES['water_near_land'],
-                           'land_edge_classes':PIXC_CLASSES['land_near_water']}
+                           'interior_water_classes':[PIXC_CLASSES['open_water'],
+                                                     PIXC_CLASSES['dark_water']],
+                           'water_edge_classes':[PIXC_CLASSES['water_near_land'],
+                                                 PIXC_CLASSES['dark_water_edge']],
+                           'land_edge_classes':[PIXC_CLASSES['land_near_water'],
+                                                PIXC_CLASSES['land_near_dark_water']]}
 
         for key in config_defaults:
             try:
@@ -77,7 +79,7 @@ class Worker(object):
         cross_trk = pixc_group['cross_track'][:]
         sigma0 = pixc_group['sig0'][:]
 
-        looks_to_efflooks=self.pixc['pixel_cloud'].looks_to_efflooks
+        looks_to_efflooks = self.pixc['pixel_cloud'].looks_to_efflooks
 
         mask = self.get_mask()
 
@@ -202,6 +204,14 @@ class Worker(object):
 
         # Assemble the product
         LOGGER.info('Assembling Raster Product')
+        current_datetime = datetime.utcnow()
+        raster_data.history = "{:04d}-{:02d}-{:02d}".format(current_datetime.year,
+                                                            current_datetime.month,
+                                                            current_datetime.day)
+        raster_data.cycle_number = self.pixc.cycle_number
+        raster_data.pass_number = self.pixc.pass_number
+        # TODO: Update tile_numbers to be a list of all 4 tiles once tiling is implemented
+        raster_data.tile_numbers = self.pixc.tile_number
         raster_data.proj_type = self.proj_info['proj_type']
         raster_data.proj_res = self.proj_info['proj_res']
         raster_data.utm_num = self.proj_info['utm_num']
@@ -348,8 +358,9 @@ def get_raster_mapping(lats, lons, klass, mask, proj_info):
             mapping_tmp[i].append([])
 
     for x in range(0,len(lats)):
-        i=int((y_tmp[x] - proj_info['y_min']) / proj_info['proj_res'])
-        j=int((x_tmp[x] - proj_info['x_min']) / proj_info['proj_res'])
+        # TODO: Round instead of truncate to get the bin ?
+        i = int((y_tmp[x] - proj_info['y_min']) / proj_info['proj_res'])
+        j = int((x_tmp[x] - proj_info['x_min']) / proj_info['proj_res'])
         # check bounds
         if (i >= 0 and i < proj_info['size_y'] and
             j >= 0 and j < proj_info['size_x']):
