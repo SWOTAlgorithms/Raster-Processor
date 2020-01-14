@@ -24,7 +24,8 @@ def main():
     parser.add_argument('pixc_raster', help='raster made from pixel cloud', type=str)
     parser.add_argument('gdem_raster', help='raster made from truth gdem', type=str)
     parser.add_argument('--basedir', help='base directory to look for raster files to analyze', type=str, default=None)
-    parser.add_argument('-d', '--dark_water_thresh', help='Dark water fraction threshold for extra metric', type=float, default=0.5)
+    parser.add_argument('-d', '--dark_frac_thresh', help='Dark water fraction threshold for extra metric', type=float, default=0.5)
+    parser.add_argument('-w', '--water_frac_thresh', help='Water fraction threshold for extra metric', type=float, default=0.5)
     parser.add_argument('-p', '--min_pixels', help='Minimum number of pixels to use as valid data', type=int, default=None)
     parser.add_argument('-s', '--sort_key', help='Key to use when sorting output table', type=str, default=None)
 
@@ -52,7 +53,9 @@ def main():
                                  min_pixels=args['min_pixels'])
         metrics.append(tile_metrics)
     
-    print_metrics(metrics, dark_thresh=args['dark_water_thresh'], sort_key=args['sort_key'])
+    print_metrics(metrics, dark_thresh=args['dark_frac_thresh'],
+                  water_thresh=args['water_frac_thresh'],
+                  sort_key=args['sort_key'])
 
 
 def load_data(
@@ -82,6 +85,7 @@ def load_data(
         tile_metrics['area_perc_err'] = np.array([np.nan])
         tile_metrics['cross_track'] = np.array([np.nan])
         tile_metrics['dark_frac'] = np.array([np.nan])
+        tile_metrics['water_frac'] = np.array([np.nan])
         tile_metrics['num_pixc_px'] = np.array([np.nan])
         tile_metrics['total_px'] = truth_tmp['height'].count() + data_tmp['height'].count()
         tile_metrics['common_px'] = 0
@@ -108,6 +112,7 @@ def load_data(
         tile_metrics['area_perc_err'] = area_perc_err[common_mask]
         tile_metrics['cross_track'] = data_tmp['cross_track'][common_mask]
         tile_metrics['dark_frac'] = data_tmp['dark_frac'][common_mask]
+        tile_metrics['water_frac'] = data_tmp['water_frac'][common_mask]
         tile_metrics['num_pixc_px'] = data_tmp['num_pixels'][common_mask]
         tile_metrics['total_px'] = np.count_nonzero(total_mask)
         tile_metrics['common_px'] = np.count_nonzero(common_mask)
@@ -117,7 +122,7 @@ def load_data(
     return tile_metrics
 
 
-def print_metrics(metrics, dark_thresh=None, sort_key=None):    
+def print_metrics(metrics, dark_thresh=None, water_thresh=None, sort_key=None):    
     # Tile by Tile metrics
     tile_table = {'h_e_mean':[],
                   'h_e_std':[],
@@ -170,6 +175,7 @@ def print_metrics(metrics, dark_thresh=None, sort_key=None):
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
     all_dark_frac = np.concatenate([tile_metrics['dark_frac'] for tile_metrics in metrics])
+    all_water_frac = np.concatenate([tile_metrics['water_frac'] for tile_metrics in metrics])
     all_height_err = np.concatenate([tile_metrics['height_err'] for tile_metrics in metrics])
     all_area_perc_err = np.concatenate([tile_metrics['area_perc_err'] for tile_metrics in metrics])
     all_cross_track = np.concatenate([tile_metrics['cross_track'] for tile_metrics in metrics])
@@ -225,6 +231,25 @@ def print_metrics(metrics, dark_thresh=None, sort_key=None):
 
         print('Global metrics (excluding pixels with dark water area over {}%):'.format(dark_thresh*100))
         SWOTRiver.analysis.tabley.print_table(global_table_nodark, precision=5)
+
+    # Global metrics without land pixels
+    if water_thresh is not None:
+        all_water_mask = np.concatenate([tile_metrics['water_frac'] >= water_thresh for tile_metrics in metrics])
+        height_err_metrics = compute_metrics_from_error(all_height_err[all_water_mask])
+        area_perc_err_metrics = compute_metrics_from_error(all_area_perc_err[all_water_mask])
+
+        global_table_noland = {}
+        global_table_noland['h_e_mean'] = [height_err_metrics['mean']]
+        global_table_noland['h_e_std'] = [height_err_metrics['std']]
+        global_table_noland['h_e_68_pct'] = [height_err_metrics['68_pct']]
+        global_table_noland['h_e_50_pct'] = [height_err_metrics['50_pct']]
+        global_table_noland['a_%e_mean'] = [area_perc_err_metrics['mean']]
+        global_table_noland['a_%e_std'] = [area_perc_err_metrics['std']]
+        global_table_noland['a_%e_68_pct'] = [area_perc_err_metrics['68_pct']]
+        global_table_noland['a_%e_50_pct'] = [area_perc_err_metrics['50_pct']]
+
+        print('Global metrics (excluding pixels with water fraction under {}%):'.format(water_thresh*100))
+        SWOTRiver.analysis.tabley.print_table(global_table_noland, precision=5)
  
     metrics_to_plot = {'Height Error (m)':all_height_err,
                        'Area Percent Area (%)':all_area_perc_err,
@@ -232,7 +257,8 @@ def print_metrics(metrics, dark_thresh=None, sort_key=None):
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track, 
                                'Num Pixels':all_pixc_px, 
-                               'Dark Fraction (%)':all_dark_frac*100}   
+                               'Dark Fraction (%)':all_dark_frac*100,
+                               'Water Fraction (%)':all_water_frac*100}   
     
     plot_metrics(metrics_to_plot, metrics_to_plot_against)
 
