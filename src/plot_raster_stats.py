@@ -306,12 +306,12 @@ def compute_metrics_from_error(err_array):
         error_metrics['mean'] = np.nanmean(err_array.filled(np.nan))
         error_metrics['std'] = np.nanstd(err_array.filled(np.nan))
         error_metrics['68_pct'] = np.nanpercentile(abs(err_array.filled(np.nan)), 68)
-        error_metrics['50_pct'] = np.nanpercentile(abs(err_array.filled(np.nan)), 50)
+        error_metrics['50_pct'] = np.nanpercentile(err_array.filled(np.nan), 50)
     else:
         error_metrics['mean'] = np.nanmean(err_array)
         error_metrics['std'] = np.nanstd(err_array)
         error_metrics['68_pct'] = np.nanpercentile(abs(err_array), 68)
-        error_metrics['50_pct'] = np.nanpercentile(abs(err_array), 50)
+        error_metrics['50_pct'] = np.nanpercentile(err_array, 50)
 
     return error_metrics
 
