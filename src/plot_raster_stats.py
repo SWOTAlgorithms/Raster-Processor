@@ -19,13 +19,16 @@ import SWOTRiver.analysis.tabley
 
 from pathlib import Path
 
+BAD_SCENES = [730]
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('pixc_raster', help='raster made from pixel cloud', type=str)
     parser.add_argument('gdem_raster', help='raster made from truth gdem', type=str)
     parser.add_argument('--basedir', help='base directory to look for raster files to analyze', type=str, default=None)
-    parser.add_argument('-d', '--dark_frac_thresh', help='Dark water fraction threshold for extra metric', type=float, default=0.5)
-    parser.add_argument('-w', '--water_frac_thresh', help='Water fraction threshold for extra metric', type=float, default=0.5)
+    parser.add_argument('-d', '--dark_frac_thresh', help='Dark water fraction threshold for extra metric', type=float, default=None)
+    parser.add_argument('-w', '--water_frac_thresh', help='Water fraction threshold for extra metric', type=float, default=None)
+    parser.add_argument('-hu', '--height_uncert_thresh', help='Height uncertainty threshold for extra metric', type=float, default=None)
     parser.add_argument('-p', '--min_pixels', help='Minimum number of pixels to use as valid data', type=int, default=None)
     parser.add_argument('-s', '--sort_key', help='Key to use when sorting output table', type=str, default=None)
 
@@ -41,6 +44,12 @@ def main():
             p = Path(pixc_name)
             basepath = p.parents[1]
             scene = p.parts[-4]
+
+            # Debug option, specify list of bad scenes that we don't want to include
+            if int(scene) in BAD_SCENES: 
+                print('Not analyzing scene: {}'.format(scene))
+                continue
+
             gdem_name = os.path.join(basepath, args['gdem_raster'])
 
             if os.path.isfile(gdem_name):
@@ -52,11 +61,11 @@ def main():
         tile_metrics = load_data(args['pixc_raster'], args['gdem_raster'],
                                  min_pixels=args['min_pixels'])
         metrics.append(tile_metrics)
-    
+
     print_metrics(metrics, dark_thresh=args['dark_frac_thresh'],
                   water_thresh=args['water_frac_thresh'],
+                  height_uncert_thresh=args['height_uncert_thresh'],
                   sort_key=args['sort_key'])
-
 
 def load_data(
         pixc_file, gdem_file, scene='', min_pixels=None):
@@ -82,7 +91,10 @@ def load_data(
     # Handle potentially empty files
     if data_tmp['height'].size==0 or truth_tmp['height'].size==0:
         tile_metrics['height_err'] = np.array([np.nan])
+        tile_metrics['height_uncert'] = np.array([np.nan])
+        tile_metrics['area_err'] = np.array([np.nan])
         tile_metrics['area_perc_err'] = np.array([np.nan])
+        tile_metrics['area_uncert'] = np.array([np.nan])
         tile_metrics['cross_track'] = np.array([np.nan])
         tile_metrics['dark_frac'] = np.array([np.nan])
         tile_metrics['water_frac'] = np.array([np.nan])
@@ -93,13 +105,14 @@ def load_data(
         tile_metrics['uncommon_px_data'] = data_tmp['height'].count()
     else:
         height_err = data_tmp['height'] - truth_tmp['height']
-        area_perc_err = (data_tmp['water_area'] - truth_tmp['water_area']) \
-                        / truth_tmp['water_area'] * 100
+        area_err = data_tmp['water_area'] - truth_tmp['water_area']
+        area_perc_err = area_err / truth_tmp['water_area'] * 100
+        area_perc_unc = data_tmp['water_area_uncert']# / truth_tmp['water_area'] * 100
         total_mask = np.logical_or(~truth_tmp['height'].mask, ~data_tmp['height'].mask)
         common_mask = np.logical_and(~truth_tmp['height'].mask, ~data_tmp['height'].mask)
         truth_not_in_data_mask = np.logical_and(~truth_tmp['height'].mask, data_tmp['height'].mask)
         data_not_in_truth_mask = np.logical_and(~data_tmp['height'].mask, truth_tmp['height'].mask)
-        
+
         if min_pixels is not None:
             common_mask = np.logical_and(common_mask,
                                          data_tmp['num_pixels'] >= min_pixels)
@@ -109,7 +122,10 @@ def load_data(
                                                     data_tmp['num_pixels'] >= min_pixels)
 
         tile_metrics['height_err'] = height_err[common_mask]
+        tile_metrics['height_uncert'] = data_tmp['height_uncert'][common_mask]
+        tile_metrics['area_err'] = area_err[common_mask]
         tile_metrics['area_perc_err'] = area_perc_err[common_mask]
+        tile_metrics['area_uncert'] = area_perc_unc[common_mask]
         tile_metrics['cross_track'] = data_tmp['cross_track'][common_mask]
         tile_metrics['dark_frac'] = data_tmp['dark_frac'][common_mask]
         tile_metrics['water_frac'] = data_tmp['water_frac'][common_mask]
@@ -118,175 +134,230 @@ def load_data(
         tile_metrics['common_px'] = np.count_nonzero(common_mask)
         tile_metrics['uncommon_px_truth'] = np.count_nonzero(truth_not_in_data_mask)
         tile_metrics['uncommon_px_data'] = np.count_nonzero(data_not_in_truth_mask)
-    
+
     return tile_metrics
 
+def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_thresh=None, sort_key=None):
 
-def print_metrics(metrics, dark_thresh=None, water_thresh=None, sort_key=None):    
-    # Tile by Tile metrics
-    tile_table = {'h_e_mean':[],
-                  'h_e_std':[],
-                  'h_e_68_pct':[],
-                  'h_e_50_pct':[],
-                  'a_%e_mean':[],
-                  'a_%e_std':[],
-                  'a_%e_68_pct':[],
-                  'a_%e_50_pct':[],
-                  'total_px':[],
-                  'common_px_%':[],
-                  'uncommon_px_truth_%':[],
-                  'uncommon_px_data_%':[],
-                  'scene':[],
-                  'cycle':[],
-                  'pass':[],
-                  'tiles':[],}
+    # Get pass/fail bounds
+    passfail = get_passfail()
 
+    # Tile-by-Tile metrics
+    tile_table = {}
     for tile_metrics in metrics:
-        height_err_metrics = compute_metrics_from_error(tile_metrics['height_err'])
-        area_perc_err_metrics = compute_metrics_from_error(tile_metrics['area_perc_err'])
-        
-        # Add data to table
-        tile_table['h_e_mean'].append(height_err_metrics['mean'])
-        tile_table['h_e_std'].append(height_err_metrics['std'])
-        tile_table['h_e_68_pct'].append(height_err_metrics['68_pct'])
-        tile_table['h_e_50_pct'].append(height_err_metrics['50_pct'])
-        tile_table['a_%e_mean'].append(area_perc_err_metrics['mean'])
-        tile_table['a_%e_std'].append(area_perc_err_metrics['std'])
-        tile_table['a_%e_68_pct'].append(area_perc_err_metrics['68_pct'])
-        tile_table['a_%e_50_pct'].append(area_perc_err_metrics['50_pct'])
-        tile_table['total_px'].append(tile_metrics['total_px'])
-        if tile_metrics['total_px'] > 0:
-            tile_table['common_px_%'].append(tile_metrics['common_px']/tile_metrics['total_px'] * 100)
-            tile_table['uncommon_px_truth_%'].append(tile_metrics['uncommon_px_truth']/tile_metrics['total_px'] * 100)
-            tile_table['uncommon_px_data_%'].append(tile_metrics['uncommon_px_data']/tile_metrics['total_px'] * 100)
-        else:
-            tile_table['common_px_%'].append(0)
-            tile_table['uncommon_px_truth_%'].append(0)
-            tile_table['uncommon_px_data_%'].append(0)
-        tile_table['scene'].append(tile_metrics['scene'])
-        tile_table['cycle'].append(tile_metrics['cycle'])
-        tile_table['pass'].append(tile_metrics['pass'])
-        tile_table['tiles'].append(tile_metrics['tiles'])
-          
-    # Sort the metrics by height error
+        tile_table = append_tile_table(tile_metrics, tile_table)
+
+    # Sort the metrics by key
     if sort_key is not None:
         sort_idx = np.argsort(tile_table[sort_key])
         for key in tile_table:
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
-    all_dark_frac = np.concatenate([tile_metrics['dark_frac'] for tile_metrics in metrics])
-    all_water_frac = np.concatenate([tile_metrics['water_frac'] for tile_metrics in metrics])
-    all_height_err = np.concatenate([tile_metrics['height_err'] for tile_metrics in metrics])
-    all_area_perc_err = np.concatenate([tile_metrics['area_perc_err'] for tile_metrics in metrics])
-    all_cross_track = np.concatenate([tile_metrics['cross_track'] for tile_metrics in metrics])
-    all_pixc_px = np.concatenate([tile_metrics['num_pixc_px'] for tile_metrics in metrics])
+    print('Tile metrics:')
+    SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
+                                          passfail=passfail)
+
+    # Tile-by-Tile metrics inverse variance weighting
+    tile_table = {}
+    for tile_metrics in metrics:
+        tile_table = append_tile_table(
+            tile_metrics, tile_table,
+            height_weight=1/np.square(tile_metrics['height_uncert']),
+            area_weight=1/np.square(tile_metrics['area_uncert']))
+
+    # Sort the metrics by key
+    if sort_key is not None:
+        sort_idx = np.argsort(tile_table[sort_key])
+        for key in tile_table:
+            tile_table[key] = np.array(tile_table[key])[sort_idx]
+
+    print('Tile metrics (weighted by uncertainties):')
+    SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
+                                          passfail=passfail)
+
+    # Concatenate tiles for global metrics
+    all_dark_frac = np.ma.concatenate(tuple(tile_metrics['dark_frac'] for tile_metrics in metrics))
+    all_water_frac = np.ma.concatenate(tuple(tile_metrics['water_frac'] for tile_metrics in metrics))
+    all_height_err = np.ma.concatenate(tuple(tile_metrics['height_err'] for tile_metrics in metrics))
+    all_height_uncert = np.ma.concatenate(tuple(tile_metrics['height_uncert'] for tile_metrics in metrics))
+    all_area_perc_err = np.ma.concatenate(tuple(tile_metrics['area_perc_err'] for tile_metrics in metrics))
+    all_area_uncert = np.ma.concatenate(tuple(tile_metrics['area_uncert'] for tile_metrics in metrics))
+    all_cross_track = np.ma.concatenate(tuple(tile_metrics['cross_track'] for tile_metrics in metrics))
+    all_pixc_px = np.ma.concatenate(tuple(tile_metrics['num_pixc_px'] for tile_metrics in metrics))
     total_px = [tile_metrics['total_px'] for tile_metrics in metrics]
     common_px = [tile_metrics['common_px'] for tile_metrics in metrics]
     uncommon_px_truth = [tile_metrics['uncommon_px_truth'] for tile_metrics in metrics]
     uncommon_px_data = [tile_metrics['uncommon_px_data'] for tile_metrics in metrics]
 
-    print('Tile metrics:')
-    SWOTRiver.analysis.tabley.print_table(tile_table, precision=5)
-
     # Global metrics
-    height_err_metrics = compute_metrics_from_error(all_height_err)
-    area_perc_err_metrics = compute_metrics_from_error(all_area_perc_err)
     total_px_count = np.sum(total_px)
     common_px_pct = np.sum(common_px)/total_px_count * 100
     uncommon_px_truth_pct = np.sum(uncommon_px_truth)/total_px_count * 100
     uncommon_px_data_pct = np.sum(uncommon_px_data)/total_px_count * 100
 
-    global_table = {}
-    global_table['h_e_mean'] = [height_err_metrics['mean']]
-    global_table['h_e_std'] = [height_err_metrics['std']]
-    global_table['h_e_68_pct'] = [height_err_metrics['68_pct']]
-    global_table['h_e_50_pct'] = [height_err_metrics['50_pct']]
-    global_table['a_%e_mean'] = [area_perc_err_metrics['mean']]
-    global_table['a_%e_std'] = [area_perc_err_metrics['std']]
-    global_table['a_%e_68_pct'] = [area_perc_err_metrics['68_pct']]
-    global_table['a_%e_50_pct'] = [area_perc_err_metrics['50_pct']]
+    global_table = make_global_table(all_height_err, all_area_perc_err)
     global_table['total_px'] = [total_px_count]
     global_table['common_px_%'] = [common_px_pct]
-    global_table['uncommon_px_truth_%'] = [uncommon_px_truth_pct]    
-    global_table['uncommon_px_data_%'] = [uncommon_px_data_pct]    
+    global_table['uncommon_px_truth_%'] = [uncommon_px_truth_pct]
+    global_table['uncommon_px_data_%'] = [uncommon_px_data_pct]
+    print('Global metrics (heights in m):')
+    SWOTRiver.analysis.tabley.print_table(global_table, precision=5,
+                                          passfail=passfail)
 
-    print('Global metrics:')        
-    SWOTRiver.analysis.tabley.print_table(global_table, precision=5)
+    # Inverse variance weighting
+    global_table_weighted = make_global_table(all_height_err, all_area_perc_err,
+                                              height_weight=1/np.square(all_height_uncert),
+                                              area_weight=1/np.square(all_area_uncert))
+    print('Global metrics (weighted by uncertainties):')
+    SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
+                                          passfail=passfail)
+
+
+    # Additional metrics with different parameter thresholds:
+    # Global metrics with high height certainty
+    if height_uncert_thresh is not None:
+        height_uncert_mask = np.concatenate([tile_metrics['height_uncert'] < height_uncert_thresh for tile_metrics in metrics])
+        global_table_height_uncert_thresh = make_global_table(all_height_err,
+                                                              all_area_perc_err,
+                                                              mask=height_uncert_mask)
+        print('Global metrics (excluding pixels with height uncert over {}m):'.format(height_uncert_thresh))
+        SWOTRiver.analysis.tabley.print_table(global_table_height_uncert_thresh,
+                                              precision=5, passfail=passfail)
 
     # Global metrics without darkwater
     if dark_thresh is not None:
-        all_bright_mask = np.concatenate([tile_metrics['dark_frac'] < dark_thresh for tile_metrics in metrics])
-        height_err_metrics = compute_metrics_from_error(all_height_err[all_bright_mask])
-        area_perc_err_metrics = compute_metrics_from_error(all_area_perc_err[all_bright_mask])
-
-        global_table_nodark = {}
-        global_table_nodark['h_e_mean'] = [height_err_metrics['mean']]
-        global_table_nodark['h_e_std'] = [height_err_metrics['std']]
-        global_table_nodark['h_e_68_pct'] = [height_err_metrics['68_pct']]
-        global_table_nodark['h_e_50_pct'] = [height_err_metrics['50_pct']]
-        global_table_nodark['a_%e_mean'] = [area_perc_err_metrics['mean']]
-        global_table_nodark['a_%e_std'] = [area_perc_err_metrics['std']]
-        global_table_nodark['a_%e_68_pct'] = [area_perc_err_metrics['68_pct']]
-        global_table_nodark['a_%e_50_pct'] = [area_perc_err_metrics['50_pct']]
-
+        dark_thresh_mask = np.concatenate([tile_metrics['dark_frac'] < dark_thresh for tile_metrics in metrics])
+        global_table_dark_thresh = make_global_table(all_height_err,
+                                                     all_area_perc_err,
+                                                     mask=dark_thresh_mask)
         print('Global metrics (excluding pixels with dark water area over {}%):'.format(dark_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_nodark, precision=5)
+        SWOTRiver.analysis.tabley.print_table(global_table_dark_thresh,
+                                              precision=5, passfail=passfail)
 
     # Global metrics without land pixels
     if water_thresh is not None:
-        all_water_mask = np.concatenate([tile_metrics['water_frac'] >= water_thresh for tile_metrics in metrics])
-        height_err_metrics = compute_metrics_from_error(all_height_err[all_water_mask])
-        area_perc_err_metrics = compute_metrics_from_error(all_area_perc_err[all_water_mask])
-
-        global_table_noland = {}
-        global_table_noland['h_e_mean'] = [height_err_metrics['mean']]
-        global_table_noland['h_e_std'] = [height_err_metrics['std']]
-        global_table_noland['h_e_68_pct'] = [height_err_metrics['68_pct']]
-        global_table_noland['h_e_50_pct'] = [height_err_metrics['50_pct']]
-        global_table_noland['a_%e_mean'] = [area_perc_err_metrics['mean']]
-        global_table_noland['a_%e_std'] = [area_perc_err_metrics['std']]
-        global_table_noland['a_%e_68_pct'] = [area_perc_err_metrics['68_pct']]
-        global_table_noland['a_%e_50_pct'] = [area_perc_err_metrics['50_pct']]
-
+        water_thresh_mask = np.concatenate([tile_metrics['water_frac'] > water_thresh for tile_metrics in metrics])
+        global_table_water_thresh = make_global_table(all_height_err,
+                                                      all_area_perc_err,
+                                                      mask=water_thresh_mask)
         print('Global metrics (excluding pixels with water fraction under {}%):'.format(water_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_noland, precision=5)
- 
+        SWOTRiver.analysis.tabley.print_table(global_table_water_thresh,
+                                              precision=5, passfail=passfail)
+
     metrics_to_plot = {'Height Error (m)':all_height_err,
                        'Area Percent Area (%)':all_area_perc_err,
                        'Num Pixels':all_pixc_px}
 
-    metrics_to_plot_against = {'Cross Track (m)':all_cross_track, 
-                               'Num Pixels':all_pixc_px, 
+    metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
+                               'Num Pixels':all_pixc_px,
                                'Dark Fraction (%)':all_dark_frac*100,
-                               'Water Fraction (%)':all_water_frac*100}   
-    
+                               'Water Fraction (%)':all_water_frac*100}
+
     plot_metrics(metrics_to_plot, metrics_to_plot_against)
 
+def append_tile_table(tile_metrics, tile_table={},
+                      height_weight=None, area_weight=None):
+    if not tile_table:
+        tile_table = {'h_e_mean':[],
+                      'h_e_std':[],
+                      '|h_e_68_pct|':[],
+                      'h_e_50_pct':[],
+                      'a_%e_mean':[],
+                      'a_%e_std':[],
+                      '|a_%e_68_pct|':[],
+                      'a_%e_50_pct':[],
+                      'total_px':[],
+                      'common_px_%':[],
+                      'uncommon_px_truth_%':[],
+                      'uncommon_px_data_%':[],
+                      'scene':[],
+                      'cycle':[],
+                      'pass':[],
+                      'tiles':[],}
+
+    height_err_metrics = compute_metrics_from_error(
+        tile_metrics['height_err'], height_weight)
+    area_perc_err_metrics = compute_metrics_from_error(
+        tile_metrics['area_perc_err'], area_weight)
+
+    # Add data to table
+    tile_table['h_e_mean'].append(height_err_metrics['mean'])
+    tile_table['h_e_std'].append(height_err_metrics['std'])
+    tile_table['|h_e_68_pct|'].append(height_err_metrics['|68_pct|'])
+    tile_table['h_e_50_pct'].append(height_err_metrics['50_pct'])
+    tile_table['a_%e_mean'].append(area_perc_err_metrics['mean'])
+    tile_table['a_%e_std'].append(area_perc_err_metrics['std'])
+    tile_table['|a_%e_68_pct|'].append(area_perc_err_metrics['|68_pct|'])
+    tile_table['a_%e_50_pct'].append(area_perc_err_metrics['50_pct'])
+    tile_table['total_px'].append(tile_metrics['total_px'])
+    if tile_metrics['total_px'] > 0:
+        tile_table['common_px_%'].append(
+            tile_metrics['common_px']/tile_metrics['total_px'] * 100)
+        tile_table['uncommon_px_truth_%'].append(
+            tile_metrics['uncommon_px_truth']/tile_metrics['total_px'] * 100)
+        tile_table['uncommon_px_data_%'].append(
+            tile_metrics['uncommon_px_data']/tile_metrics['total_px'] * 100)
+    else:
+        tile_table['common_px_%'].append(0)
+        tile_table['uncommon_px_truth_%'].append(0)
+        tile_table['uncommon_px_data_%'].append(0)
+    tile_table['scene'].append(tile_metrics['scene'])
+    tile_table['cycle'].append(tile_metrics['cycle'])
+    tile_table['pass'].append(tile_metrics['pass'])
+    tile_table['tiles'].append(tile_metrics['tiles'])
+    return tile_table
+
+def make_global_table(all_height_err, all_area_perc_err, mask=None,
+                      height_weight=None, area_weight=None):
+
+    if mask is not None:
+        all_height_err = all_height_err[mask]
+        all_area_perc_err = all_area_perc_err[mask]
+
+    height_err_metrics = compute_metrics_from_error(all_height_err,
+                                                    height_weight)
+    area_perc_err_metrics = compute_metrics_from_error(all_area_perc_err,
+                                                       area_weight)
+
+    global_table = {}
+    global_table['h_e_mean'] = [height_err_metrics['mean']]
+    global_table['h_e_std'] = [height_err_metrics['std']]
+    global_table['|h_e_68_pct|'] = [height_err_metrics['|68_pct|']]
+    global_table['h_e_50_pct'] = [height_err_metrics['50_pct']]
+    global_table['a_%e_mean'] = [area_perc_err_metrics['mean']]
+    global_table['a_%e_std'] = [area_perc_err_metrics['std']]
+    global_table['|a_%e_68_pct|'] = [area_perc_err_metrics['|68_pct|']]
+    global_table['a_%e_50_pct'] = [area_perc_err_metrics['50_pct']]
+
+    return global_table
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2):
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
             if x_key != y_key:
-                mask = np.logical_and(~np.isnan(metrics_to_plot[y_key]), 
+                mask = np.logical_and(~np.isnan(metrics_to_plot[y_key]),
                                       ~np.isnan(metrics_to_plot_against[x_key]))
                 this_y_data = metrics_to_plot[y_key][mask]
-                this_x_data = metrics_to_plot_against[x_key][mask] 
+                this_x_data = metrics_to_plot_against[x_key][mask]
                 plt.figure()
                 plt.title('{} vs. {}'.format(y_key, x_key))
                 plt.xlabel(x_key)
                 plt.ylabel(y_key)
                 plt.scatter(this_x_data, this_y_data,
                             marker='o', s=1)
-                x_new, y_new = metrics_fit(this_x_data, this_y_data,
-                                           poly=poly, pts=25)
-                plt.plot(x_new, y_new, 'r--')
-                sig_mask = std_mask(this_y_data, 1)
-                x_new, y_new = metrics_fit(this_x_data[sig_mask],
-                                           this_y_data[sig_mask],
-                                           poly=poly, pts=25)
-                plt.plot(x_new, y_new, 'g--')
-                plt.legend(['fit', '1sig fit', 'data'])
-                
+                try:
+                    x_new, y_new = metrics_fit(this_x_data, this_y_data,
+                                               poly=poly, pts=25)
+                    plt.plot(x_new, y_new, 'r--')
+                    sig_mask = std_mask(this_y_data, 1)
+                    x_new, y_new = metrics_fit(this_x_data[sig_mask],
+                                               this_y_data[sig_mask],
+                                               poly=poly, pts=25)
+                    plt.plot(x_new, y_new, 'g--')
+                    plt.legend(['fit', '68pct fit', 'data'])
+                except Exception as E:
+                    print('Plotting Exception: {}'.format(E))
+
     plt.show()
 
 def metrics_fit(x, y, poly=3, pts=25):
@@ -297,21 +368,50 @@ def metrics_fit(x, y, poly=3, pts=25):
     y_new = f(x_new)
     return x_new, y_new
 
+def get_passfail():
+    passfail = {
+        '|h_e_68_pct|': [0.10, 1]
+    }
+    return passfail
+
 def std_mask(data, m=1):
     return abs(data - np.mean(data)) < m * np.std(data)
 
-def compute_metrics_from_error(err_array):
+def weighted_mean(data, weights=None):
+    return np.nansum(data * weights) / np.nansum(weights)
+
+def weighted_percentile(data, pct, weights=None):
+    if weights is None:
+        weights = np.ones(len(data))
+    sorter = np.argsort(data)
+    values = data[sorter]
+    weights = weights[sorter]
+    weighted_pcts = np.cumsum(weights) - 0.5 * weights
+    weighted_pcts /= np.sum(weights)
+    return np.interp(pct/100, weighted_pcts, data)
+
+def weighted_std(data, weights=None):
+    mean = weighted_mean(data, weights)
+    variance = weighted_mean((data-mean)**2, weights)
+    return np.sqrt(variance)
+
+def compute_metrics_from_error(err_array, weights=None):
     error_metrics = {}
     if isinstance(err_array, np.ma.MaskedArray):
-        error_metrics['mean'] = np.nanmean(err_array.filled(np.nan))
-        error_metrics['std'] = np.nanstd(err_array.filled(np.nan))
-        error_metrics['68_pct'] = np.nanpercentile(abs(err_array.filled(np.nan)), 68)
-        error_metrics['50_pct'] = np.nanpercentile(abs(err_array.filled(np.nan)), 50)
-    else:
+        err_array = err_array.filled(np.nan)
+
+    if weights is None:
         error_metrics['mean'] = np.nanmean(err_array)
         error_metrics['std'] = np.nanstd(err_array)
-        error_metrics['68_pct'] = np.nanpercentile(abs(err_array), 68)
-        error_metrics['50_pct'] = np.nanpercentile(abs(err_array), 50)
+        error_metrics['|68_pct|'] = np.nanpercentile(abs(err_array), 68)
+        error_metrics['50_pct'] = np.nanpercentile(err_array, 50)
+    else:
+        error_metrics['mean'] = weighted_mean(err_array, weights)
+        error_metrics['std'] = weighted_std(err_array, weights)
+        error_metrics['|68_pct|'] = weighted_percentile(abs(err_array), 68,
+                                                        weights=weights)
+        error_metrics['50_pct'] = weighted_percentile(err_array, 50,
+                                                      weights=weights)
 
     return error_metrics
 
