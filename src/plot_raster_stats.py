@@ -19,8 +19,6 @@ import SWOTRiver.analysis.tabley
 
 from pathlib import Path
 
-BAD_SCENES = [730]
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('pixc_raster', help='raster made from pixel cloud', type=str)
@@ -46,7 +44,8 @@ def main():
             scene = p.parts[-4]
 
             # Debug option, specify list of bad scenes that we don't want to include
-            if int(scene) in BAD_SCENES: 
+            bad_scenes = []
+            if int(scene) in bad_scenes:
                 print('Not analyzing scene: {}'.format(scene))
                 continue
 
