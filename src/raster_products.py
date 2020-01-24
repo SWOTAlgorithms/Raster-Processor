@@ -78,49 +78,322 @@ class Raster(Product):
         ['y',
          odict([['dtype', 'f4']])],
         ['num_pixels',
-         odict([['dtype', 'i4']])],
+         odict([['dtype', 'i4'],
+                ['long_name', 'number_of_pixels'],
+                ['units', 'l'],
+                ['valid_min', 1],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Number of contributing pixelcloud pixels""")],
+                ])],
         ['sigma0',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'sigma0'],
+                ['units', '1'],
+                ['valid_min', -999999],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Normalized radar cross section, or backscatter
+                    brightness.""")],
+                ])],
         ['sigma0_uncert',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'uncertainty in sigma0'],
+                ['units', '1'],
+                ['valid_min', 0],
+                ['valid_max', 1000],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Uncertainty of sigma0. The value is provided in linear units.
+                    This value is a one-sigma additive (not multiplicative)
+                    uncertainty term, which can be added to or subtracted from
+                    sigma0.""")],
+                ])],
         ['dark_frac',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'fractional area of dark water'],
+                ['units', 'l'],
+                ['valid_min', 0],
+                ['valid_max', 1],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Fraction of pixel water area covered by dark water.""")],
+                ])],
         ['height',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'height above reference ellipsoid'],
+                ['units', 'm'],
+                ['valid_min', -1500],
+                ['valid_max', 15000],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    'Height of the pixel above the reference ellipsoid.""")],
+                ])],
         ['height_uncert',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name',
+                 'total uncertainty in the height above reference ellipsoid'],
+                ['units', 'm'],
+                ['valid_min', 0],
+                ['valid_max', 100],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Total one-sigma uncertainty in the height above reference
+                    ellipsoid including uncertainties of corrections.""")],
+                ])],
         ['water_area',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name',
+                 'Surface area of detected water'],
+                ['units', 'm^2'],
+                ['valid_min', 0],
+                ['valid_max', 2000000000],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Surface area of the detected water pixels.""")],
+                ])],
         ['water_area_uncert',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', textjoin("""
+                    Uncertainty estimate of the surface area of
+                    detected water""")],
+                ['units', 'm^2'],
+                ['valid_min', 0],
+                ['valid_max', 2000000000],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Total one-sigma uncertainty in the surface area of the
+                    detected water pixels.""")],
+                ])],
         ['water_frac',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'water fraction'],
+                ['units', '1'],
+                ['valid_min', -999999],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Noisy estimate of the fraction of the pixel that is
+                    water.""")],
+                ])],
+        ['water_frac_uncert',
+         odict([['dtype', 'f4'],
+                ['long_name', 'water fraction uncertainty'],
+                ['units', '1'],
+                ['valid_min', 0],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Uncertainty estimate of the water fraction estimate
+                    (width of noisy water frac estimate distribution).""")],
+                ])],
         ['cross_track',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'approximate cross-track location'],
+                ['units', 'm'],
+                ['valid_min', -75000],
+                ['valid_max', 75000],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Approximate cross-track location of the pixel.""")],
+                ])],
         ['quality_flag',
-         odict([['dtype', 'i1']])],
-        ['surface_type_flag',
-         odict([['dtype', 'i1']])],
+         odict([['dtype', 'i1'],
+                ['standard_name', 'quality_flag'],
+                ['flag_meanings', 'good bad'],
+                ['flag_values', np.array([0, 1]).astype('i1')],
+                ['valid_min', 0],
+                ['valid_max', 1],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Quality flag for raster data.""")],
+                ])],
         ['rain_flag',
          odict([['dtype', 'i1']])],
-        ['frozen_flag',
-         odict([['dtype', 'i1']])],
-        ['layover_flag',
-         odict([['dtype', 'i1']])],
+        ['ice_clim_flag',
+         odict([['dtype', 'u1'],
+                ['long_name', 'climatological ice cover flag'],
+                ['source', 'UNC'],
+                ['flag_meanings', textjoin("""
+                    no_ice_cover partial_ice_cover full_ice_cover
+                    not_available""")],
+                ['flag_values', np.array([0, 1, 2, 255]).astype('i2')],
+                ['valid_min', 0],
+                ['valid_max', 255],
+                ['comment', textjoin("""
+                    Climatological ice cover flag indicating whether the node
+                    is ice-covered on the day of the observation based on
+                    external climatological information (not the SWOT
+                    measurement).  Values of 0, 1, and 2 indicate that the
+                    node is not ice covered, partially ice covered, and fully
+                    ice covered, respectively. A value of 255 indicates that
+                    this flag is not available.""")],
+                ])],
+        ['ice_dyn_flag',
+         odict([['dtype', 'u1'],
+                ['long_name', 'dynamic ice cover flag'],
+                ['source', 'UNC'],
+                ['flag_meanings', textjoin("""
+                    no_ice_cover partial_ice_cover full_ice_cover
+                    not_available""")],
+                ['flag_values', np.array([0, 1, 2, 255]).astype('u1')],
+                ['valid_min', 0],
+                ['valid_max', 255],
+                ['comment', textjoin("""
+                    Dynamic ice cover flag indicating whether the surface is
+                    ice-covered on the day of the observation based on
+                    analysis of external satellite optical data.  Values of
+                    0, 1, and 2 indicate that the node is not ice covered,
+                    partially ice covered, and fully ice covered, respectively.
+                    A value of 255 indicates that this flag is not available.
+                    """)],
+                ])],
+        ['layover_impact',
+         odict([['dtype', 'f4'],
+                ['long_name', 'layover impact'],
+                ['units', 'm'],
+                ['valid_min', -999999],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Estimate of the height error caused by layover.""")],
+                ])],
         ['geoid_height',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'geoid height'],
+                ['standard_name','geoid_height_above_reference_ellipsoid'],
+                ['source', 'EGM2008 (Pavlis et al., 2012)'],
+                ['units', 'm'],
+                ['valid_min', -150],
+                ['valid_max', 150],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Geoid height above the reference ellipsoid with a
+                    correction to refer the value to the mean tide system,
+                    i.e. includes the permanent tide (zero frequency).""")],
+                ])],
         ['geoid_slope',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'geoid slope'],
+                ])],
         ['solid_earth_tide',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'solid Earth tide height'],
+                ['source', textjoin("""
+                    Cartwright and Taylor (1971) and Cartwright and Edden
+                    (1973)""")],
+                ['units', 'm'],
+                ['valid_min', -1],
+                ['valid_max', 1],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Solid-Earth (body) tide height. The zero-frequency
+                    permanent tide component is not included.""")],
+                ])],
+        ['load_tide_sol1',
+         odict([['dtype', 'f4'],
+                ['long_name', 'geocentric load tide height from model 1'],
+                ['source', 'FES2014b (Carrere et al., 2016)'],
+                ['institution', 'LEGOS/CNES'],
+                ['units', 'm'],
+                ['valid_min', -0.2],
+                ['valid_max', 0.2],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Geocentric load tide height. The effect of the ocean tide
+                    loading of the Earth’s crust. This value is reported for
+                    reference but is not applied to the reported height.""")],
+                ])],
+        ['load_tide_sol2',
+         odict([['dtype', 'f4'],
+                ['long_name', 'geocentric load tide height from model 2'],
+                ['source', 'GOT4.10c (Ray, 2013)'],
+                ['institution', 'GSFC'],
+                ['units', 'm'],
+                ['valid_min', -0.2],
+                ['valid_max', 0.2],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Geocentric load tide height. The effect of the ocean tide
+                    loading of the Earth’s crust. This value is reported for
+                    reference but is not applied to the reported height.""")],
+                ])],
         ['pole_tide',
-         odict([['dtype', 'f4']])],
-        ['iono_corr',
-         odict([['dtype', 'f4']])],
-        ['dry_tropo_corr',
-         odict([['dtype', 'f4']])],
-        ['wet_tropo_corr',
-         odict([['dtype', 'f4']])],
+         odict([['dtype', 'f4'],
+                ['long_name', 'geocentric pole tide height'],
+                ['source', 'Wahr (1985) and Desai et al. (2015)'],
+                ['units', 'm'],
+                ['valid_min', -0.2],
+                ['valid_max', 0.2],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Geocentric pole tide height. The total of the contribution
+                    from the solid-Earth (body) pole tide height and the load
+                    pole tide height (i.e., the effect of the ocean pole tide
+                    loading of the Earth’s crust).""")],
+                ])],
+        ['iono_cor_gim_ka',
+         odict([['dtype', 'f4'],
+                ['long_name', 'ionosphere vertical correction'],
+                ['source', 'Global Ionosphere Maps'],
+                ['institution', 'JPL'],
+                ['units', 'm'],
+                ['valid_min', -0.5],
+                ['valid_max', 0],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Equivalent vertical correction due to ionosphere delay.
+                    The reported pixel height, latitude and longitude are
+                    computed after adding negative media corrections to
+                    uncorrected range along slant-range paths, accounting for
+                    the differential delay between the two KaRIn antennas. The
+                    equivalent vertical correction is computed by applying
+                    obliquity factors to the slant-path correction. Adding the
+                    reported correction to the reported pixel height results
+                    in the uncorrected pixel height.""")],
+                ])],
+        ['model_dry_tropo_cor',
+         odict([['dtype', 'f4'],
+                ['long_name', 'dry troposphere vertical correction'],
+                ['source', 'European Centre for Medium-Range Weather Forecasts'],
+                ['institution', 'ECMWF'],
+                ['units', 'm'],
+                ['valid_min', -3],
+                ['valid_max', -1.5],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Equivalent vertical correction due to dry troposphere delay.
+                    The reported pixel height, latitude and longitude are
+                    computed after adding negative media corrections to
+                    uncorrected range along slant-range paths, accounting for
+                    the differential delay between the two KaRIn antennas. The
+                    equivalent vertical correction is computed by applying
+                    obliquity factors to the slant-path correction. Adding the
+                    reported correction to the reported pixel height results
+                    in the uncorrected pixel height.""")],
+                ])],
+        ['model_wet_tropo_cor',
+         odict([['dtype', 'f4'],
+                ['long_name', 'wet troposphere vertical correction'],
+                ['source', 'European Centre for Medium-Range Weather Forecasts'],
+                ['institution', 'ECMWF'],
+                ['units', 'm'],
+                ['valid_min', -1],
+                ['valid_max', 0],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Equivalent vertical correction due to wet troposphere delay.
+                    The reported pixel height, latitude and longitude are
+                    computed after adding negative media corrections to
+                    uncorrected range along slant-range paths, accounting for
+                    the differential delay between the two KaRIn antennas. The
+                    equivalent vertical correction is computed by applying
+                    obliquity factors to the slant-path correction. Adding the
+                    reported correction to the reported pixel height results
+                    in the uncorrected pixel height.""")],
+                ])],
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['ydim', 0], ['xdim', 0]])
@@ -137,9 +410,8 @@ class RasterDebug(Raster):
     VARIABLES.update(odict([
         ['classification',
          odict([['dtype', 'i1']])],
-    ]))    
+    ]))
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['ydim', 0], ['xdim', 0]])
     VARIABLES['x']['dimensions'] = odict([['xdim', 0]])
     VARIABLES['y']['dimensions'] = odict([['ydim', 0]])
-    
