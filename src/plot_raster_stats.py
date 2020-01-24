@@ -152,7 +152,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
         for key in tile_table:
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
-    print('Tile metrics:')
+    print('Tile metrics (heights in m, areas in m^2):')
     SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
                                           passfail=passfail)
 
@@ -170,7 +170,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
         for key in tile_table:
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
-    print('Tile metrics (weighted by uncertainties):')
+    print('Tile metrics (weighted by uncertainties; heights in m, areas in m^2):')
     SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
                                           passfail=passfail)
 
@@ -199,7 +199,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
     global_table['common_px_%'] = [common_px_pct]
     global_table['uncommon_px_truth_%'] = [uncommon_px_truth_pct]
     global_table['uncommon_px_data_%'] = [uncommon_px_data_pct]
-    print('Global metrics (heights in m):')
+    print('Global metrics (heights in m, areas in m^2):')
     SWOTRiver.analysis.tabley.print_table(global_table, precision=5,
                                           passfail=passfail)
 
@@ -207,7 +207,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
     global_table_weighted = make_global_table(all_height_err, all_area_perc_err,
                                               height_weight=1/np.square(all_height_uncert),
                                               area_weight=1/np.square(all_area_uncert))
-    print('Global metrics (weighted by uncertainties):')
+    print('Global metrics (weighted by uncertainties; heights in m, areas in m^2):')
     SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
                                           passfail=passfail)
 
@@ -385,8 +385,8 @@ def weighted_percentile(data, pct, weights=None):
     sorter = np.argsort(data)
     values = data[sorter]
     weights = weights[sorter]
-    weighted_pcts = np.cumsum(weights) - 0.5 * weights
-    weighted_pcts /= np.sum(weights)
+    weighted_pcts = np.nancumsum(weights) - 0.5 * weights
+    weighted_pcts /= np.nansum(weights)
     return np.interp(pct/100, weighted_pcts, data)
 
 def weighted_std(data, weights=None):
@@ -396,8 +396,19 @@ def weighted_std(data, weights=None):
 
 def compute_metrics_from_error(err_array, weights=None):
     error_metrics = {}
+
     if isinstance(err_array, np.ma.MaskedArray):
         err_array = err_array.filled(np.nan)
+
+    mask = ~np.isnan(err_array)
+    err_array = err_array[mask]
+
+    if len(err_array) == 0:
+        error_metrics['mean'] = np.nan
+        error_metrics['std'] = np.nan
+        error_metrics['|68_pct|'] = np.nan
+        error_metrics['50_pct'] = np.nan
+        return error_metrics
 
     if weights is None:
         error_metrics['mean'] = np.nanmean(err_array)
@@ -405,6 +416,7 @@ def compute_metrics_from_error(err_array, weights=None):
         error_metrics['|68_pct|'] = np.nanpercentile(abs(err_array), 68)
         error_metrics['50_pct'] = np.nanpercentile(err_array, 50)
     else:
+        weights = weights[mask]
         error_metrics['mean'] = weighted_mean(err_array, weights)
         error_metrics['std'] = weighted_std(err_array, weights)
         error_metrics['|68_pct|'] = weighted_percentile(abs(err_array), 68,
