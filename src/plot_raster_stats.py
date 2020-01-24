@@ -152,7 +152,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
         for key in tile_table:
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
-    print('Tile metrics (heights in m, areas in m^2):')
+    print('Tile metrics (heights in m):')
     SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
                                           passfail=passfail)
 
@@ -170,7 +170,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
         for key in tile_table:
             tile_table[key] = np.array(tile_table[key])[sort_idx]
 
-    print('Tile metrics (weighted by uncertainties; heights in m, areas in m^2):')
+    print('Tile metrics (weighted by uncertainties; heights in m):')
     SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
                                           passfail=passfail)
 
@@ -199,7 +199,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
     global_table['common_px_%'] = [common_px_pct]
     global_table['uncommon_px_truth_%'] = [uncommon_px_truth_pct]
     global_table['uncommon_px_data_%'] = [uncommon_px_data_pct]
-    print('Global metrics (heights in m, areas in m^2):')
+    print('Global metrics (heights in m):')
     SWOTRiver.analysis.tabley.print_table(global_table, precision=5,
                                           passfail=passfail)
 
@@ -207,7 +207,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
     global_table_weighted = make_global_table(all_height_err, all_area_perc_err,
                                               height_weight=1/np.square(all_height_uncert),
                                               area_weight=1/np.square(all_area_uncert))
-    print('Global metrics (weighted by uncertainties; heights in m, areas in m^2):')
+    print('Global metrics (weighted by uncertainties; heights in m):')
     SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
                                           passfail=passfail)
 
