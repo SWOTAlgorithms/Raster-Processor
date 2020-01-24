@@ -21,6 +21,7 @@ description:
 example RDF variables:
     projection_type           (-) = utm
     resolution                (-) = 100
+    buffer_size               (-) = 100
     interior_water_classes    (-) = [4, 24]
     water_edge_classes        (-) = [3, 23]
     land_edge_classes         (-) = [2, 22]
