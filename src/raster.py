@@ -21,6 +21,9 @@ INTERIOR_WATER_KLASS = 1
 WATER_EDGE_KLASS = 2
 LAND_EDGE_KLASS = 3
 
+# Center easting coordinate for utm zones
+UTM_EASTING_CENTER = 500000
+
 class Worker(object):
     '''Turns PixelClouds into Rasters'''
     def __init__( self,
@@ -37,6 +40,7 @@ class Worker(object):
     def parse_config_defaults(self):
         config_defaults = {'projection_type':'utm',
                            'resolution':100,
+                           'buffer_size':100,
                            'height_agg_method':'weight',
                            'area_agg_method':'composite',
                            'interior_water_classes':[PIXC_CLASSES['open_water'],
@@ -71,6 +75,7 @@ class Worker(object):
         dlat_dphi = pixc_group['dlatitude_dphase'][:]
         dlon_dphi = pixc_group['dlongitude_dphase'][:]
         dh_dphi = pixc_group['dheight_dphase'][:]
+        phase_noise_std = pixc_group['phase_noise_std'][:]
         water_fraction = pixc_group['water_frac'][:]
         water_fraction_uncert = pixc_group['water_frac_uncert'][:]
         darea_dheight = pixc_group['darea_dheight'][:]
@@ -78,6 +83,14 @@ class Worker(object):
         Pmd = pixc_group['missed_detection_rate'][:]
         cross_trk = pixc_group['cross_track'][:]
         sigma0 = pixc_group['sig0'][:]
+
+        height_std_pix = np.abs(phase_noise_std * dh_dphi)
+        # set bad pix height std to high number to deweight
+        # instead of giving infs/nans
+        bad_num = 1.0e5
+        height_std_pix[height_std_pix<=0] = bad_num
+        height_std_pix[np.isinf(height_std_pix)] = bad_num
+        height_std_pix[np.isnan(height_std_pix)] = bad_num
 
         looks_to_efflooks = self.pixc['pixel_cloud'].looks_to_efflooks
 
@@ -105,7 +118,8 @@ class Worker(object):
 
         self.proj_info = create_projection_from_bbox(corners,
                                                      self.config['projection_type'],
-                                                     self.config['resolution'])
+                                                     self.config['resolution'],
+                                                     self.config['buffer_size'])
 
         LOGGER.info(self.proj_info)
 
@@ -134,15 +148,18 @@ class Worker(object):
 
         if self.debug_flag:
             out_classification = raster_data['classification'].fill_value*ones_result
-        
+
         LOGGER.info('Rasterizing data')
         for i in range(0, self.proj_info['size_y']):
             for j in range(0, self.proj_info['size_x']):
                 if len(proj_mapping[i][j]) != 0:
                     good = mask[proj_mapping[i][j]]
+                    # exclude land edges from height aggregation
+                    good_heights = np.logical_and(good,
+                        klass_tmp[proj_mapping[i][j]]!=LAND_EDGE_KLASS)
                     grid_height = ag.height_with_uncerts(
                         heights[proj_mapping[i][j]],
-                        good,
+                        good_heights,
                         num_rare_looks[proj_mapping[i][j]],
                         num_med_looks[proj_mapping[i][j]],
                         ifgram[proj_mapping[i][j]],
@@ -152,6 +169,7 @@ class Worker(object):
                         dh_dphi[proj_mapping[i][j]],
                         dlat_dphi[proj_mapping[i][j]],
                         dlon_dphi[proj_mapping[i][j]],
+                        height_std_pix[proj_mapping[i][j]],
                         method=self.config['height_agg_method'])
 
                     out_h[i][j] = grid_height[0]
@@ -210,7 +228,6 @@ class Worker(object):
                                                             current_datetime.day)
         raster_data.cycle_number = self.pixc.cycle_number
         raster_data.pass_number = self.pixc.pass_number
-        # TODO: Update tile_numbers to be a list of all 4 tiles once tiling is implemented
         raster_data.tile_numbers = self.pixc.tile_number
         raster_data.proj_type = self.proj_info['proj_type']
         raster_data.proj_res = self.proj_info['proj_res']
@@ -238,7 +255,7 @@ class Worker(object):
 
         if self.debug_flag:
             raster_data['classification'] = out_classification
-                
+
         return raster_data
 
     def get_mask(self):
@@ -267,12 +284,14 @@ class Worker(object):
 
     def calc_dark_frac(self, pixel_area, klass, water_frac):
         water_frac[water_frac<0] = 0
-        # If we don't have any water at all, we have no dark water...
-        if np.sum(water_frac)==0:
-            return 0
         klass_dark = np.isin(klass, self.config['dark_water_classes'])
         dark_area = np.sum(pixel_area[klass_dark]*water_frac[klass_dark])
         total_area = np.sum(pixel_area*water_frac)
+
+        # If we don't have any water at all, we have no dark water...
+        if np.sum(total_area)==0:
+            return 0
+
         return dark_area/total_area
 
 
@@ -281,13 +300,13 @@ def lon_360to180(longitude):
 
 
 def create_projection_from_bbox(
-        corners, proj_type='utm', proj_res=100.0, buff=0.1):
+        corners, proj_type='utm', proj_res=100.0, buff=250.0):
     """ Needed to get same sampling for gdem truth and pixc,
     also simplifies the projection computation
-    Modified from Shuai Zhang's raster.py (Tamlin's student at UNC) """
+    Modified from Shuai Zhang's raster.py """
 
     # catch invalid projection type
-    if proj_type!='utm' and proj_type!='geo':
+    if proj_type != 'utm' and proj_type != 'geo':
         raise Exception('Unknown projection type: {}'.format(proj_type))
 
     # get corners separately
@@ -296,21 +315,31 @@ def create_projection_from_bbox(
     out_1st = corners[2]
     out_last = corners[3]
 
-    x_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))-buff
-    y_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))-buff
-    x_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))+buff
-    y_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))+buff
+    x_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
+    y_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
+    x_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
+    y_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
+    proj_center_x = 0
 
     # find the UTM zone number for the middle of the swath-tile
     if proj_type=='utm':
         lat_mid = (in_1st[0] + in_last[0] + out_1st[0] + out_last[0])/4.0
         lon_mid = (in_1st[1] + in_last[1] + out_1st[1] + out_last[1])/4.0
-        x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid,lon_mid)
+        x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid, lon_mid)
 
         x_min, y_min, u_num, u_zone = utm.from_latlon(y_min, x_min,
             force_zone_number=utm_num)
         x_max, y_max, u_num1, u_zone1 = utm.from_latlon(y_max, x_max,
             force_zone_number=utm_num)
+        proj_center_x = UTM_EASTING_CENTER
+
+    # round limits to the nearest bin (centered at proj_center_x) and add buffer
+    x_min = round((x_min - proj_center_x) / proj_res) * proj_res \
+            + proj_center_x - buff
+    x_max = round((x_max - proj_center_x) / proj_res) * proj_res \
+            + proj_center_x + buff
+    y_min = round(y_min  / proj_res) * proj_res - buff
+    y_max = round(y_max / proj_res) * proj_res + buff
 
     proj_info = {}
     proj_info['proj_type'] = proj_type
@@ -319,16 +348,14 @@ def create_projection_from_bbox(
     proj_info['x_max'] = x_max
     proj_info['y_min'] = y_min
     proj_info['y_max'] = y_max
+    proj_info['size_x'] = round((x_max - x_min) / proj_res).astype(int) + 1
+    proj_info['size_y'] = round((y_max - y_min) / proj_res).astype(int) + 1
 
     if proj_type=='utm':
-        proj_info['size_x'] = int((x_max - x_min) / proj_res) + 1
-        proj_info['size_y'] = int((y_max - y_min) / proj_res) + 1
         proj_info['utm_num'] = utm_num
-    elif proj_type=='geo':
-        proj_info['size_x'] = int((x_max - x_min) / proj_res) + 2
-        proj_info['size_y'] = int((y_max - y_min) / proj_res) + 2
-        proj_info['utm_num'] = np.nan
-        
+    else:
+        proj_info['utm_num'] = None
+
     return proj_info
 
 
@@ -358,9 +385,8 @@ def get_raster_mapping(lats, lons, klass, mask, proj_info):
             mapping_tmp[i].append([])
 
     for x in range(0,len(lats)):
-        # TODO: Round instead of truncate to get the bin ?
-        i = int((y_tmp[x] - proj_info['y_min']) / proj_info['proj_res'])
-        j = int((x_tmp[x] - proj_info['x_min']) / proj_info['proj_res'])
+        i = round((y_tmp[x] - proj_info['y_min']) / proj_info['proj_res']).astype(int)
+        j = round((x_tmp[x] - proj_info['x_min']) / proj_info['proj_res']).astype(int)
         # check bounds
         if (i >= 0 and i < proj_info['size_y'] and
             j >= 0 and j < proj_info['size_x']):
