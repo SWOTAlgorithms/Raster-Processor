@@ -64,13 +64,20 @@ class Raster(Product):
                          'docstr': 'Pass number of the product granule.'}],
         ['tile_numbers', {'dtype': 'i2',
                           'docstr': 'Tile numbers in the pass of the product granule.'}],
-        ['proj_type', {'dtype': 'str'}],
-        ['proj_res', {'dtype': 'f4'}],
-        ['utm_num', {'dtype': 'i2'}],
-        ['x_min', {'dtype': 'f4'}],
-        ['x_max', {'dtype': 'f4'}],
-        ['y_min', {'dtype': 'f4'}],
-        ['y_max', {'dtype': 'f4'}],
+        ['proj_type', {'dtype': 'str',
+                       'docstr': 'Raster projection type: utm or geo.'}],
+        ['proj_res', {'dtype': 'f4',
+                      'docstr': 'Raster projection resolution.'}],
+        ['utm_num', {'dtype': 'i2',
+                     'docstr': 'UTM zone number. Valid only if proj_type is utm'}],
+        ['x_min', {'dtype': 'f4',
+                   'docstr': 'Projection minimum x coordinate.'}],
+        ['x_max', {'dtype': 'f4',
+                   'docstr': 'Projection maximum x coordinate.'}],
+        ['y_min', {'dtype': 'f4',
+                   'docstr': 'Projection minimum y coordinate.'}],
+        ['y_max', {'dtype': 'f4',
+                   'docstr': 'Projection maximum y coordinate.'}],
     ])
     VARIABLES = odict([
         ['x',
@@ -87,7 +94,7 @@ class Raster(Product):
                 ['comment', textjoin("""
                     Number of contributing pixelcloud pixels""")],
                 ])],
-        ['sigma0',
+        ['sig0',
          odict([['dtype', 'f4'],
                 ['long_name', 'sigma0'],
                 ['units', '1'],
@@ -98,7 +105,7 @@ class Raster(Product):
                     Normalized radar cross section, or backscatter
                     brightness.""")],
                 ])],
-        ['sigma0_uncert',
+        ['sig0_uncert',
          odict([['dtype', 'f4'],
                 ['long_name', 'uncertainty in sigma0'],
                 ['units', '1'],
@@ -199,7 +206,7 @@ class Raster(Product):
                 ['comment', textjoin("""
                     Approximate cross-track location of the pixel.""")],
                 ])],
-        ['quality_flag',
+        ['qual_flag',
          odict([['dtype', 'i1'],
                 ['standard_name', 'quality_flag'],
                 ['flag_meanings', 'good bad'],
@@ -210,8 +217,18 @@ class Raster(Product):
                 ['comment', textjoin("""
                     Quality flag for raster data.""")],
                 ])],
-        ['rain_flag',
-         odict([['dtype', 'i1']])],
+        ['rain_clim_flag',
+         odict([['dtype', 'i1'],
+                ['long_name', 'rain flag'],
+                ['flag_values', np.array([0, 1]).astype('i1')],
+                ['valid_min', 0],
+                ['valid_max', 1],
+                ['comment', textjoin("""
+                    Climatological rain flag indicating whether the pixel
+                    is impacted by rain on the day of the observation based on
+                    external climatological information (not the SWOT
+                    measurement).""")],
+                ])],
         ['ice_clim_flag',
          odict([['dtype', 'u1'],
                 ['long_name', 'climatological ice cover flag'],
@@ -223,11 +240,11 @@ class Raster(Product):
                 ['valid_min', 0],
                 ['valid_max', 255],
                 ['comment', textjoin("""
-                    Climatological ice cover flag indicating whether the node
+                    Climatological ice cover flag indicating whether the pixel
                     is ice-covered on the day of the observation based on
                     external climatological information (not the SWOT
                     measurement).  Values of 0, 1, and 2 indicate that the
-                    node is not ice covered, partially ice covered, and fully
+                    pixel is not ice covered, partially ice covered, and fully
                     ice covered, respectively. A value of 255 indicates that
                     this flag is not available.""")],
                 ])],
@@ -245,7 +262,7 @@ class Raster(Product):
                     Dynamic ice cover flag indicating whether the surface is
                     ice-covered on the day of the observation based on
                     analysis of external satellite optical data.  Values of
-                    0, 1, and 2 indicate that the node is not ice covered,
+                    0, 1, and 2 indicate that the pixel is not ice covered,
                     partially ice covered, and fully ice covered, respectively.
                     A value of 255 indicates that this flag is not available.
                     """)],
@@ -277,6 +294,13 @@ class Raster(Product):
         ['geoid_slope',
          odict([['dtype', 'f4'],
                 ['long_name', 'geoid slope'],
+                ['units', 'm/m'],
+                ['valid_min', -150],
+                ['valid_max', 150],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Geoid slope calculated based on the
+                    EGM2008 (Pavlis et al., 2012) geoid.""")],
                 ])],
         ['solid_earth_tide',
          odict([['dtype', 'f4'],
