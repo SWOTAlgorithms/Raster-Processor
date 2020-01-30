@@ -82,7 +82,7 @@ class Worker(object):
         Pfd = pixc_group['false_detection_rate'][:]
         Pmd = pixc_group['missed_detection_rate'][:]
         cross_trk = pixc_group['cross_track'][:]
-        sigma0 = pixc_group['sig0'][:]
+        sig0 = pixc_group['sig0'][:]
 
         height_std_pix = np.abs(phase_noise_std * dh_dphi)
         # set bad pix height std to high number to deweight
@@ -138,11 +138,12 @@ class Worker(object):
         out_h = raster_data['height'].fill_value*ones_result
         out_h_uc = raster_data['height_uncert'].fill_value*ones_result
         out_area = raster_data['water_area'].fill_value*ones_result
-        out_area_frac = raster_data['water_frac'].fill_value*ones_result
         out_area_uc = raster_data['water_area_uncert'].fill_value*ones_result
+        out_area_frac = raster_data['water_frac'].fill_value*ones_result
+        out_area_frac_uc = raster_data['water_frac_uncert'].fill_value*ones_result
         out_cross_trk = raster_data['cross_track'].fill_value*ones_result
-        out_sig0 = raster_data['sigma0'].fill_value*ones_result
-        out_sig0_std = raster_data['sigma0_uncert'].fill_value*ones_result
+        out_sig0 = raster_data['sig0'].fill_value*ones_result
+        out_sig0_std = raster_data['sig0_uncert'].fill_value*ones_result
         out_num_pixels = raster_data['num_pixels'].fill_value*ones_result
         out_dark_frac = raster_data['dark_frac'].fill_value*ones_result
 
@@ -189,17 +190,18 @@ class Worker(object):
                         water_edge_klass=WATER_EDGE_KLASS,
                         land_edge_klass=LAND_EDGE_KLASS)
 
-                    out_area_frac[i][j] = grid_area[0]/(self.proj_info['proj_res']**2)
-
                     out_area[i][j] = grid_area[0]
-                    out_area_uc[i][j] = grid_area[2]
+                    out_area_uc[i][j] = grid_area[1]
+                    out_area_frac[i][j] = grid_area[0]/(self.proj_info['proj_res']**2)
+                    out_area_frac_uc[i][j] = grid_area[1]/(self.proj_info['proj_res']**2)
+
                     out_cross_trk[i][j] = ag.simple(
                         cross_trk[proj_mapping[i][j]][good])
 
                     out_sig0[i][j] = ag.simple(
-                        sigma0[proj_mapping[i][j]][good], metric='mean')
+                        sig0[proj_mapping[i][j]][good], metric='mean')
                     out_sig0_std[i][j] = ag.height_uncert_std(
-                        sigma0[proj_mapping[i][j]],
+                        sig0[proj_mapping[i][j]],
                         good,
                         num_rare_looks[proj_mapping[i][j]],
                         num_med_looks[proj_mapping[i][j]])
@@ -216,8 +218,8 @@ class Worker(object):
 
         # TODO: rethink handling of this, but for now uncert can be inf or nan
         # if water area is 0. Set to fill value.
-        out_area_uc[np.logical_or(np.isnan(out_area_uc),
-            np.isinf(out_area_uc))] = raster_data['water_area_uncert'].fill_value
+        out_area_frac_uc[np.logical_or(np.isnan(out_area_frac_uc),
+            np.isinf(out_area_frac_uc))] = raster_data['water_frac_uncert'].fill_value
         out_h_uc[np.isnan(out_h_uc)] = raster_data['height_uncert'].fill_value
 
         # Assemble the product
@@ -247,9 +249,10 @@ class Worker(object):
         raster_data['water_area'] = out_area
         raster_data['water_area_uncert'] = out_area_uc
         raster_data['water_frac'] = out_area_frac
+        raster_data['water_frac_uncert'] = out_area_frac_uc
         raster_data['cross_track'] = out_cross_trk
-        raster_data['sigma0'] = out_sig0
-        raster_data['sigma0_uncert'] = out_sig0_std
+        raster_data['sig0'] = out_sig0
+        raster_data['sig0_uncert'] = out_sig0_std
         raster_data['num_pixels'] = out_num_pixels
         raster_data['dark_frac'] = out_dark_frac
 
