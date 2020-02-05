@@ -16,6 +16,7 @@ import numpy as np
 import raster_products
 import matplotlib.pyplot as plt
 import SWOTRiver.analysis.tabley
+from scatter_density import scatter_density
 
 from pathlib import Path
 
@@ -32,6 +33,7 @@ def main():
     parser.add_argument('-mp', '--min_pixels', help='Minimum number of pixels to use as valid data', type=int, default=None)
     parser.add_argument('-s', '--sort_key', help='Sort key for tables: height or area', type=str, default=None)
     parser.add_argument('-w', '--weighted', help='Flag to enable weighting of height and area metrics by uncertainties', action='store_true')
+    parser.add_argument('--scatter_plot',help='Flag for plotting old scatterplots',action='store_true')
 
     args = vars(parser.parse_args())
 
@@ -68,7 +70,8 @@ def main():
                   water_thresh=args['water_frac_thresh'],
                   height_uncert_thresh=args['height_uncert_thresh'],
                   sort_key=args['sort_key'],
-                  weighted=args['weighted'])
+                  weighted=args['weighted'],
+                  scatter_plot=args['scatter_plot'])
 
 def load_data(
         pixc_file, gdem_file, scene='', min_pixels=None):
@@ -138,7 +141,8 @@ def load_data(
 
     return tile_metrics
 
-def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_thresh=None, sort_key=None, weighted=False):
+def print_metrics(metrics, dark_thresh=None, water_thresh=None, 
+                  height_uncert_thresh=None, sort_key=None, weighted=False, scatter_plot=False):
     # Get pass/fail bounds
     passfail = get_passfail()
 
@@ -311,15 +315,15 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None, height_uncert_th
 
 
     metrics_to_plot = {'Height Error (m)':all_height_err,
-                       'Area Percent Area (%)':all_area_perc_err,
-                       'Num Pixels':all_pixc_px}
+                       'Area Percent Area (%)':all_area_perc_err}
+                       #'Num Pixels':all_pixc_px}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
                                'Num Pixels':all_pixc_px,
                                'Dark Fraction (%)':all_dark_frac*100,
                                'Water Fraction (%)':all_water_frac*100}
 
-    plot_metrics(metrics_to_plot, metrics_to_plot_against)
+    plot_metrics(metrics_to_plot, metrics_to_plot_against, scatter_plot=scatter_plot)
 
 def append_tile_table(tile_metrics, tile_table={},
                       height_prefix='h_e_', area_prefix='a_%e_',
@@ -422,7 +426,7 @@ def make_global_table(all_height_err, all_area_perc_err,
 
     return global_table
 
-def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2):
+def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=False):
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
             if x_key != y_key:
@@ -430,24 +434,31 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2):
                                       ~np.isnan(metrics_to_plot_against[x_key]))
                 this_y_data = metrics_to_plot[y_key][mask]
                 this_x_data = metrics_to_plot_against[x_key][mask]
-                plt.figure()
-                plt.title('{} vs. {}'.format(y_key, x_key))
-                plt.xlabel(x_key)
-                plt.ylabel(y_key)
-                plt.scatter(this_x_data, this_y_data,
-                            marker='o', s=1)
-                try:
-                    x_new, y_new = metrics_fit(this_x_data, this_y_data,
-                                               poly=poly, pts=25)
-                    plt.plot(x_new, y_new, 'r--')
-                    sig_mask = std_mask(this_y_data, 1)
-                    x_new, y_new = metrics_fit(this_x_data[sig_mask],
-                                               this_y_data[sig_mask],
-                                               poly=poly, pts=25)
-                    plt.plot(x_new, y_new, 'g--')
-                    plt.legend(['fit', '68pct fit', 'data'])
-                except Exception as E:
-                    print('Plotting Exception: {}'.format(E))
+                
+                if scatter_plot:
+                    plt.figure()
+                    plt.title('{} vs. {}'.format(y_key, x_key))
+                    plt.xlabel(x_key)
+                    plt.ylabel(y_key)
+                    plt.scatter(this_x_data, this_y_data,
+                                marker='o', s=1)
+                    try:
+                        x_new, y_new = metrics_fit(this_x_data, this_y_data,
+                                                   poly=poly, pts=25)
+                        plt.plot(x_new, y_new, 'r--')
+                        sig_mask = std_mask(this_y_data, 1)
+                        x_new, y_new = metrics_fit(this_x_data[sig_mask],
+                                                   this_y_data[sig_mask],
+                                                   poly=poly, pts=25)
+                        plt.plot(x_new, y_new, 'g--')
+                        plt.legend(['fit', '68pct fit', 'data'])
+                    except Exception as E:
+                        print('Plotting Exception: {}'.format(E))
+                else:
+                    scatter_density(this_x_data, this_y_data)
+                    plt.title('{} vs. {}'.format(y_key, x_key))
+                    plt.xlabel(x_key)
+                    plt.ylabel(y_key)
 
     plt.show()
 
