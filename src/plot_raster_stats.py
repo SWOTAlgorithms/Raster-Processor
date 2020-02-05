@@ -315,7 +315,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
 
 
     metrics_to_plot = {'Height Error (m)':all_height_err,
-                       'Area Percent Area (%)':all_area_perc_err}
+                       'Area Percent Error (%)':all_area_perc_err}
                        #'Num Pixels':all_pixc_px}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
