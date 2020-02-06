@@ -22,8 +22,6 @@ def scatter_density(x_in, y_in, bin_edges=100, cmap='jet'):
     h, binsy, binsx = np.histogram2d(y, x, bins=bin_edges)
     extent = [np.min(binsx), np.max(binsx),
               np.min(binsy),np.max(binsy)]
-    # TODO: handle not plotting zeo values instead of
-    #       -inf/nans when taking log
     plt.figure()
     plt.imshow(10*np.log10(h),
                aspect='auto', extent=extent, origin='lower',
