@@ -8,6 +8,7 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 import utm
 import logging
 import numpy as np
+import geoloc_raster
 import raster_products
 import SWOTWater.aggregate as ag
 
@@ -37,28 +38,33 @@ class Worker(object):
         self.debug_flag = debug_flag
         self.proj_info = None
 
-    def parse_config_defaults(self):
-        config_defaults = {'projection_type':'utm',
-                           'resolution':100,
-                           'buffer_size':100,
-                           'height_agg_method':'weight',
-                           'area_agg_method':'composite',
-                           'interior_water_classes':[PIXC_CLASSES['open_water'],
-                                                     PIXC_CLASSES['dark_water']],
-                           'water_edge_classes':[PIXC_CLASSES['water_near_land'],
-                                                 PIXC_CLASSES['dark_water_edge']],
-                           'land_edge_classes':[PIXC_CLASSES['land_near_water'],
-                                                PIXC_CLASSES['land_near_dark_water']]}
-
-        for key in config_defaults:
-            try:
-                tmp = self.config[key]
-            except KeyError:
-                self.config[key] = config_defaults[key]
-
-    def rasterize(self):
-        '''Rasterize'''
+    def process(self):
         self.parse_config_defaults()
+
+        # Do improved geolocation if specified in config
+        if self.config['do_improved_geolocation']:
+            LOGGER.info('Rasterizing for improved geolocation')
+            improved_geoloc_raster = self.rasterize(
+                self.config['improved_geolocation_res'],
+                self.config['improved_geolocation_buffer_size'])
+
+            new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
+                self.pixc, improved_geoloc_raster, self.config)
+
+            self.pixc['pixel_cloud']['height'] = new_height
+            self.pixc['pixel_cloud']['latitude'] = new_lat
+            self.pixc['pixel_cloud']['longitude'] = new_lon
+
+        # Rasterize at final resolution
+        output_raster = self.rasterize(
+            self.config['resolution'],
+            self.config['buffer_size'])
+
+        return output_raster
+
+    def rasterize(self, resolution, buffer_size):
+        '''Rasterize'''
+        LOGGER.info('Rasterizing at resolution: {}'.format(resolution))
 
         # Get pixelcloud variables
         pixc_group = self.pixc['pixel_cloud']
@@ -94,16 +100,10 @@ class Worker(object):
 
         looks_to_efflooks = self.pixc['pixel_cloud'].looks_to_efflooks
 
-        mask = self.get_mask()
+        mask = get_pixc_mask(self.pixc)
 
         # Set temp classes using those defined in the config
-        klass_tmp = np.zeros_like(klass)
-        klass_tmp[np.isin(klass, self.config['interior_water_classes'])] = \
-            INTERIOR_WATER_KLASS
-        klass_tmp[np.isin(klass, self.config['water_edge_classes'])] = \
-            WATER_EDGE_KLASS
-        klass_tmp[np.isin(klass, self.config['land_edge_classes'])] = \
-            LAND_EDGE_KLASS
+        klass_tmp = get_raster_classes(klass, self.config)
 
         # If the pixelcloud is empty, return an empty raster
         if pixc_group['latitude'].size == 0:
@@ -118,8 +118,8 @@ class Worker(object):
 
         self.proj_info = create_projection_from_bbox(corners,
                                                      self.config['projection_type'],
-                                                     self.config['resolution'],
-                                                     self.config['buffer_size'])
+                                                     resolution,
+                                                     buffer_size)
 
         LOGGER.info(self.proj_info)
 
@@ -261,29 +261,24 @@ class Worker(object):
 
         return raster_data
 
-    def get_mask(self):
-        lats = self.pixc['pixel_cloud']['latitude'][:]
-        lons = self.pixc['pixel_cloud']['longitude'][:]
-        area = self.pixc['pixel_cloud']['pixel_area'][:]
-        klass = self.pixc['pixel_cloud']['classification'][:]
-        mask = np.ones(np.shape(self.pixc['pixel_cloud']['latitude']))
+    def parse_config_defaults(self):
+        config_defaults = {'projection_type':'utm',
+                           'resolution':100,
+                           'buffer_size':100,
+                           'height_agg_method':'weight',
+                           'area_agg_method':'composite',
+                           'interior_water_classes':[PIXC_CLASSES['open_water'],
+                                                     PIXC_CLASSES['dark_water']],
+                           'water_edge_classes':[PIXC_CLASSES['water_near_land'],
+                                                 PIXC_CLASSES['dark_water_edge']],
+                           'land_edge_classes':[PIXC_CLASSES['land_near_water'],
+                                                PIXC_CLASSES['land_near_dark_water']]}
 
-        if np.ma.is_masked(lats):
-            mask[lats.mask] = 0
-        if np.ma.is_masked(lons):
-            mask[lons.mask] = 0
-        if np.ma.is_masked(area):
-            mask[area.mask] = 0
-
-        mask[np.isnan(lats)] = 0
-        mask[np.isnan(lons)] = 0
-        mask[np.isnan(klass)] = 0
-
-        # bounds for valid utc
-        mask[lats >= 84.0] = 0
-        mask[lats <= -80.0] = 0
-
-        return mask==1
+        for key in config_defaults:
+            try:
+                tmp = self.config[key]
+            except KeyError:
+                self.config[key] = config_defaults[key]
 
     def calc_dark_frac(self, pixel_area, klass, water_frac):
         water_frac[water_frac<0] = 0
@@ -300,6 +295,42 @@ class Worker(object):
 
 def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
+
+
+def get_raster_classes(klass, config):
+    klass_tmp = np.zeros_like(klass)
+    klass_tmp[np.isin(klass, config['interior_water_classes'])] = \
+        INTERIOR_WATER_KLASS
+    klass_tmp[np.isin(klass, config['water_edge_classes'])] = \
+        WATER_EDGE_KLASS
+    klass_tmp[np.isin(klass, config['land_edge_classes'])] = \
+        LAND_EDGE_KLASS
+    return klass_tmp
+
+
+def get_pixc_mask(pixc):
+    lats = pixc['pixel_cloud']['latitude'][:]
+    lons = pixc['pixel_cloud']['longitude'][:]
+    area = pixc['pixel_cloud']['pixel_area'][:]
+    klass = pixc['pixel_cloud']['classification'][:]
+    mask = np.ones(np.shape(lats))
+
+    if np.ma.is_masked(lats):
+        mask[lats.mask] = 0
+    if np.ma.is_masked(lons):
+        mask[lons.mask] = 0
+    if np.ma.is_masked(area):
+        mask[area.mask] = 0
+
+    mask[np.isnan(lats)] = 0
+    mask[np.isnan(lons)] = 0
+    mask[np.isnan(klass)] = 0
+
+    # bounds for valid utc
+    mask[lats >= 84.0] = 0
+    mask[lats <= -80.0] = 0
+
+    return mask==1
 
 
 def create_projection_from_bbox(
