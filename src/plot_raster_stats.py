@@ -30,6 +30,7 @@ def main():
     parser.add_argument('-df', '--dark_frac_thresh', help='Dark water fraction threshold for extra metric', type=float, default=None)
     parser.add_argument('-wf', '--water_frac_thresh', help='Water fraction threshold for extra metric', type=float, default=None)
     parser.add_argument('-hu', '--height_uncert_thresh', help='Height uncertainty threshold for extra metric', type=float, default=None)
+    parser.add_argument('-ct', '--cross_track_bounds', help='Crosstrack bounds for extra metric', type=float, default=None, nargs=2)
     parser.add_argument('-mp', '--min_pixels', help='Minimum number of pixels to use as valid data', type=int, default=None)
     parser.add_argument('-s', '--sort_key', help='Sort key for tables: height or area', type=str, default=None)
     parser.add_argument('-w', '--weighted', help='Flag to enable weighting of height and area metrics by uncertainties', action='store_true')
@@ -69,6 +70,7 @@ def main():
     print_metrics(metrics, dark_thresh=args['dark_frac_thresh'],
                   water_thresh=args['water_frac_thresh'],
                   height_uncert_thresh=args['height_uncert_thresh'],
+                  cross_track_bounds=args['cross_track_bounds'],
                   sort_key=args['sort_key'],
                   weighted=args['weighted'],
                   scatter_plot=args['scatter_plot'])
@@ -141,8 +143,9 @@ def load_data(
 
     return tile_metrics
 
-def print_metrics(metrics, dark_thresh=None, water_thresh=None, 
-                  height_uncert_thresh=None, sort_key=None, weighted=False, scatter_plot=False):
+def print_metrics(metrics, dark_thresh=None, water_thresh=None,
+                  height_uncert_thresh=None, cross_track_bounds=None,
+                  sort_key=None, weighted=False, scatter_plot=False):
     # Get pass/fail bounds
     passfail = get_passfail()
 
@@ -229,7 +232,6 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
                                           passfail=passfail)
 
-
     # Additional metrics with different parameter thresholds:
     # Global metrics with high height certainty
     if height_uncert_thresh is not None:
@@ -256,7 +258,6 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
         print('Global metrics (normalized by uncertainties; excluding pixels with height uncert over {}m):'.format(height_uncert_thresh))
         SWOTRiver.analysis.tabley.print_table(global_table_height_uncert_thresh,
                                               precision=5, passfail=passfail)
-
 
     # Global metrics without darkwater
     if dark_thresh is not None:
@@ -285,7 +286,6 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
         SWOTRiver.analysis.tabley.print_table(global_table_dark_thresh,
                                               precision=5, passfail=passfail)
 
-
     # Global metrics without land pixels
     if water_thresh is not None:
         water_thresh_mask = np.concatenate([tile_metrics['water_frac'] >= water_thresh for tile_metrics in metrics])
@@ -313,10 +313,36 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
         SWOTRiver.analysis.tabley.print_table(global_table_water_thresh,
                                               precision=5, passfail=passfail)
 
+    # Global metrics with crosstrack bounds
+    if cross_track_bounds is not None:
+        cross_track_bounds_mask = np.concatenate([np.logical_and(np.abs(tile_metrics['cross_track']) >= min(cross_track_bounds),
+                                                                 np.abs(tile_metrics['cross_track']) <= max(cross_track_bounds)) for tile_metrics in metrics])
+        if weighted:
+            global_table_cross_track_bounds = make_global_table(all_height_err,
+                                                                all_area_perc_err,
+                                                                height_weight=1/np.square(all_height_uncert),
+                                                                area_weight=1/np.square(all_area_perc_uncert),
+                                                                mask=cross_track_bounds_mask)
+        else:
+            global_table_cross_track_bounds = make_global_table(all_height_err,
+                                                                all_area_perc_err,
+                                                                mask=cross_track_bounds_mask)
+
+        print('Global metrics (' + weight_desc + 'cross_track bounds [{}, {}]m):'.format(min(cross_track_bounds), max(cross_track_bounds)))
+        SWOTRiver.analysis.tabley.print_table(global_table_cross_track_bounds,
+                                              precision=5, passfail=passfail)
+
+        global_table_cross_track_bounds = make_global_table(all_height_err/all_height_uncert,
+                                                            all_area_perc_err/all_area_perc_uncert,
+                                                            height_prefix='h_e/h_u_',
+                                                            area_prefix='a_%e/a_%u_',
+                                                            mask=cross_track_bounds_mask)
+        print('Global metrics (normalized by uncertainties; cross_track bounds [{}, {}]m):'.format(min(cross_track_bounds), max(cross_track_bounds)))
+        SWOTRiver.analysis.tabley.print_table(global_table_cross_track_bounds,
+                                              precision=5, passfail=passfail)
 
     metrics_to_plot = {'Height Error (m)':all_height_err,
                        'Area Percent Error (%)':all_area_perc_err}
-                       #'Num Pixels':all_pixc_px}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
                                'Num Pixels':all_pixc_px,
@@ -434,7 +460,7 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=
                                       ~np.isnan(metrics_to_plot_against[x_key]))
                 this_y_data = metrics_to_plot[y_key][mask]
                 this_x_data = metrics_to_plot_against[x_key][mask]
-                
+
                 if scatter_plot:
                     plt.figure()
                     plt.title('{} vs. {}'.format(y_key, x_key))
