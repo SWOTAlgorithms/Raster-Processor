@@ -51,7 +51,6 @@ class Worker(object):
             new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
                 self.pixc, improved_geoloc_raster, self.config)
 
-            self.pixc['pixel_cloud']['height'] = new_height
             self.pixc['pixel_cloud']['latitude'] = new_lat
             self.pixc['pixel_cloud']['longitude'] = new_lon
 
