@@ -175,5 +175,4 @@ if __name__ == "__main__":
                                                  raster_config)
     pixc_prod.pixel_cloud['latitude'][:] = out_lat
     pixc_prod.pixel_cloud['longitude'][:] = out_lon
-    pixc_prod.pixel_cloud['height'][:] = out_height
     pixc_prod.to_ncfile(args.out_pixc_file)
