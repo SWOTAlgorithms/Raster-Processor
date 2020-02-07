@@ -22,6 +22,8 @@ from pathlib import Path
 
 import scipy.io as sio
 
+import warnings
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('pixc_raster', help='raster made from pixel cloud', type=str)
@@ -453,6 +455,7 @@ def make_global_table(all_height_err, all_area_perc_err,
     return global_table
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=False):
+    warnings.simplefilter("ignore")
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
             if x_key != y_key:
@@ -485,8 +488,9 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=
                     plt.title('{} vs. {}'.format(y_key, x_key))
                     plt.xlabel(x_key)
                     plt.ylabel(y_key)
-
+    
     plt.show()
+    warnings.resetwarnings()
 
 def metrics_fit(x, y, poly=3, pts=25):
     z = np.polyfit(x, y, poly)
