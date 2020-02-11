@@ -234,6 +234,7 @@ class Worker(object):
         raster_data.proj_type = self.proj_info['proj_type']
         raster_data.proj_res = self.proj_info['proj_res']
         raster_data.utm_num = self.proj_info['utm_num']
+        raster_data.utm_band = self.proj_info['utm_band']
         raster_data.x_min = self.proj_info['x_min']
         raster_data.x_max = self.proj_info['x_max']
         raster_data.y_min = self.proj_info['y_min']
@@ -356,9 +357,10 @@ def create_projection_from_bbox(
 
     if proj_type=='utm':
         proj_info['utm_num'] = utm_num
+        proj_info['utm_band'] = zone_mid
     else:
         proj_info['utm_num'] = None
-
+        proj_info['utm_band'] = None
     return proj_info
 
 
