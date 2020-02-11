@@ -62,14 +62,20 @@ class Raster(Product):
                           'docstr': 'Cycle number of the product granule.'}],
         ['pass_number', {'dtype': 'i2',
                          'docstr': 'Pass number of the product granule.'}],
+        ['scene_number', {'dtype': 'i2',
+                          'docstr': 'Scene number of the product granule.'}],
         ['tile_numbers', {'dtype': 'i2',
-                          'docstr': 'Tile numbers in the pass of the product granule.'}],
+                          'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
         ['proj_type', {'dtype': 'str',
                        'docstr': 'Raster projection type: utm or geo.'}],
         ['proj_res', {'dtype': 'f4',
                       'docstr': 'Raster projection resolution.'}],
         ['utm_num', {'dtype': 'i2',
-                     'docstr': 'UTM zone number. Valid only if proj_type is utm'}],
+                     'docstr': 'UTM zone number. Valid only if proj_type is utm.'}],
+        ['utm_band', {'dtype': 'str',
+                     'docstr': textjoin("""
+                     UTM latitude band from Military Grid Reference System (MGRS).
+                     Valid only if proj_type is utm. """)}],
         ['x_min', {'dtype': 'f4',
                    'docstr': 'Projection minimum x coordinate.'}],
         ['x_max', {'dtype': 'f4',
@@ -216,18 +222,6 @@ class Raster(Product):
                 ['coordinates', 'x y'],
                 ['comment', textjoin("""
                     Quality flag for raster data.""")],
-                ])],
-        ['rain_clim_flag',
-         odict([['dtype', 'i1'],
-                ['long_name', 'rain flag'],
-                ['flag_values', np.array([0, 1]).astype('i1')],
-                ['valid_min', 0],
-                ['valid_max', 1],
-                ['comment', textjoin("""
-                    Climatological rain flag indicating whether the pixel
-                    is impacted by rain on the day of the observation based on
-                    external climatological information (not the SWOT
-                    measurement).""")],
                 ])],
         ['ice_clim_flag',
          odict([['dtype', 'u1'],
