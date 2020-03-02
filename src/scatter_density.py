@@ -14,6 +14,9 @@ def scatter_density(x_in, y_in, bin_edges=100, cmap='jet'):
     """
     plot a 2d histogram with 50%-ile and |68|%-tile
     """
+    if len(y_in)<=0:
+        # dont try to plot empty arrays
+        return
     #exclude outliers
     msk = np.abs(y_in)<np.percentile(np.abs(y_in),95)
     x = x_in[msk]

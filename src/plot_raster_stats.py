@@ -134,9 +134,9 @@ def load_data(
         tile_metrics['height_uncert'] = data_tmp['height_uncert'][common_mask]
         tile_metrics['area_perc_err'] = area_perc_err[common_mask]
         tile_metrics['area_perc_uncert'] = area_perc_unc[common_mask]
-        tile_metrics['cross_track'] = data_tmp['cross_track'][common_mask]
-        tile_metrics['dark_frac'] = data_tmp['dark_frac'][common_mask]
-        tile_metrics['water_frac'] = data_tmp['water_frac'][common_mask]
+        tile_metrics['cross_track'] = truth_tmp['cross_track'][common_mask]
+        tile_metrics['dark_frac'] = truth_tmp['dark_frac'][common_mask]
+        tile_metrics['water_frac'] = truth_tmp['water_frac'][common_mask]
         tile_metrics['num_pixc_px'] = data_tmp['num_pixels'][common_mask]
         tile_metrics['total_px'] = np.count_nonzero(total_mask)
         tile_metrics['common_px'] = np.count_nonzero(common_mask)
