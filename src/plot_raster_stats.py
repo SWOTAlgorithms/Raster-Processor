@@ -61,24 +61,31 @@ def main():
 
             if os.path.isfile(gdem_name):
                 # call the function to do the work
-                tile_metrics = load_data(pixc_name, gdem_name,
-                                         scene=scene, min_pixels=args['min_pixels'])
+                tile_metrics = load_data(pixc_name, gdem_name, scene=scene,
+                                         dark_frac_thresh=args['dark_frac_thresh'],
+                                         water_frac_thresh=args['water_frac_thresh'],
+                                         height_uncert_thresh=args['height_uncert_thresh'],
+                                         cross_track_bounds=args['cross_track_bounds'],
+                                         min_pixels=args['min_pixels'])
                 metrics.append(tile_metrics)
     else:
         tile_metrics = load_data(args['pixc_raster'], args['gdem_raster'],
+                                 dark_frac_thresh=args['dark_frac_thresh'],
+                                 water_frac_thresh=args['water_frac_thresh'],
+                                 height_uncert_thresh=args['height_uncert_thresh'],
+                                 cross_track_bounds=args['cross_track_bounds'],
                                  min_pixels=args['min_pixels'])
         metrics.append(tile_metrics)
 
-    print_metrics(metrics, dark_thresh=args['dark_frac_thresh'],
-                  water_thresh=args['water_frac_thresh'],
-                  height_uncert_thresh=args['height_uncert_thresh'],
-                  cross_track_bounds=args['cross_track_bounds'],
+    print_metrics(metrics,
                   sort_key=args['sort_key'],
                   weighted=args['weighted'],
                   scatter_plot=args['scatter_plot'])
 
 def load_data(
-        pixc_file, gdem_file, scene='', min_pixels=None):
+        pixc_file, gdem_file, scene='', dark_frac_thresh=None,
+        water_frac_thresh=None, height_uncert_thresh=None,
+        cross_track_bounds=None, min_pixels=None):
     '''
     load reaches from a particular tile, compute metrics,
     and accumulate the data, truth and metrics (if input)
@@ -122,13 +129,64 @@ def load_data(
         truth_not_in_data_mask = np.logical_and(~truth_tmp['height'].mask, data_tmp['height'].mask)
         data_not_in_truth_mask = np.logical_and(~data_tmp['height'].mask, truth_tmp['height'].mask)
 
+        # Use additional filters to update masks
+        if dark_frac_thresh is not None:
+            common_mask = np.logical_and(
+                common_mask,
+                truth_tmp['dark_frac'] <= dark_frac_thresh)
+            truth_not_in_data_mask = np.logical_and(
+                truth_not_in_data_mask,
+                truth_tmp['dark_frac'] <= dark_frac_thresh)
+            data_not_in_truth_mask = np.logical_and(
+                data_not_in_truth_mask,
+                truth_tmp['dark_frac'] <= dark_frac_thresh)
+
+        if water_frac_thresh is not None:
+            common_mask = np.logical_and(
+                common_mask,
+                truth_tmp['water_frac'] >= water_frac_thresh)
+            truth_not_in_data_mask = np.logical_and(
+                truth_not_in_data_mask,
+                truth_tmp['water_frac'] >= water_frac_thresh)
+            data_not_in_truth_mask = np.logical_and(
+                data_not_in_truth_mask,
+                truth_tmp['water_frac'] >= water_frac_thresh)
+
+        if height_uncert_thresh is not None:
+            common_mask = np.logical_and(
+                common_mask,
+                data_tmp['height_uncert'] <= height_uncert_thresh)
+            truth_not_in_data_mask = np.logical_and(
+                truth_not_in_data_mask,
+                data_tmp['height_uncert'] <= height_uncert_thresh)
+            data_not_in_truth_mask = np.logical_and(
+                data_not_in_truth_mask,
+                data_tmp['height_uncert'] <= height_uncert_thresh)
+
+        if cross_track_bounds is not None:
+            common_mask = np.logical_and.reduce(
+                (common_mask,
+                 truth_tmp['cross_track'] >= min(cross_track_bounds),
+                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+            truth_not_in_data_mask = np.logical_and.reduce(
+                (truth_not_in_data_mask,
+                 truth_tmp['cross_track'] >= min(cross_track_bounds),
+                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+            data_not_in_truth_mask = np.logical_and.reduce(
+                (data_not_in_truth_mask,
+                 truth_tmp['cross_track'] >= min(cross_track_bounds),
+                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+
         if min_pixels is not None:
-            common_mask = np.logical_and(common_mask,
-                                         data_tmp['num_pixels'] >= min_pixels)
-            truth_not_in_data_mask = np.logical_and(truth_not_in_data_mask,
-                                                    data_tmp['num_pixels'] >= min_pixels)
-            data_not_in_truth_mask = np.logical_and(data_not_in_truth_mask,
-                                                    data_tmp['num_pixels'] >= min_pixels)
+            common_mask = np.logical_and(
+                common_mask,
+                data_tmp['num_pixels'] >= min_pixels)
+            truth_not_in_data_mask = np.logical_and(
+                truth_not_in_data_mask,
+                data_tmp['num_pixels'] >= min_pixels)
+            data_not_in_truth_mask = np.logical_and(
+                data_not_in_truth_mask,
+                data_tmp['num_pixels'] >= min_pixels)
 
         tile_metrics['height_err'] = height_err[common_mask]
         tile_metrics['height_uncert'] = data_tmp['height_uncert'][common_mask]
@@ -234,114 +292,6 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
                                           passfail=passfail)
 
-    # Additional metrics with different parameter thresholds:
-    # Global metrics with high height certainty
-    if height_uncert_thresh is not None:
-        height_uncert_mask = np.concatenate([tile_metrics['height_uncert'] <= height_uncert_thresh for tile_metrics in metrics])
-        if weighted:
-            global_table_height_uncert_thresh = make_global_table(all_height_err,
-                                                                  all_area_perc_err,
-                                                                  height_weight=1/np.square(all_height_uncert),
-                                                                  area_weight=1/np.square(all_area_perc_uncert),
-                                                                  mask=height_uncert_mask)
-        else:
-            global_table_height_uncert_thresh = make_global_table(all_height_err,
-                                                                  all_area_perc_err,
-                                                                  mask=height_uncert_mask)
-        print('Global metrics (' + weight_desc + ', excluding pixels with height uncert over {}m):'.format(height_uncert_thresh))
-        SWOTRiver.analysis.tabley.print_table(global_table_height_uncert_thresh,
-                                              precision=5, passfail=passfail)
-
-        global_table_height_uncert_thresh = make_global_table(all_height_err/all_height_uncert,
-                                                              all_area_perc_err/all_area_perc_uncert,
-                                                              height_prefix='h_e/h_u_',
-                                                              area_prefix='a_%e/a_%u_',
-                                                              mask=height_uncert_mask)
-        print('Global metrics (normalized by uncertainties; excluding pixels with height uncert over {}m):'.format(height_uncert_thresh))
-        SWOTRiver.analysis.tabley.print_table(global_table_height_uncert_thresh,
-                                              precision=5, passfail=passfail)
-
-    # Global metrics without darkwater
-    if dark_thresh is not None:
-        dark_thresh_mask = np.concatenate([tile_metrics['dark_frac'] <= dark_thresh for tile_metrics in metrics])
-        if weighted:
-            global_table_dark_thresh = make_global_table(all_height_err,
-                                                         all_area_perc_err,
-                                                         height_weight=1/np.square(all_height_uncert),
-                                                         area_weight=1/np.square(all_area_perc_uncert),
-                                                         mask=dark_thresh_mask)
-        else:
-            global_table_dark_thresh = make_global_table(all_height_err,
-                                                         all_area_perc_err,
-                                                         mask=dark_thresh_mask)
-
-        print('Global metrics (' + weight_desc + ', excluding pixels with dark water area over {}%):'.format(dark_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_dark_thresh,
-                                              precision=5, passfail=passfail)
-
-        global_table_dark_thresh = make_global_table(all_height_err/all_height_uncert,
-                                                     all_area_perc_err/all_area_perc_uncert,
-                                                     height_prefix='h_e/h_u_',
-                                                     area_prefix='a_%e/a_%u_',
-                                                     mask=dark_thresh_mask)
-        print('Global metrics (normalized by uncertainties; excluding pixels with dark water area over {}%):'.format(dark_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_dark_thresh,
-                                              precision=5, passfail=passfail)
-
-    # Global metrics without land pixels
-    if water_thresh is not None:
-        water_thresh_mask = np.concatenate([tile_metrics['water_frac'] >= water_thresh for tile_metrics in metrics])
-        if weighted:
-            global_table_water_thresh = make_global_table(all_height_err,
-                                                          all_area_perc_err,
-                                                          height_weight=1/np.square(all_height_uncert),
-                                                          area_weight=1/np.square(all_area_perc_uncert),
-                                                          mask=water_thresh_mask)
-        else:
-            global_table_water_thresh = make_global_table(all_height_err,
-                                                          all_area_perc_err,
-                                                          mask=water_thresh_mask)
-
-        print('Global metrics (' + weight_desc + 'excluding pixels with water fraction under {}%):'.format(water_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_water_thresh,
-                                              precision=5, passfail=passfail)
-
-        global_table_water_thresh = make_global_table(all_height_err/all_height_uncert,
-                                                      all_area_perc_err/all_area_perc_uncert,
-                                                      height_prefix='h_e/h_u_',
-                                                      area_prefix='a_%e/a_%u_',
-                                                      mask=water_thresh_mask)
-        print('Global metrics (normalized by uncertainties; excluding pixels with water fraction under {}%):'.format(water_thresh*100))
-        SWOTRiver.analysis.tabley.print_table(global_table_water_thresh,
-                                              precision=5, passfail=passfail)
-
-    # Global metrics with crosstrack bounds
-    if cross_track_bounds is not None:
-        cross_track_bounds_mask = np.concatenate([np.logical_and(np.abs(tile_metrics['cross_track']) >= min(cross_track_bounds),
-                                                                 np.abs(tile_metrics['cross_track']) <= max(cross_track_bounds)) for tile_metrics in metrics])
-        if weighted:
-            global_table_cross_track_bounds = make_global_table(all_height_err,
-                                                                all_area_perc_err,
-                                                                height_weight=1/np.square(all_height_uncert),
-                                                                area_weight=1/np.square(all_area_perc_uncert),
-                                                                mask=cross_track_bounds_mask)
-        else:
-            global_table_cross_track_bounds = make_global_table(all_height_err,
-                                                                all_area_perc_err,
-                                                                mask=cross_track_bounds_mask)
-
-        print('Global metrics (' + weight_desc + 'cross_track bounds [{}, {}]m):'.format(min(cross_track_bounds), max(cross_track_bounds)))
-        SWOTRiver.analysis.tabley.print_table(global_table_cross_track_bounds,
-                                              precision=5, passfail=passfail)
-
-        global_table_cross_track_bounds = make_global_table(all_height_err/all_height_uncert,
-                                                            all_area_perc_err/all_area_perc_uncert,
-                                                            height_prefix='h_e/h_u_',
-                                                            area_prefix='a_%e/a_%u_',
-                                                            mask=cross_track_bounds_mask)
-        print('Global metrics (normalized by uncertainties; cross_track bounds [{}, {}]m):'.format(min(cross_track_bounds), max(cross_track_bounds)))
-        SWOTRiver.analysis.tabley.print_table(global_table_cross_track_bounds,
-                                              precision=5, passfail=passfail)
 
     metrics_to_plot = {'Height Error (m)':all_height_err,
                        'Area Percent Error (%)':all_area_perc_err}
