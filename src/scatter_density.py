@@ -10,14 +10,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mpl_scatter_density
 
-def scatter_density(x_in, y_in, bin_edges=100, cmap='jet'):
+def scatter_density(
+        x_in, y_in, bin_edges=100, cmap='jet', exclude_outliers=True):
     """
     plot a 2d histogram with 50%-ile and |68|%-tile
     """
-    #exclude outliers
-    msk = np.abs(y_in)<np.percentile(np.abs(y_in),95)
-    x = x_in[msk]
-    y = y_in[msk]
+    if len(y_in)<=0:
+        # dont try to plot empty arrays
+        return
+    x = x_in
+    y = y_in
+    if exclude_outliers:
+        msk = np.abs(y_in)<np.percentile(np.abs(y_in),95)
+        x = x_in[msk]
+        y = y_in[msk]
 
     h, binsy, binsx = np.histogram2d(y, x, bins=bin_edges)
     extent = [np.min(binsx), np.max(binsx),
