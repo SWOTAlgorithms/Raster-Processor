@@ -231,6 +231,7 @@ class Worker(object):
         raster_data.cycle_number = self.pixc.cycle_number
         raster_data.pass_number = self.pixc.pass_number
         raster_data.tile_numbers = self.pixc.tile_number
+        raster_data.tile_names = self.pixc.tile_name
         raster_data.proj_type = self.proj_info['proj_type']
         raster_data.proj_res = self.proj_info['proj_res']
         raster_data.utm_num = self.proj_info['utm_num']

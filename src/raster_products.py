@@ -66,6 +66,11 @@ class Raster(Product):
                           'docstr': 'Scene number of the product granule.'}],
         ['tile_numbers', {'dtype': 'i2',
                           'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
+        ['tile_names', {'dtype': 'str',
+                        'docstr': textjoin("""
+                        Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
+                        pass number with leading zeros, TTT is a 3 digit tile number within the pass,
+                        and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
         ['proj_type', {'dtype': 'str',
                        'docstr': 'Raster projection type: utm or geo.'}],
         ['proj_res', {'dtype': 'f4',

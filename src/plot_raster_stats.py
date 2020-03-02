@@ -42,7 +42,7 @@ def main():
 
     basedir = args['basedir']
     metrics = []
-    if  basedir is not None:
+    if basedir is not None:
         # log all plots in subdirectory of wherever the data is
         raster_list = glob.glob(os.path.join(basedir, '**', args['pixc_raster']), recursive=True)
         for pixc_name in raster_list:
@@ -97,13 +97,11 @@ def load_data(
     tile_metrics = {}
     tile_metrics['scene'] = str(scene)
     tile_metrics['cycle'] = str(data_tmp.cycle_number)
-    tile_metrics['pass'] = str(data_tmp.pass_number)
-    tile_metrics['tiles'] = str(data_tmp.tile_numbers)
-    print('Loading data for scene: {}, cycle: {}, pass: {}, tiles: {}'.format(
+    tile_metrics['tile_names'] = data_tmp.tile_names
+    print('Loading data for scene: {}, cycle: {}, tiles: {}'.format(
         tile_metrics['scene'],
         tile_metrics['cycle'],
-        tile_metrics['pass'],
-        tile_metrics['tiles']))
+        tile_metrics['tile_names']))
 
     # Handle potentially empty files
     if data_tmp['height'].size==0 or truth_tmp['height'].size==0:
@@ -322,8 +320,7 @@ def append_tile_table(tile_metrics, tile_table={},
                       'uncommon_px_data_%':[],
                       'scene':[],
                       'cycle':[],
-                      'pass':[],
-                      'tiles':[],}
+                      'tile_names':[],}
 
     height_err = tile_metrics['height_err']
     area_perc_err = tile_metrics['area_perc_err']
@@ -365,8 +362,7 @@ def append_tile_table(tile_metrics, tile_table={},
         tile_table['uncommon_px_data_%'].append(0)
     tile_table['scene'].append(tile_metrics['scene'])
     tile_table['cycle'].append(tile_metrics['cycle'])
-    tile_table['pass'].append(tile_metrics['pass'])
-    tile_table['tiles'].append(tile_metrics['tiles'])
+    tile_table['tile_names'].append(tile_metrics['tile_names'])
     return tile_table
 
 def make_global_table(all_height_err, all_area_perc_err,
