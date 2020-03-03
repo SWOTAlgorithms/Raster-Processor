@@ -83,6 +83,7 @@ class Worker(object):
         Pmd = pixc_group['missed_detection_rate'][:]
         cross_trk = pixc_group['cross_track'][:]
         sig0 = pixc_group['sig0'][:]
+        inc = pixc_group['inc'][:]
 
         height_std_pix = np.abs(phase_noise_std * dh_dphi)
         # set bad pix height std to high number to deweight
@@ -155,7 +156,7 @@ class Worker(object):
             for j in range(0, self.proj_info['size_x']):
                 if len(proj_mapping[i][j]) != 0:
                     good = mask[proj_mapping[i][j]]
-                    # exclude land edges from height aggregation
+                    # Aggregate heights excluding land edges
                     good_heights = np.logical_and(good,
                         klass_tmp[proj_mapping[i][j]]!=LAND_EDGE_KLASS)
                     grid_height = ag.height_with_uncerts(
@@ -176,6 +177,7 @@ class Worker(object):
                     out_h[i][j] = grid_height[0]
                     out_h_uc[i][j] = grid_height[2]
 
+                    # Aggregate areas
                     grid_area = ag.area_with_uncert(
                         pixel_area[proj_mapping[i][j]],
                         water_fraction[proj_mapping[i][j]],
@@ -195,9 +197,11 @@ class Worker(object):
                     out_area_frac[i][j] = grid_area[0]/(self.proj_info['proj_res']**2)
                     out_area_frac_uc[i][j] = grid_area[1]/(self.proj_info['proj_res']**2)
 
+                    # Aggregate cross_track
                     out_cross_trk[i][j] = ag.simple(
                         cross_trk[proj_mapping[i][j]][good])
 
+                    # Aggregate sigma0
                     out_sig0[i][j] = ag.simple(
                         sig0[proj_mapping[i][j]][good], metric='mean')
                     out_sig0_std[i][j] = ag.height_uncert_std(
@@ -206,12 +210,20 @@ class Worker(object):
                         num_rare_looks[proj_mapping[i][j]],
                         num_med_looks[proj_mapping[i][j]])
 
+                    # Aggregate incidence angle
+                    out_inc[i][j] = ag.simple(
+                        inc[proj_mapping[i][j]][good], metric='mean')
+
+                    # Aggregate number of pixels
                     out_num_pixels[i][j] = ag.simple(good, metric='sum')
+
+                    # Aggregate dark fraction
                     out_dark_frac[i][j] = self.calc_dark_frac(
                         pixel_area[proj_mapping[i][j]][good],
                         klass[proj_mapping[i][j]][good],
                         water_fraction[proj_mapping[i][j]][good])
 
+                    # Aggregate binary classification
                     if self.debug_flag:
                         out_classification[i][j] = ag.simple(
                             klass[proj_mapping[i][j]][good], metric='mode')
@@ -255,6 +267,7 @@ class Worker(object):
         raster_data['cross_track'] = out_cross_trk
         raster_data['sig0'] = out_sig0
         raster_data['sig0_uncert'] = out_sig0_std
+        raster_data['inc'] = out_inc
         raster_data['num_pixels'] = out_num_pixels
         raster_data['dark_frac'] = out_dark_frac
 
