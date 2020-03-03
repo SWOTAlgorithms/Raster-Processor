@@ -105,6 +105,16 @@ class Raster(Product):
                 ['comment', textjoin("""
                     Number of contributing pixelcloud pixels""")],
                 ])],
+        ['inc',
+         odict([['dtype', 'f4'],
+                ['long_name', 'incidence angle'],
+                ['units', 'degrees'],
+                ['valid_min', 0],
+                ['valid_max', 999999],
+                ['coordinates', 'x y'],
+                ['comment', textjoin("""
+                    Incidence angle.""")],
+                ])],
         ['sig0',
          odict([['dtype', 'f4'],
                 ['long_name', 'sigma0'],
