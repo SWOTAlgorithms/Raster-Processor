@@ -177,16 +177,16 @@ def load_data(
         if cross_track_bounds is not None:
             common_mask = np.logical_and.reduce(
                 (common_mask,
-                 truth_tmp['cross_track'] >= min(cross_track_bounds),
-                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+                 np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
+                 np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
             truth_not_in_data_mask = np.logical_and.reduce(
                 (truth_not_in_data_mask,
-                 truth_tmp['cross_track'] >= min(cross_track_bounds),
-                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+                 np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
+                 np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
             data_not_in_truth_mask = np.logical_and.reduce(
                 (data_not_in_truth_mask,
-                 truth_tmp['cross_track'] >= min(cross_track_bounds),
-                 truth_tmp['cross_track'] <= max(cross_track_bounds)))
+                 np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
+                 np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
 
         if min_pixels is not None:
             common_mask = np.logical_and(
