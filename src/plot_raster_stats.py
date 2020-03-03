@@ -77,6 +77,18 @@ def main():
                                  min_pixels=args['min_pixels'])
         metrics.append(tile_metrics)
 
+    print('\033[93m' + 'Accumulating Metrics:' + '\033[00m')
+    if args['dark_frac_thresh'] is not None:
+        print('\033[93m' + 'Dark frac <= {}'.format(args['dark_frac_thresh']) + '\033[00m')
+    if args['water_frac_thresh'] is not None:
+        print('\033[93m' + 'Water frac >= {}'.format(args['water_frac_thresh']) + '\033[00m')
+    if args['height_uncert_thresh'] is not None:
+        print('\033[93m' + 'Height uncert <= {}'.format(args['height_uncert_thresh']) + '\033[00m')
+    if args['cross_track_bounds'] is not None:
+        print('\033[93m' + 'Cross track bounds = {}'.format(args['cross_track_bounds']) + '\033[00m')
+    if args['min_pixels'] is not None:
+        print('\033[93m' + 'Min pixels = {}'.format(args['min_pixels']) + '\033[00m')
+
     print_metrics(metrics,
                   sort_key=args['sort_key'],
                   weighted=args['weighted'],
@@ -239,7 +251,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
         weight_desc = 'inverse variance weight'
     else:
         weight_desc = 'unweighted'
-    print('Tile metrics (' + weight_desc + ', heights in meters):')
+    print('Tile metrics (' + weight_desc + ', heights in m):')
     SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
                                           passfail=passfail)
 
@@ -434,7 +446,7 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=
                     plt.title('{} vs. {}'.format(y_key, x_key))
                     plt.xlabel(x_key)
                     plt.ylabel(y_key)
-    
+
     plt.show()
     warnings.resetwarnings()
 
