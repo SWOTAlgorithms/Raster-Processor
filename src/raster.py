@@ -145,6 +145,7 @@ class Worker(object):
         out_cross_trk = raster_data['cross_track'].fill_value*ones_result
         out_sig0 = raster_data['sig0'].fill_value*ones_result
         out_sig0_std = raster_data['sig0_uncert'].fill_value*ones_result
+        out_inc = raster_data['inc'].fill_value*ones_result
         out_num_pixels = raster_data['num_pixels'].fill_value*ones_result
         out_dark_frac = raster_data['dark_frac'].fill_value*ones_result
 
