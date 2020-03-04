@@ -21,8 +21,6 @@ from metrics import *
 
 from pathlib import Path
 
-import scipy.io as sio
-
 import warnings
 
 def main():
@@ -381,19 +379,6 @@ def append_tile_table(tile_metrics, tile_table={},
 def make_global_table(all_height_err, all_area_perc_err,
                       height_weight=None, area_weight=None,
                       height_prefix='h_e_', area_prefix='a_%e_', mask=None):
-
-    if height_weight is not None and area_weight is not None:
-        height_tmp = height_weight.filled(np.nan)
-        area_tmp = area_weight.filled(np.nan)
-        all_height_err_tmp = all_height_err[~np.isnan(height_tmp)]
-        height_weight_tmp = height_weight[~np.isnan(height_tmp)]
-        all_area_perc_err_tmp = all_area_perc_err[~np.isnan(area_tmp)]
-        area_weight_tmp = area_weight[~np.isnan(area_tmp)]
-        sio.savemat('out.mat', {'all_height_err':all_height_err_tmp,
-                                'height_weight':height_weight_tmp,
-                                'all_area_perc_err':all_area_perc_err_tmp,
-                                'area_weight':area_weight_tmp})
-
     height_err_metrics = compute_metrics_from_error(all_height_err,
                                                     weights=height_weight,
                                                     mask=mask)
