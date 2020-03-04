@@ -300,17 +300,6 @@ class Raster(Product):
                     correction to refer the value to the mean tide system,
                     i.e. includes the permanent tide (zero frequency).""")],
                 ])],
-        ['geoid_slope',
-         odict([['dtype', 'f4'],
-                ['long_name', 'geoid slope'],
-                ['units', 'm/m'],
-                ['valid_min', -150],
-                ['valid_max', 150],
-                ['coordinates', 'x y'],
-                ['comment', textjoin("""
-                    Geoid slope calculated based on the
-                    EGM2008 (Pavlis et al., 2012) geoid.""")],
-                ])],
         ['solid_earth_tide',
          odict([['dtype', 'f4'],
                 ['long_name', 'solid Earth tide height'],
