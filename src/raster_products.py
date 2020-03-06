@@ -4,12 +4,16 @@ Product description for the raster processor
 Author (s): Alexander Corben
 
 '''
+import utm
+import logging
 import textwrap
 import numpy as np
 
 from netCDF4 import Dataset
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product
+
+LOGGER = logging.getLogger(__name__)
 
 def textjoin(text):
     """Dedent join and strip text"""
@@ -66,6 +70,11 @@ class Raster(Product):
                           'docstr': 'Scene number of the product granule.'}],
         ['tile_numbers', {'dtype': 'i2',
                           'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
+        ['tile_names', {'dtype': 'str',
+                        'docstr': textjoin("""
+                        Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
+                        pass number with leading zeros, TTT is a 3 digit tile number within the pass,
+                        and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
         ['proj_type', {'dtype': 'str',
                        'docstr': 'Raster projection type: utm or geo.'}],
         ['proj_res', {'dtype': 'f4',
@@ -134,27 +143,27 @@ class Raster(Product):
                 ['comment', textjoin("""
                     Fraction of pixel water area covered by dark water.""")],
                 ])],
-        ['height',
+        ['wse',
          odict([['dtype', 'f4'],
-                ['long_name', 'height above reference ellipsoid'],
+                ['long_name', 'water surface elevation above geoid'],
                 ['units', 'm'],
                 ['valid_min', -1500],
                 ['valid_max', 15000],
                 ['coordinates', 'x y'],
                 ['comment', textjoin("""
-                    'Height of the pixel above the reference ellipsoid.""")],
+                    'Water surface elevation of the pixel above the geoid.""")],
                 ])],
-        ['height_uncert',
+        ['wse_uncert',
          odict([['dtype', 'f4'],
                 ['long_name',
-                 'total uncertainty in the height above reference ellipsoid'],
+                 'total uncertainty in the water surface elevation above geoid'],
                 ['units', 'm'],
                 ['valid_min', 0],
                 ['valid_max', 100],
                 ['coordinates', 'x y'],
                 ['comment', textjoin("""
-                    Total one-sigma uncertainty in the height above reference
-                    ellipsoid including uncertainties of corrections.""")],
+                    Total one-sigma uncertainty in the water surface elevation
+                    above geoid including uncertainties of corrections.""")],
                 ])],
         ['water_area',
          odict([['dtype', 'f4'],
@@ -417,6 +426,46 @@ class Raster(Product):
         reference['dimensions'] = odict([['ydim', 0], ['xdim', 0]])
     VARIABLES['x']['dimensions'] = odict([['xdim', 0]])
     VARIABLES['y']['dimensions'] = odict([['ydim', 0]])
+
+    def get_raster_mapping(self, pixc, mask):
+        LOGGER.info('Getting raster mapping')
+        lats = pixc['pixel_cloud']['latitude']
+        lons = np.mod(pixc['pixel_cloud']['longitude'] + 180, 360) - 180
+        klass = pixc['pixel_cloud']['classification']
+
+        # maps all pixels to the corresponding raster bins
+        x_tmp=[]
+        y_tmp=[]
+        mapping_tmp = []
+
+        if self.proj_type=='geo':
+            x_tmp = lons
+            y_tmp = lats
+        elif self.proj_type=='utm':
+            for x in range(0,len(lats)):
+                if mask[x]:
+                    u_x, u_y, u_num, u_zone = utm.from_latlon(
+                        lats[x], lons[x], force_zone_number=self.utm_num)
+                    x_tmp.append(u_x)
+                    y_tmp.append(u_y)
+                else:
+                    x_tmp.append(0)
+                    y_tmp.append(0)
+
+        for i in range(0, self.dimensions['ydim']):
+            mapping_tmp.append([])
+            for j in range(0, self.dimensions['xdim']):
+                mapping_tmp[i].append([])
+
+        for x in range(0,len(lats)):
+            i = round((y_tmp[x] - self.y_min) / self.proj_res).astype(int)
+            j = round((x_tmp[x] - self.x_min) / self.proj_res).astype(int)
+            # check bounds
+            if (i >= 0 and i < self.dimensions['ydim'] and
+                j >= 0 and j < self.dimensions['xdim']):
+                mapping_tmp[i][j].append(x)
+        return mapping_tmp
+
 
 class RasterDebug(Raster):
     ATTRIBUTES = odict({key:Raster.ATTRIBUTES[key].copy()

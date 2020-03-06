@@ -30,8 +30,6 @@ class GeolocRaster(object):
         logger.info("GeolocRaster initialization")
 
         self.pixc = pixc
-        self.meta_pixc = pixc.pixel_cloud
-        self.meta_tvp = pixc.tvp
         self.raster = raster
         self.raster_config = raster_config
 
@@ -39,30 +37,22 @@ class GeolocRaster(object):
         """
         Update pixelcloud heights from raster
         """
-        self.new_height = np.nan * np.ones_like(self.meta_pixc.height)
+        self.new_height = np.ma.all_masked_like(self.pixc['pixel_cloud'].height)
 
-        corners = ((self.pixc.inner_first_latitude, raster.lon_360to180(self.pixc.inner_first_longitude)),
-                   (self.pixc.inner_last_latitude, raster.lon_360to180(self.pixc.inner_last_longitude)),
-                   (self.pixc.outer_first_latitude, raster.lon_360to180(self.pixc.outer_first_longitude)),
-                   (self.pixc.outer_last_latitude, raster.lon_360to180(self.pixc.outer_last_longitude)))
+        pixc_mask = raster.get_pixc_mask(self.pixc)
+        pixc_mask = np.logical_and(
+            pixc_mask,
+            np.isin(self.pixc['pixel_cloud']['classification'],
+                    np.concatenate((self.raster_config['interior_water_classes'],
+                                    self.raster_config['water_edge_classes'],
+                                    self.raster_config['land_edge_classes'],
+                                    self.raster_config['dark_water_classes']))))
+        proj_mapping = raster.get_raster_mapping(self.pixc, pixc_mask)
 
-        proj_info = raster.create_projection_from_bbox(corners,
-                                                       self.raster_config['projection_type'],
-                                                       self.raster_config['improved_geolocation_res'],
-                                                       self.raster_config['improved_geolocation_buffer_size'])
-        klass_tmp = raster.get_raster_classes(self.meta_pixc['classification'][:], self.raster_config)
-        mask = raster.get_pixc_mask(self.pixc)
-        proj_mapping = raster.get_raster_mapping(self.meta_pixc.latitude,
-                                            raster.lon_360to180(self.meta_pixc.longitude),
-                                            klass_tmp,
-                                            mask,
-                                            proj_info)
-
-        for i in range(0, proj_info['size_y']):
-            for j in range(0, proj_info['size_x']):
+        for i in range(0, self.raster.size_y):
+            for j in range(0, self.raster.size_x):
                 for k in proj_mapping[i][j]:
                     self.new_height[k] = self.raster.height[i][j]
-
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
@@ -77,25 +67,25 @@ class GeolocRaster(object):
         """
         Improve the height of noisy point (in object sensor)
         """
-        nb_pix = self.meta_pixc['height'].size
+        nb_pix = self.pixc['pixel_cloud']['height'].size
         # Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
-        x, y, z = geoloc.convert_llh2ecef(self.meta_pixc['latitude'],
-                                          self.meta_pixc['longitude'],
-                                          self.meta_pixc['height'],
+        x, y, z = geoloc.convert_llh2ecef(self.pixc['pixel_cloud']['latitude'],
+                                          self.pixc['pixel_cloud']['longitude'],
+                                          self.pixc['pixel_cloud']['height'],
                                           GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
 
         # Get position of associated along-track pixels (in cartesian coordinates)
-        nadir_x = self.meta_tvp['x']
-        nadir_y = self.meta_tvp['y']
-        nadir_z = self.meta_tvp['z']
+        nadir_x = self.pixc['tvp']['x']
+        nadir_y = self.pixc['tvp']['y']
+        nadir_z = self.pixc['tvp']['z']
 
         # Get velocity of associated along-track pixels (in cartesian coordinates)
-        nadir_vx = self.meta_tvp['vx']
-        nadir_vy = self.meta_tvp['vy']
-        nadir_vz = self.meta_tvp['vz']
+        nadir_vx = self.pixc['tvp']['vx']
+        nadir_vy = self.pixc['tvp']['vy']
+        nadir_vz = self.pixc['tvp']['vz']
 
         # Get distance from satellite to target point
-        ri = self.pixc.near_range + self.meta_pixc['range_index'] * self.pixc.nominal_slant_range_spacing
+        ri = self.pixc.near_range + self.pixc['pixel_cloud']['range_index'] * self.pixc.nominal_slant_range_spacing
 
         # Init output vectors
         self.out_lat_corr = np.zeros(nb_pix)  # Improved latitudes
@@ -105,13 +95,13 @@ class GeolocRaster(object):
         # need to remap illumnation time to nearest sensor index
         # TODO replace this by a call to a get_sensor_index or equivalent function
         # that either interpolates the sensor or does something more efficient
-        f = interpolate.interp1d(self.meta_tvp['time'], range(len(self.meta_tvp['time'])))
-        illumination_time = self.meta_pixc['illumination_time'].data[~self.meta_pixc['illumination_time'].mask]
+        f = interpolate.interp1d(self.pixc['tvp']['time'], range(len(self.pixc['tvp']['time'])))
+        illumination_time = self.pixc['pixel_cloud']['illumination_time'].data[~self.pixc['pixel_cloud']['illumination_time'].mask]
         sensor_s = (np.rint(f(illumination_time))).astype(int).T
 
         # Loop over each pixel (could be vectorized)
         # vectorisation
-        h_noisy = self.meta_pixc['height']
+        h_noisy = self.pixc['pixel_cloud']['height']
         nadir_x_vect = np.zeros(nb_pix)
         nadir_y_vect = np.zeros(nb_pix)
         nadir_z_vect = np.zeros(nb_pix)
@@ -173,6 +163,6 @@ if __name__ == "__main__":
     out_lat, out_lon, out_height = geoloc_raster(pixc_prod,
                                                  raster_prod,
                                                  raster_config)
-    pixc_prod.pixel_cloud['latitude'][:] = out_lat
-    pixc_prod.pixel_cloud['longitude'][:] = out_lon
+    pixc_prod['pixel_cloud']['latitude'][:] = out_lat
+    pixc_prod['pixel_cloud']['longitude'][:] = out_lon
     pixc_prod.to_ncfile(args.out_pixc_file)
