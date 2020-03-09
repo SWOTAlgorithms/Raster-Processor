@@ -122,7 +122,9 @@ def load_data(
         tile_metrics['area_perc_uncert'] = np.array([np.nan])
         tile_metrics['cross_track'] = np.array([np.nan])
         tile_metrics['dark_frac'] = np.array([np.nan])
+        tile_metrics['dark_frac_err'] = np.array([np.nan])
         tile_metrics['water_frac'] = np.array([np.nan])
+        tile_metrics['water_frac_err'] = np.array([np.nan])
         tile_metrics['num_pixc_px'] = np.array([np.nan])
         tile_metrics['total_px'] = truth_tmp['height'].count() + data_tmp['height'].count()
         tile_metrics['common_px'] = 0
@@ -133,6 +135,8 @@ def load_data(
         area_err = data_tmp['water_area'] - truth_tmp['water_area']
         area_perc_err = area_err / truth_tmp['water_area'] * 100
         area_perc_unc = data_tmp['water_area_uncert'] / truth_tmp['water_area'] * 100
+        water_frac_err = data_tmp['water_frac'] - truth_tmp['water_frac']
+        dark_frac_err = data_tmp['dark_frac'] - truth_tmp['dark_frac']
         total_mask = np.logical_or(~truth_tmp['height'].mask, ~data_tmp['height'].mask)
         common_mask = np.logical_and(~truth_tmp['height'].mask, ~data_tmp['height'].mask)
         truth_not_in_data_mask = np.logical_and(~truth_tmp['height'].mask, data_tmp['height'].mask)
@@ -203,7 +207,9 @@ def load_data(
         tile_metrics['area_perc_uncert'] = area_perc_unc[common_mask]
         tile_metrics['cross_track'] = truth_tmp['cross_track'][common_mask]
         tile_metrics['dark_frac'] = truth_tmp['dark_frac'][common_mask]
+        tile_metrics['dark_frac_err'] = dark_frac_err[common_mask] 
         tile_metrics['water_frac'] = truth_tmp['water_frac'][common_mask]
+        tile_metrics['water_frac_err'] = water_frac_err[common_mask]
         tile_metrics['num_pixc_px'] = data_tmp['num_pixels'][common_mask]
         tile_metrics['total_px'] = np.count_nonzero(total_mask)
         tile_metrics['common_px'] = np.count_nonzero(common_mask)
@@ -260,7 +266,9 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
 
     # Concatenate tiles for global metrics
     all_dark_frac = np.ma.concatenate(tuple(tile_metrics['dark_frac'] for tile_metrics in metrics))
+    all_dark_frac_err = np.ma.concatenate(tuple(tile_metrics['dark_frac_err'] for tile_metrics in metrics))
     all_water_frac = np.ma.concatenate(tuple(tile_metrics['water_frac'] for tile_metrics in metrics))
+    all_water_frac_err = np.ma.concatenate(tuple(tile_metrics['water_frac_err'] for tile_metrics in metrics))
     all_height_err = np.ma.concatenate(tuple(tile_metrics['height_err'] for tile_metrics in metrics))
     all_height_uncert = np.ma.concatenate(tuple(tile_metrics['height_uncert'] for tile_metrics in metrics))
     all_area_perc_err = np.ma.concatenate(tuple(tile_metrics['area_perc_err'] for tile_metrics in metrics))
@@ -303,14 +311,22 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
 
 
     metrics_to_plot = {'Height Error (m)':all_height_err,
-                       'Area Percent Error (%)':all_area_perc_err}
+                       'Area Percent Error (%)':all_area_perc_err,
+                       'Water Fraction Error (%)':all_water_frac_err*100,
+                       'Dark Fraction Error (%)':all_dark_frac_err*100}
+
+    uncert_to_plot = {'Height Error (m)':all_height_uncert,
+                       'Area Percent Error (%)':all_area_perc_uncert,
+                       'Water Fraction Error (%)':None,
+                       'Dark Fraction Error (%)':None}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
                                'Num Pixels':all_pixc_px,
                                'Dark Fraction (%)':all_dark_frac*100,
                                'Water Fraction (%)':all_water_frac*100}
 
-    plot_metrics(metrics_to_plot, metrics_to_plot_against, scatter_plot=scatter_plot)
+    plot_metrics(metrics_to_plot, metrics_to_plot_against,
+        uncert_to_plot=uncert_to_plot, scatter_plot=scatter_plot)
 
 def append_tile_table(tile_metrics, tile_table={},
                       height_prefix='h_e_', area_prefix='a_%e_',
@@ -398,7 +414,8 @@ def make_global_table(all_height_err, all_area_perc_err,
 
     return global_table
 
-def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=False):
+def plot_metrics(metrics_to_plot, metrics_to_plot_against,
+                 uncert_to_plot=None, poly=2, scatter_plot=False):
     warnings.simplefilter("ignore")
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
@@ -407,6 +424,10 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=
                                       ~np.isnan(metrics_to_plot_against[x_key]))
                 this_y_data = metrics_to_plot[y_key][mask]
                 this_x_data = metrics_to_plot_against[x_key][mask]
+                this_uncert = None
+                if uncert_to_plot is not None:
+                    if uncert_to_plot[y_key] is not None:
+                        this_uncert = uncert_to_plot[y_key][mask]
 
                 if scatter_plot:
                     plt.figure()
@@ -434,7 +455,12 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against, poly=2, scatter_plot=
                     if ('Water Fraction (%)' in x_key) or (
                             'Dark Fraction (%)' in x_key):
                         bin_edges = (100, np.linspace(0,100,100))
-                    scatter_density(this_x_data, this_y_data, bin_edges)
+                    if ('Cross Track (m)' in x_key):
+                        # don't do signed cross-track in the plot to 
+                        # make it easier to read
+                        this_x_data = np.abs(this_x_data)
+                    scatter_density(this_x_data, this_y_data,
+                        uncert=this_uncert, bin_edges=bin_edges)
                     plt.title('{} vs. {}'.format(y_key, x_key))
                     plt.xlabel(x_key)
                     plt.ylabel(y_key)

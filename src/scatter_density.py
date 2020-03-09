@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import mpl_scatter_density
 from metrics import compute_metrics_from_error
 
-def scatter_density(
-        x_in, y_in, bin_edges=100, cmap='jet', exclude_outliers=True):
+def scatter_density(x_in, y_in,
+        uncert=None, bin_edges=100, cmap='jet', exclude_outliers=True):
     """
     plot a 2d histogram with 50%-ile and |68|%-tile
     """
@@ -50,20 +50,43 @@ def scatter_density(
     # plot the 50%-ile and |68|%-ile
     p50 = []
     p68 = []
+    unc = []
+    unc_med = []
     for start, stop in zip(binsx[:-1],binsx[1:]):
-        this_y = y[np.logical_and(x>=start, x<=stop)]
+        msk = np.logical_and(x>=start, x<=stop)
+        this_y = y[msk]
         metrics = compute_metrics_from_error(this_y)
         p50.append(metrics['50_pct'])
         p68.append(metrics['|68_pct|'])
+        if uncert is not None:
+            if len(uncert[msk])>0:
+                unc_med.append(np.nanmedian(uncert[msk]))
+                unc.append(np.nanmean(uncert[msk]))
+            else:
+                unc_med.append(np.nan)
+                unc.append(np.nan)
     metrics = compute_metrics_from_error(y)
     p50 = np.array(p50)
     p68 = np.array(p68)
+    unc = np.array(unc)
+    unc_med = np.array(unc_med)
+
     binsx_cen = binsx[:-1] + (binsx[1]-binsx[0]) / 2.0
     plt.plot(binsx_cen, p50,'--k')
     plt.plot(binsx_cen, p68,'x-g')
+    leg_text = ['50%-ile   '+'(Tot: %2.4f)'%(metrics['50_pct']),
+        '|68|%-ile '+'(Tot: %2.4f)'%(metrics['|68_pct|']),]
+    if uncert is not None:
+        #plt.plot(binsx_cen, unc,'--b')
+        plt.plot(binsx_cen, unc_med,'-b')
+        plt.plot(binsx_cen, -unc_med,'-b')
+        #plt.plot(binsx_cen, -unc,'--b')
+        #leg_text.append('uncert, mean')
+        leg_text.append('uncert, median')
+
+        
     plt.plot(binsx_cen, -p68,'x-g')
     plt.xlim((extent[0],extent[1]))
     plt.ylim((extent[2],extent[3]))
-    plt.legend(['50%-ile   '+'(Tot: %2.4f)'%(metrics['50_pct']),
-        '|68|%-ile '+'(Tot: %2.4f)'%(metrics['|68_pct|'])])
+    plt.legend(leg_text)
     plt.grid()
