@@ -10,6 +10,7 @@ import logging
 import numpy as np
 import raster_products
 import SWOTWater.aggregate as ag
+import coordinate_reference_systems as crs
 
 from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
@@ -223,12 +224,22 @@ class RasterProcessor(object):
         self.size_y = round((y_max - y_min) / self.resolution).astype(int) + 1
         
         if self.projection_type=='utm':
-            self.utm_num = utm_num
-            self.utm_band = zone_mid
-        else:
-            self.utm_num = None
-            self.utm_band = None
-            
+            self.utm_zone_num = utm_num
+            if zone_mid >= 'N':
+                self.utm_hemisphere = 'N'
+            else:
+                self.utm_hemisphere = 'S' 
+            self.mgrs_latitude_band = zone_mid
+
+        LOGGER.info({'proj': self.projection_type,
+                     'res': self.resolution,
+                     'x_min': self.x_min,
+                     'x_max': self.x_max,
+                     'size_x': self.size_x,
+                     'y_min': self.y_min,
+                     'y_max': self.y_max,
+                     'size_y': self.size_y})
+
     def aggregate_wse(self, pixc, mask):
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
@@ -251,14 +262,14 @@ class RasterProcessor(object):
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
 
         looks_to_efflooks = pixc['pixel_cloud'].looks_to_efflooks
-                           
+
         # Only aggregate heights for interior water and water edges
         pixc_klass = pixc['pixel_cloud']['classification']
         mask = np.logical_and(mask,
                               np.isin(pixc_klass, np.concatenate((
                                   self.interior_water_classes,
                                   self.water_edge_classes))))
-        
+
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -428,15 +439,22 @@ class RasterProcessor(object):
 
     def apply_wse_corrections(self):
         pass
-    
+
     def build_product(self, populate_values=True):
         # Assemble the product
         LOGGER.info('Assembling Raster Product - populated?: {}'.format(populate_values))
-        if self.debug_flag:
-            product = raster_products.RasterDebug()
-        else:
-            product = raster_products.Raster()
         
+        if self.projection_type == 'utm':
+            if self.debug_flag:
+                product = raster_products.RasterUTMDebug()
+            else:
+                product = raster_products.RasterUTM()
+        elif self.projection_type == 'geo':
+            if self.debug_flag:
+                product = raster_products.RasterGeoDebug()
+            else:
+                product = raster_products.RasterGeo()
+
         current_datetime = datetime.utcnow()
         product.history = "{:04d}-{:02d}-{:02d}".format(current_datetime.year,
                                                         current_datetime.month,
@@ -445,20 +463,42 @@ class RasterProcessor(object):
         product.pass_number = self.pass_number
         product.tile_numbers = self.tile_numbers
         product.tile_names = self.tile_names
-        product.proj_type = self.projection_type
-        product.proj_res = self.resolution
-        product.utm_num = self.utm_num
-        product.utm_band = self.utm_band
-        product.x_min = self.x_min
-        product.x_max = self.x_max
-        product.y_min = self.y_min
-        product.y_max = self.y_max
-        product['x'] = np.linspace(self.x_min,
-                                   self.x_max,
-                                   self.size_x)
-        product['y'] = np.linspace(self.y_min,
-                                   self.y_max,
-                                   self.size_y)
+        product.resolution = self.resolution
+
+        if self.projection_type == 'utm':
+            product.utm_zone_num = self.utm_zone_num
+            product.mgrs_latitude_band = self.mgrs_latitude_band
+            product.x_min = self.x_min
+            product.x_max = self.x_max
+            product.y_min = self.y_min
+            product.y_max = self.y_max
+            product['x'] = np.linspace(self.x_min,
+                                       self.x_max,
+                                       self.size_x)
+            product['y'] = np.linspace(self.y_min,
+                                       self.y_max,
+                                       self.size_y)
+            coordinate_system = crs.utm_crs(self.utm_zone_num,
+                                            self.utm_hemisphere)
+            product.VARIABLES['crs']['projected_crs_name'] = coordinate_system.name
+            product.VARIABLES['crs']['false_northing'] = coordinate_system.false_northing.value
+            product.VARIABLES['crs']['longitude_of_central_meridian'] = coordinate_system.central_meridian.value
+
+        elif self.projection_type == 'geo':
+            product.longitude_min = self.x_min
+            product.longitude_max = self.x_max
+            product.latitude_min = self.y_min
+            product.latitude_max = self.y_max
+            product['longitude'] = np.linspace(self.x_min,
+                                               self.x_max,
+                                               self.size_x)
+            product['latitude'] = np.linspace(self.y_min,
+                                              self.y_max,
+                                              self.size_y)
+            coordinate_system = crs.wgs84_crs()
+
+        product.VARIABLES['crs']['crs_wkt'] = str(coordinate_system)
+
         if populate_values:
             product['wse'] = self.wse
             product['wse_uncert'] = self.wse_u
