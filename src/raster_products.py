@@ -489,8 +489,8 @@ class RasterUTM(Product):
                 ['long_name', 'x coordinate of projection'],
                 ['standard_name', 'projection_x_coordinate'],
                 ['units', 'm'],
-                ['valid_min', -9999999], # TODO: Figure out valid min/max for utm easting
-                ['valid_max', 9999999],
+                ['valid_min', -10000000],
+                ['valid_max', 10000000],
                 ['comment', textjoin("""
                     UTM easting coordinate of the pixel""")],
          ])],
@@ -499,8 +499,8 @@ class RasterUTM(Product):
                 ['long_name', 'y coordinate of projection'],
                 ['standard_name', 'projection_y_coordinate'],
                 ['units', 'm'],
-                ['valid_min', -9999999], # TODO: Figure out valid min/max for utm northing
-                ['valid_max', 9999999],
+                ['valid_min', -20000000],
+                ['valid_max', 20000000],
                 ['comment', textjoin("""
                     UTM northing coordinate of the pixel""")],
          ])],
