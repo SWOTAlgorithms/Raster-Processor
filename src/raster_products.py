@@ -148,17 +148,6 @@ COMMON_VARIABLES = odict([
                     Uncertainty estimate of the water fraction estimate
                     (width of noisy water frac estimate distribution).""")],
                 ])],
-        ['dark_frac',
-         odict([['dtype', 'f4'],
-                ['long_name', 'fractional area of dark water'],
-                ['grid_mapping', 'crs'],
-                ['units', 'l'],
-                ['valid_min', 0],
-                ['valid_max', 1],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Fraction of pixel water area covered by dark water.""")],
-                ])],
         ['sig0',
          odict([['dtype', 'f4'],
                 ['long_name', 'sigma0'],
@@ -229,6 +218,17 @@ COMMON_VARIABLES = odict([
                 ['coordinates', '[Raster coordinates]'],
                 ['comment', textjoin("""
                     Quality flag for raster data.""")],
+                ])],
+        ['dark_frac',
+         odict([['dtype', 'f4'],
+                ['long_name', 'fractional area of dark water'],
+                ['grid_mapping', 'crs'],
+                ['units', 'l'],
+                ['valid_min', 0],
+                ['valid_max', 1],
+                ['coordinates', '[Raster coordinates]'],
+                ['comment', textjoin("""
+                    Fraction of pixel water area covered by dark water.""")],
                 ])],
         ['ice_clim_flag',
          odict([['dtype', 'u1'],
@@ -489,8 +489,8 @@ class RasterUTM(Product):
                 ['long_name', 'x coordinate of projection'],
                 ['standard_name', 'projection_x_coordinate'],
                 ['units', 'm'],
-                ['valid_min', -999999], # TODO: Figure out valid min/max for utm easting
-                ['valid_max', 999999],
+                ['valid_min', -9999999], # TODO: Figure out valid min/max for utm easting
+                ['valid_max', 9999999],
                 ['comment', textjoin("""
                     UTM easting coordinate of the pixel""")],
          ])],
@@ -499,8 +499,8 @@ class RasterUTM(Product):
                 ['long_name', 'y coordinate of projection'],
                 ['standard_name', 'projection_y_coordinate'],
                 ['units', 'm'],
-                ['valid_min', -999999], # TODO: Figure out valid min/max for utm northing
-                ['valid_max', 999999],
+                ['valid_min', -9999999], # TODO: Figure out valid min/max for utm northing
+                ['valid_max', 9999999],
                 ['comment', textjoin("""
                     UTM northing coordinate of the pixel""")],
          ])],
