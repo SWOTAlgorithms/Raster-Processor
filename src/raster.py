@@ -22,9 +22,6 @@ INTERIOR_WATER_KLASS = 1
 WATER_EDGE_KLASS = 2
 LAND_EDGE_KLASS = 3
 
-# Center easting coordinate for utm zones
-UTM_EASTING_CENTER = 500000
-
 class L2PixcToRaster(object):
     '''Turns PixelClouds into Rasters'''
     def __init__( self,
@@ -206,7 +203,6 @@ class RasterProcessor(object):
                                                           force_zone_number=utm_num)
             x_max, y_max, u_num1, u_zone1 = utm.from_latlon(y_max, x_max,
                                                             force_zone_number=utm_num)
-            proj_center_x = UTM_EASTING_CENTER
             
         # round limits to the nearest bin (centered at proj_center_x) and add buffer
         x_min = round((x_min - proj_center_x) / self.resolution) * self.resolution \
