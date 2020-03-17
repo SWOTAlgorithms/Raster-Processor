@@ -71,6 +71,16 @@ COMMON_ATTRIBUTES = odict([
                     and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
     ['projection', {'dtype': 'str',
                     'docstr': 'Projection type.'}],
+    ['resolution', {'dtype': 'f4',
+                    'docstr': 'Raster projection resolution.'}],
+    ['start_time', {'dtype': 'str',
+                    'docstr': textjoin("""
+                    UTC time of first measurement.
+                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],
+    ['stop_time', {'dtype': 'str',
+                    'docstr': textjoin("""
+                    UTC time of last measurement.
+                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],   
 ])
 
 COMMON_VARIABLES = odict([
@@ -448,12 +458,11 @@ class RasterUTM(Product):
         ['projection', {'dtype': COMMON_ATTRIBUTES['projection']['dtype'],
                         'value':'Universal Transverse Mercator',
                         'docstr': COMMON_ATTRIBUTES['projection']['docstr']}],
+        ['resolution', COMMON_ATTRIBUTES['resolution']],
         ['utm_zone_num', {'dtype': 'i2',
                           'docstr': 'UTM zone number.'}],
         ['mgrs_latitude_band', {'dtype': 'str',
                                 'docstr': 'MGRS latitude band.'}],
-        ['resolution', {'dtype': 'f4',
-                        'docstr': 'Raster projection resolution.'}],
         ['x_min', {'dtype': 'f4',
                    'docstr': 'Projection minimum x coordinate.'}],
         ['x_max', {'dtype': 'f4',
@@ -462,6 +471,8 @@ class RasterUTM(Product):
                    'docstr': 'Projection minimum y coordinate.'}],
         ['y_max', {'dtype': 'f4',
                    'docstr': 'Projection maximum y coordinate.'}],
+        ['start_time', COMMON_ATTRIBUTES['start_time']],
+        ['stop_time', COMMON_ATTRIBUTES['stop_time']],
     ])
     VARIABLES = odict([
         ['crs',
@@ -599,8 +610,7 @@ class RasterGeo(Product):
         ['projection', {'dtype': COMMON_ATTRIBUTES['projection']['dtype'],
                         'value':'Geodetic Latitude/Longitude',
                         'docstr': COMMON_ATTRIBUTES['projection']['docstr']}],
-        ['resolution', {'dtype': 'f4',
-                        'docstr': 'Raster projection resolution.'}],
+        ['resolution', COMMON_ATTRIBUTES['resolution']],
         ['longitude_min', {'dtype': 'f4',
                            'docstr': 'Minimum longitude coordinate.'}],
         ['longitude_max', {'dtype': 'f4',
@@ -609,6 +619,8 @@ class RasterGeo(Product):
                           'docstr': 'Minimum latitude coordinate.'}],
         ['latitude_max', {'dtype': 'f4',
                           'docstr': 'Maximum latitude coordinate.'}],
+        ['start_time', COMMON_ATTRIBUTES['start_time']],
+        ['stop_time', COMMON_ATTRIBUTES['stop_time']],
     ])    
 
     VARIABLES = odict([
@@ -626,17 +638,6 @@ class RasterGeo(Product):
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['comment', 'WGS84 geodetic lat/lon coordinate reference system'],
          ])],
-        ['latitude',
-         odict([['dtype', 'f8'],
-                ['long_name', 'latitude (positive N, negative S)'],
-                ['standard_name', 'latitude'],
-                ['units', 'degrees_north'],
-                ['valid_min', -80],
-                ['valid_max', 80],
-                ['comment', textjoin("""
-                    Geodetic latitude [-80,80] (degrees north of equator) of
-                    the pixel.""")],
-         ])],
         ['longitude',
          odict([['dtype', 'f8'],
                 ['long_name', 'longitude (degrees East)'],
@@ -647,6 +648,17 @@ class RasterGeo(Product):
                 ['comment', textjoin("""
                     Geodetic longitude [-180,180] (east of the Greenwich meridian)
                     of the pixel.""")],
+         ])],
+        ['latitude',
+         odict([['dtype', 'f8'],
+                ['long_name', 'latitude (positive N, negative S)'],
+                ['standard_name', 'latitude'],
+                ['units', 'degrees_north'],
+                ['valid_min', -80],
+                ['valid_max', 80],
+                ['comment', textjoin("""
+                    Geodetic latitude [-80,80] (degrees north of equator) of
+                    the pixel.""")],
          ])],
         ['wse', COMMON_VARIABLES['wse'].copy()],
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
