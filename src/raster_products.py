@@ -80,7 +80,7 @@ COMMON_ATTRIBUTES = odict([
     ['stop_time', {'dtype': 'str',
                     'docstr': textjoin("""
                     UTC time of last measurement.
-                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],   
+                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],
 ])
 
 COMMON_VARIABLES = odict([
@@ -368,27 +368,6 @@ COMMON_VARIABLES = odict([
                     pole tide height (i.e., the effect of the ocean pole tide
                     loading of the Earth’s crust).""")],
                 ])],
-        ['iono_cor_gim_ka',
-         odict([['dtype', 'f4'],
-                ['long_name', 'ionosphere vertical correction'],
-                ['source', 'Global Ionosphere Maps'],
-                ['institution', 'JPL'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -0.5],
-                ['valid_max', 0],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Equivalent vertical correction due to ionosphere delay.
-                    The reported pixel height, latitude and longitude are
-                    computed after adding negative media corrections to
-                    uncorrected range along slant-range paths, accounting for
-                    the differential delay between the two KaRIn antennas. The
-                    equivalent vertical correction is computed by applying
-                    obliquity factors to the slant-path correction. Adding the
-                    reported correction to the reported pixel height results
-                    in the uncorrected pixel height.""")],
-                ])],
         ['model_dry_tropo_cor',
          odict([['dtype', 'f4'],
                 ['long_name', 'dry troposphere vertical correction'],
@@ -422,6 +401,27 @@ COMMON_VARIABLES = odict([
                 ['coordinates', '[Raster coordinates]'],
                 ['comment', textjoin("""
                     Equivalent vertical correction due to wet troposphere delay.
+                    The reported pixel height, latitude and longitude are
+                    computed after adding negative media corrections to
+                    uncorrected range along slant-range paths, accounting for
+                    the differential delay between the two KaRIn antennas. The
+                    equivalent vertical correction is computed by applying
+                    obliquity factors to the slant-path correction. Adding the
+                    reported correction to the reported pixel height results
+                    in the uncorrected pixel height.""")],
+                ])],
+        ['iono_cor_gim_ka',
+         odict([['dtype', 'f4'],
+                ['long_name', 'ionosphere vertical correction'],
+                ['source', 'Global Ionosphere Maps'],
+                ['institution', 'JPL'],
+                ['grid_mapping', 'crs'],
+                ['units', 'm'],
+                ['valid_min', -0.5],
+                ['valid_max', 0],
+                ['coordinates', '[Raster coordinates]'],
+                ['comment', textjoin("""
+                    Equivalent vertical correction due to ionosphere delay.
                     The reported pixel height, latitude and longitude are
                     computed after adding negative media corrections to
                     uncorrected range along slant-range paths, accounting for
@@ -495,7 +495,7 @@ class RasterUTM(Product):
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['comment', 'UTM zone coordinate reference system'],
          ])],
-        ['x', 
+        ['x',
          odict([['dtype', 'f8'],
                 ['long_name', 'x coordinate of projection'],
                 ['standard_name', 'projection_x_coordinate'],
@@ -583,7 +583,14 @@ class RasterUTM(Product):
 
         return mapping_tmp
 
-    
+    def get_uncorrected_height(self):
+        height = self.wse + (
+            self.geoid +
+            self.solid_earth_tide +
+            self.load_tide_sol1 +
+            self.pole_tide)
+        return height
+
 class RasterGeo(Product):
     UID = "raster"
 
@@ -716,8 +723,16 @@ class RasterGeo(Product):
 
         return mapping_tmp
 
+    def get_uncorrected_height(self):
+        height = self.wse + (
+            self.geoid +
+            self.solid_earth_tide +
+            self.load_tide_sol1 +
+            self.pole_tide)
+        return height
 
-class RasterUTMDebug(Product):
+
+class RasterUTMDebug(RasterUTM):
     ATTRIBUTES = odict({key:RasterUTM.ATTRIBUTES[key].copy()
                         for key in RasterUTM.ATTRIBUTES})
     DIMENSIONS = odict({key:RasterUTM.DIMENSIONS[key]
@@ -737,7 +752,7 @@ class RasterUTMDebug(Product):
     VARIABLES['crs']['dimensions'] = odict([])
 
 
-class RasterGeoDebug(Product):
+class RasterGeoDebug(RasterGeo):
     ATTRIBUTES = odict({key:RasterGeo.ATTRIBUTES[key].copy()
                         for key in RasterGeo.ATTRIBUTES})
     DIMENSIONS = odict({key:RasterGeo.DIMENSIONS[key]

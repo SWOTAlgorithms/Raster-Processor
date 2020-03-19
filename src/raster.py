@@ -176,7 +176,7 @@ class RasterProcessor(object):
         self.aggregate_inc(pixc, pixc_mask)
         self.aggregate_num_pixels(pixc, pixc_mask)
         self.aggregate_dark_frac(pixc, pixc_mask)
-        self.aggregate_wse_corrections(pixc, pixc_mask)
+        self.aggregate_corrections(pixc, pixc_mask)
         self.apply_wse_corrections()
 
         if self.debug_flag:
@@ -462,11 +462,52 @@ class RasterProcessor(object):
                     self.classification[i][j] = ag.simple(
                         pixc_klass[self.proj_mapping[i][j]][good], metric='mode')
 
-    def aggregate_wse_corrections(self, pixc, mask):
-        pass
+    def aggregate_corrections(self, pixc, mask):
+        pixc_geoid = pixc['pixel_cloud']['geoid']
+        pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
+        pixc_load_tide_sol1 = pixc['pixel_cloud']['load_tide_sol1']
+        pixc_load_tide_sol2 = pixc['pixel_cloud']['load_tide_sol2']
+        pixc_pole_tide = pixc['pixel_cloud']['pole_tide']
+        pixc_model_dry_tropo_cor = pixc['pixel_cloud']['model_dry_tropo_cor']
+        pixc_model_wet_tropo_cor = pixc['pixel_cloud']['model_wet_tropo_cor']
+        pixc_iono_cor_gim_ka = pixc['pixel_cloud']['iono_cor_gim_ka']
+
+        self.geoid = np.ma.masked_all((self.size_y, self.size_x))
+        self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_sol1 = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_sol2 = np.ma.masked_all((self.size_y, self.size_x))
+        self.pole_tide = np.ma.masked_all((self.size_y, self.size_x))
+        self.model_dry_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
+        self.model_wet_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
+        self.iono_cor_gim_ka = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if len(self.proj_mapping[i][j]) != 0:
+                    good = mask[self.proj_mapping[i][j]]
+                    self.geoid[i][j] = ag.simple(
+                        pixc_geoid[self.proj_mapping[i][j]][good], metric='mean')
+                    self.solid_earth_tide[i][j] = ag.simple(
+                        pixc_solid_earth_tide[self.proj_mapping[i][j]][good], metric='mean')
+                    self.load_tide_sol1[i][j] = ag.simple(
+                        pixc_load_tide_sol1[self.proj_mapping[i][j]][good], metric='mean')
+                    self.load_tide_sol2[i][j] = ag.simple(
+                        pixc_load_tide_sol2[self.proj_mapping[i][j]][good], metric='mean')
+                    self.pole_tide[i][j] = ag.simple(
+                        pixc_pole_tide[self.proj_mapping[i][j]][good], metric='mean')
+                    self.model_dry_tropo_cor[i][j] = ag.simple(
+                        pixc_model_dry_tropo_cor[self.proj_mapping[i][j]][good], metric='mean')
+                    self.model_wet_tropo_cor[i][j] = ag.simple(
+                        pixc_model_wet_tropo_cor[self.proj_mapping[i][j]][good], metric='mean')
+                    self.iono_cor_gim_ka[i][j] = ag.simple(
+                        pixc_iono_cor_gim_ka[self.proj_mapping[i][j]][good], metric='mean')
 
     def apply_wse_corrections(self):
-        pass
+        self.wse -= (
+            self.geoid +
+            self.solid_earth_tide +
+            self.load_tide_sol1 +
+            self.pole_tide)
 
     def build_product(self, populate_values=True):
         # Assemble the product
@@ -540,6 +581,14 @@ class RasterProcessor(object):
             product['inc'] = self.inc
             product['num_pixels'] = self.num_pixels
             product['dark_frac'] = self.dark_frac
+            product['geoid'] = self.geoid
+            product['solid_earth_tide'] = self.solid_earth_tide
+            product['load_tide_sol1'] = self.load_tide_sol1
+            product['load_tide_sol2'] = self.load_tide_sol2
+            product['pole_tide'] = self.pole_tide
+            product['model_dry_tropo_cor'] = self.model_dry_tropo_cor
+            product['model_wet_tropo_cor'] = self.model_wet_tropo_cor
+            product['iono_cor_gim_ka'] = self.iono_cor_gim_ka
 
             if self.debug_flag:
                 product['classification'] = self.classification

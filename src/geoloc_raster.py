@@ -49,10 +49,12 @@ class GeolocRaster(object):
                                     self.raster_config['dark_water_classes']))))
         proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask)
 
-        for i in range(0, proj_mapping.shape[0]):
-            for j in range(0, proj_mapping.shape[1]):
+        raster_uncorrected_height = self.raster.get_uncorrected_height()
+
+        for i in range(0, len(proj_mapping)):
+            for j in range(0, len(proj_mapping[0])):
                 for k in proj_mapping[i][j]:
-                    self.new_height[k] = self.raster.height[i][j]
+                    self.new_height[k] = raster_uncorrected_height[i][j]
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
