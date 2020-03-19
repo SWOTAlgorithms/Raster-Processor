@@ -17,7 +17,7 @@ DEGREE_SCALE_FACTOR = 0.0174532925199433
 
 # WGS84 Constants
 WGS84_SEMI_MAJOR_AXIS = 6378137
-WGS84_INVERSE_FLATTENING = 298.257223563  
+WGS84_INVERSE_FLATTENING = 298.257223563
 
 # UTM Constants
 UTM_NUM_ZONES = 60
@@ -90,7 +90,7 @@ class PrimeM(object):
 
     def __str__(self):
         wkt = "PRIMEM[\"{0}\",{1}".format(
-            self.name, self.longitude)       
+            self.name, self.longitude)
         if self.identifier is None:
             wkt = wkt + "]"
         else:
@@ -162,7 +162,7 @@ class ProjCRS(object):
         self.identifier = identifier
 
         self._param_keys = [param.name for param in params]
-        self._axis_keys = [axis.name for axis in axes]        
+        self._axis_keys = [axis.name for axis in axes]
 
     def __str__(self):
         wkt = "PROJCS[\"{0}\",{1},{2}".format( # TODO: should really be PROJCRS now, but qgis cant read it
@@ -257,4 +257,3 @@ if __name__=='__main__':
             LOGGER.error('Must define zone and hemisphere for utm projection')
     else:
         LOGGER.error('Invalid projection: {}'.format(args.proj_type))
-    

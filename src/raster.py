@@ -11,9 +11,11 @@ import numpy as np
 import raster_products
 import SWOTWater.aggregate as ag
 import coordinate_reference_systems as crs
+import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
+from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class L2PixcToRaster(object):
             self.do_improved_geolocation()
 
         product = self.do_raster_processing()
-        
+
         return product
 
     def do_improved_geolocation(self):
@@ -62,7 +64,7 @@ class L2PixcToRaster(object):
 
         improved_geoloc_raster_proc.rasterize(self.pixc)
         improved_geoloc_raster = improved_geoloc_raster_proc.build_product()
-        
+
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
             self.pixc, improved_geoloc_raster, self.config)
 
@@ -81,10 +83,10 @@ class L2PixcToRaster(object):
             self.config['water_edge_classes'],
             self.config['land_edge_classes'],
             self.config['dark_water_classes'])
-        
+
         raster_proc.rasterize(self.pixc)
         return raster_proc.build_product()
-        
+
     def parse_config_defaults(self):
         config_defaults = {'projection_type':'utm',
                            'resolution':100,
@@ -104,7 +106,7 @@ class L2PixcToRaster(object):
                            'improved_geolocation_method':'taylor',
                            'improved_geolocation_res':500,
                            'improved_geolocation_buffer_size':500}
-        
+
         for key in config_defaults:
             try:
                 tmp = self.config[key]
@@ -145,7 +147,7 @@ class RasterProcessor(object):
                                     self.water_edge_classes,
                                     self.land_edge_classes,
                                     self.dark_water_classes))))
-        
+
         LOGGER.info('Calculating Projection Parameters')
 
         corners = ((pixc.inner_first_latitude, lon_360to180(pixc.inner_first_longitude)),
@@ -174,7 +176,7 @@ class RasterProcessor(object):
         self.aggregate_dark_frac(pixc, pixc_mask)
         self.aggregate_wse_corrections(pixc, pixc_mask)
         self.apply_wse_corrections()
-        
+
         if self.debug_flag:
             self.aggregate_classification(pixc, pixc_mask)
 
@@ -189,25 +191,25 @@ class RasterProcessor(object):
         in_last = corners[1]
         out_1st = corners[2]
         out_last = corners[3]
-        
+
         x_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
         y_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
         x_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
         y_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
         proj_center_x = 0
-        
+
         # find the UTM zone number for the middle of the swath-tile
         if self.projection_type=='utm':
             lat_mid = (in_1st[0] + in_last[0] + out_1st[0] + out_last[0])/4.0
             lon_mid = (in_1st[1] + in_last[1] + out_1st[1] + out_last[1])/4.0
             x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid, lon_mid)
-            
+
             x_min, y_min, u_num, u_zone = utm.from_latlon(y_min, x_min,
                                                           force_zone_number=utm_num)
             x_max, y_max, u_num1, u_zone1 = utm.from_latlon(y_max, x_max,
                                                             force_zone_number=utm_num)
             proj_center_x = UTM_EASTING_CENTER
-            
+
         # round limits to the nearest bin (centered at proj_center_x) and add buffer
         x_min = round((x_min - proj_center_x) / self.resolution) * self.resolution \
                 + proj_center_x - self.buffer_size
@@ -215,20 +217,20 @@ class RasterProcessor(object):
                 + proj_center_x + self.buffer_size
         y_min = round(y_min  / self.resolution) * self.resolution - self.buffer_size
         y_max = round(y_max / self.resolution) * self.resolution + self.buffer_size
-        
+
         self.x_min = x_min
         self.x_max = x_max
         self.y_min = y_min
         self.y_max = y_max
         self.size_x = round((x_max - x_min) / self.resolution).astype(int) + 1
         self.size_y = round((y_max - y_min) / self.resolution).astype(int) + 1
-        
+
         if self.projection_type=='utm':
             self.utm_zone_num = utm_num
             if zone_mid >= 'N':
                 self.utm_hemisphere = 'N'
             else:
-                self.utm_hemisphere = 'S' 
+                self.utm_hemisphere = 'S'
             self.mgrs_latitude_band = zone_mid
 
         LOGGER.info({'proj': self.projection_type,
@@ -244,7 +246,31 @@ class RasterProcessor(object):
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
         pixc_num_med_looks = pixc['pixel_cloud']['eff_num_medium_looks']
+
+        pixc_latitude = pixc['pixel_cloud']['latitude']
+        pixc_longitude = pixc['pixel_cloud']['longitude']
+
+        # flatten the interferogram for wse aggregation
         pixc_ifgram = pixc['pixel_cloud']['interferogram']
+        target_xyz = geoloc.convert_llh2ecef(pixc_latitude, pixc_longitude,
+                                             pixc_height, GEN_RAD_EARTH_EQ,
+                                             GEN_RAD_EARTH_POLE)
+
+        tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
+                                  pixc['tvp']['plus_y_antenna_y'],
+                                  pixc['tvp']['plus_y_antenna_z'])
+        tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
+                                   pixc['tvp']['minus_y_antenna_y'],
+                                   pixc['tvp']['minus_y_antenna_z'])
+        pixc_tvp_index = get_sensor_index(pixc)
+        pixc_wavelength = pixc.wavelength
+        flat_ifgram = compute_interferogram_flatten(pixc_ifgram,
+                                                    tvp_plus_y_antenna_xyz,
+                                                    tvp_minus_y_antenna_xyz,
+                                                    pixc_tvp_index,
+                                                    pixc_wavelength,
+                                                    target_xyz)
+
         pixc_power_plus_y = pixc['pixel_cloud']['power_plus_y']
         pixc_power_minus_y = pixc['pixel_cloud']['power_minus_y']
 
@@ -282,7 +308,7 @@ class RasterProcessor(object):
                         good,
                         pixc_num_rare_looks[self.proj_mapping[i][j]],
                         pixc_num_med_looks[self.proj_mapping[i][j]],
-                        pixc_ifgram[self.proj_mapping[i][j]],
+                        flat_ifgram[self.proj_mapping[i][j]],
                         pixc_power_minus_y[self.proj_mapping[i][j]],
                         pixc_power_plus_y[self.proj_mapping[i][j]],
                         looks_to_efflooks,
@@ -295,7 +321,7 @@ class RasterProcessor(object):
                     self.wse[i][j] = grid_height[0]
                     self.wse_u[i][j] = grid_height[2]
 
-    def aggregate_water_area(self, pixc, mask):        
+    def aggregate_water_area(self, pixc, mask):
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
         pixc_water_fraction_uncert = pixc['pixel_cloud']['water_frac_uncert']
@@ -312,7 +338,7 @@ class RasterProcessor(object):
             WATER_EDGE_KLASS
         tmp_klass[np.isin(pixc_klass, self.land_edge_classes)] = \
             LAND_EDGE_KLASS
-        
+
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
@@ -335,7 +361,7 @@ class RasterProcessor(object):
                         interior_water_klass=INTERIOR_WATER_KLASS,
                         water_edge_klass=WATER_EDGE_KLASS,
                         land_edge_klass=LAND_EDGE_KLASS)
-        
+
                     self.water_area[i][j] = grid_area[0]
                     self.water_area_u[i][j] = grid_area[1]
                     self.water_frac[i][j] = grid_area[0]/(self.resolution**2)
@@ -384,7 +410,7 @@ class RasterProcessor(object):
                     good = mask[self.proj_mapping[i][j]]
                     self.inc[i][j] = ag.simple(
                         pixc_inc[self.proj_mapping[i][j]][good], metric='mean')
-                    
+
     def aggregate_num_pixels(self, pixc, mask):
         self.num_pixels = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -398,7 +424,7 @@ class RasterProcessor(object):
         pixc_klass = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
-        
+
         self.dark_frac = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
@@ -424,7 +450,7 @@ class RasterProcessor(object):
 
     def aggregate_classification(self, pixc, mask):
         pixc_klass = pixc['pixel_cloud']['classification']
-        
+
         self.classification = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
@@ -443,7 +469,7 @@ class RasterProcessor(object):
     def build_product(self, populate_values=True):
         # Assemble the product
         LOGGER.info('Assembling Raster Product - populated?: {}'.format(populate_values))
-        
+
         if self.projection_type == 'utm':
             if self.debug_flag:
                 product = raster_products.RasterUTMDebug()
@@ -517,33 +543,65 @@ class RasterProcessor(object):
                 product['classification'] = self.classification
 
         return product
-    
-    
+
+
 def get_pixc_mask(pixc):
     lats = pixc['pixel_cloud']['latitude']
     lons = pixc['pixel_cloud']['longitude']
     area = pixc['pixel_cloud']['pixel_area']
     klass =pixc['pixel_cloud']['classification']
     mask = np.ones(np.shape(pixc['pixel_cloud']['latitude']))
-    
+
     if np.ma.is_masked(lats):
         mask[lats.mask] = 0
     if np.ma.is_masked(lons):
         mask[lons.mask] = 0
     if np.ma.is_masked(area):
         mask[area.mask] = 0
-        
+
     mask[np.isnan(lats)] = 0
     mask[np.isnan(lons)] = 0
     mask[np.isnan(klass)] = 0
-    
+
     # bounds for valid utc
     mask[lats >= 84.0] = 0
     mask[lats <= -80.0] = 0
-    
+
     return mask==1
 
 
 def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
 
+
+def get_sensor_index(pixc):
+    f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
+    illumination_time = pixc['pixel_cloud']['illumination_time'].data[
+        np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
+    sensor_index = (np.rint(f(illumination_time))).astype(int).T
+    return sensor_index
+
+
+# TODO: at some point this function should move to swotCNES
+def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
+                                  minus_y_antenna_xyz, tvp_index,
+                                  wavelength, target_xyz):
+    """
+    Return the flattened interferogram using provided geolocations
+    """
+    # Compute distance between target and sensor for each pixel
+    dist_e = np.sqrt(
+        (plus_y_antenna_xyz[0][azimuth_index[tvp_index]] - target_xyz[0])**2
+        + (plus_y_antenna_xyz[1][azimuth_index[tvp_index]] - target_xyz[1])**2
+        + (plus_y_antenna_xyz[2][azimuth_index[tvp_index]] - target_xyz[2])**2)
+
+    dist_r = np.sqrt(
+        (minus_y_antenna_xyz[0][azimuth_index[tvp_index]] - target_xyz[0])**2
+        + (minus_y_antenna_xyz[1][azimuth_index[tvp_index]] - target_xyz[1])**2
+        + (minus_y_antenna_xyz[2][azimuth_index[tvp_index]] - target_xyz[2])**2)
+
+    # Compute the corresponding reference phase and flatten the interferogram
+    phase_ref = -2*np.pi / wavelength*(dist_e - dist_r)
+    interferogram_flatten  = ifgram[tvp_index]*np.exp(-1.j*phase_ref)
+
+    return interferogram_flatten
