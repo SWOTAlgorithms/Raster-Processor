@@ -594,16 +594,6 @@ def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
     Return the flattened interferogram using provided geolocations
     """
     # Compute distance between target and sensor for each pixel
-    print(plus_y_antenna_xyz[0].shape)
-    print(plus_y_antenna_xyz[1].shape)
-    print(plus_y_antenna_xyz[2].shape)
-    print(minus_y_antenna_xyz[0].shape)
-    print(minus_y_antenna_xyz[1].shape)
-    print(minus_y_antenna_xyz[2].shape)
-    print(target_xyz[0].shape)
-    print(target_xyz[1].shape)
-    print(target_xyz[2].shape)
-    print(tvp_index.shape)
     dist_e = np.sqrt(
         (plus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
         + (plus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2

@@ -37,7 +37,7 @@ class GeolocRaster(object):
         """
         Update pixelcloud heights from raster
         """
-        self.new_height = np.ma.all_masked_like(self.pixc['pixel_cloud'].height)
+        self.new_height = np.ma.masked_all_like(self.pixc['pixel_cloud'].height)
 
         pixc_mask = raster.get_pixc_mask(self.pixc)
         pixc_mask = np.logical_and(
