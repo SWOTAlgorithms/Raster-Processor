@@ -540,15 +540,15 @@ class RasterUTM(Product):
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
         ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
     ])
-    
+
     for key in COMMON_VARIABLES:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
-        
+
     VARIABLES['x']['dimensions'] = odict([['x', 0]])
     VARIABLES['y']['dimensions'] = odict([['y', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
-    
+
     def get_raster_mapping(self, pixc, mask):
         LOGGER.info('Getting raster mapping')
         pixc_lats = pixc['pixel_cloud']['latitude']
@@ -621,7 +621,7 @@ class RasterGeo(Product):
                           'docstr': 'Maximum latitude coordinate.'}],
         ['start_time', COMMON_ATTRIBUTES['start_time']],
         ['stop_time', COMMON_ATTRIBUTES['stop_time']],
-    ])    
+    ])
 
     VARIABLES = odict([
         ['crs',
@@ -685,11 +685,11 @@ class RasterGeo(Product):
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
         ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
     ])
-    
+
     for key in COMMON_VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
-        
+
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
@@ -698,7 +698,7 @@ class RasterGeo(Product):
         LOGGER.info('Getting raster mapping')
         pixc_lats = pixc['pixel_cloud']['latitude']
         pixc_lons = np.mod(pixc['pixel_cloud']['longitude'] + 180, 360) - 180
-        
+
         mapping_tmp = []
         for i in range(0, self.dimensions['latitude']):
             mapping_tmp.append([])
@@ -751,7 +751,7 @@ class RasterGeoDebug(Product):
     for key in COMMON_VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
-        
+
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])

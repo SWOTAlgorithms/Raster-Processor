@@ -47,7 +47,7 @@ class GeolocRaster(object):
                                     self.raster_config['water_edge_classes'],
                                     self.raster_config['land_edge_classes'],
                                     self.raster_config['dark_water_classes']))))
-        proj_mapping = raster.get_raster_mapping(self.pixc, pixc_mask)
+        proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask)
 
         for i in range(0, self.raster.size_y):
             for j in range(0, self.raster.size_x):
