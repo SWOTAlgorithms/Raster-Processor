@@ -269,7 +269,7 @@ class RasterProcessor(object):
         flat_ifgram = compute_interferogram_flatten(pixc_ifgram,
                                                     tvp_plus_y_antenna_xyz,
                                                     tvp_minus_y_antenna_xyz,
-                                                    pixc_azimuth_index,
+                                                    pixc_tvp_index,
                                                     pixc_wavelength,
                                                     target_xyz)
 
