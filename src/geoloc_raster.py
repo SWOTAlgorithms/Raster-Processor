@@ -49,8 +49,8 @@ class GeolocRaster(object):
                                     self.raster_config['dark_water_classes']))))
         proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask)
 
-        for i in range(0, self.raster.size_y):
-            for j in range(0, self.raster.size_x):
+        for i in range(0, proj_mapping.shape[0]):
+            for j in range(0, proj_mapping.shape[1]):
                 for k in proj_mapping[i][j]:
                     self.new_height[k] = self.raster.height[i][j]
 
