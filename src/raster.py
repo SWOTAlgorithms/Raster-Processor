@@ -8,12 +8,14 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 import utm
 import logging
 import numpy as np
+import geoloc_raster
 import raster_products
 import SWOTWater.aggregate as ag
 import coordinate_reference_systems as crs
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from datetime import datetime
+from scipy import interpolate
 from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
@@ -262,12 +264,12 @@ class RasterProcessor(object):
         tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
                                    pixc['tvp']['minus_y_antenna_y'],
                                    pixc['tvp']['minus_y_antenna_z'])
-        pixc_tvp_index = get_sensor_index(pixc)
+        pixc_azimuth_index = pixc['pixel_cloud']['azimuth_index']
         pixc_wavelength = pixc.wavelength
         flat_ifgram = compute_interferogram_flatten(pixc_ifgram,
                                                     tvp_plus_y_antenna_xyz,
                                                     tvp_minus_y_antenna_xyz,
-                                                    pixc_tvp_index,
+                                                    pixc_azimuth_index,
                                                     pixc_wavelength,
                                                     target_xyz)
 
@@ -574,31 +576,31 @@ def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
 
 
-def get_sensor_index(pixc):
-    f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
-    illumination_time = pixc['pixel_cloud']['illumination_time'].data[
-        np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
-    sensor_index = (np.rint(f(illumination_time))).astype(int).T
-    return sensor_index
+#def get_sensor_index(pixc):
+#    f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
+#    illumination_time = pixc['pixel_cloud']['illumination_time'].data[
+#        np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
+#    sensor_index = (np.rint(f(illumination_time))).astype(int).T
+#    return sensor_index
 
 
-# TODO: at some point this function should move to swotCNES
+# TODO: at some point this function should move back to swotCNES
 def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
-                                  minus_y_antenna_xyz, tvp_index,
+                                  minus_y_antenna_xyz, azimuth_index,
                                   wavelength, target_xyz):
     """
     Return the flattened interferogram using provided geolocations
     """
     # Compute distance between target and sensor for each pixel
     dist_e = np.sqrt(
-        (plus_y_antenna_xyz[0][azimuth_index[tvp_index]] - target_xyz[0])**2
-        + (plus_y_antenna_xyz[1][azimuth_index[tvp_index]] - target_xyz[1])**2
-        + (plus_y_antenna_xyz[2][azimuth_index[tvp_index]] - target_xyz[2])**2)
+        (plus_y_antenna_xyz[0][azimuth_index] - target_xyz[0])**2
+        + (plus_y_antenna_xyz[1][azimuth_index] - target_xyz[1])**2
+        + (plus_y_antenna_xyz[2][azimuth_index] - target_xyz[2])**2)
 
     dist_r = np.sqrt(
-        (minus_y_antenna_xyz[0][azimuth_index[tvp_index]] - target_xyz[0])**2
-        + (minus_y_antenna_xyz[1][azimuth_index[tvp_index]] - target_xyz[1])**2
-        + (minus_y_antenna_xyz[2][azimuth_index[tvp_index]] - target_xyz[2])**2)
+        (minus_y_antenna_xyz[0][azimuth_index] - target_xyz[0])**2
+        + (minus_y_antenna_xyz[1][azimuth_index] - target_xyz[1])**2
+        + (minus_y_antenna_xyz[2][azimuth_index] - target_xyz[2])**2)
 
     # Compute the corresponding reference phase and flatten the interferogram
     phase_ref = -2*np.pi / wavelength*(dist_e - dist_r)
