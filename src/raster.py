@@ -580,7 +580,7 @@ def get_sensor_index(pixc):
     f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
     illumination_time = pixc['pixel_cloud']['illumination_time'].data[
         np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
-    sensor_index = (np.rint(f(illumination_time))).astype(int).T
+    sensor_index = (np.rint(f(illumination_time))).astype(int).flatten()
     return sensor_index
 
 
@@ -594,6 +594,16 @@ def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
     Return the flattened interferogram using provided geolocations
     """
     # Compute distance between target and sensor for each pixel
+    print(plus_y_antenna_xyz[0].shape)
+    print(plus_y_antenna_xyz[1].shape)
+    print(plus_y_antenna_xyz[2].shape)
+    print(minus_y_antenna_xyz[0].shape)
+    print(minus_y_antenna_xyz[1].shape)
+    print(minus_y_antenna_xyz[2].shape)
+    print(target_xyz[0].shape)
+    print(target_xyz[1].shape)
+    print(target_xyz[2].shape)
+    print(tvp_index.shape)
     dist_e = np.sqrt(
         (plus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
         + (plus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2
