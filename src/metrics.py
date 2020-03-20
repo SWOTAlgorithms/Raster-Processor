@@ -20,8 +20,8 @@ def metrics_fit(x, y, poly=3, pts=25):
 
 def get_passfail():
     passfail = {
-        '|h_e_68_pct|': [0.10, 1],
-        '|h_e/h_u_68_pct|': [1, 2],
+        '|wse_e_68_pct|': [0.10, 1],
+        '|wse_e/wse_u_68_pct|': [1, 2],
         '|a_%e/a_%u_68_pct|': [1, 2]
     }
     return passfail

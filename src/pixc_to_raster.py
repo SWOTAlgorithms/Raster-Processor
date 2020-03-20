@@ -40,7 +40,7 @@ def main():
     parser.add_argument("-d", "--debug", action='store_true',
                         help='flag to write debug version of raster product')
     args = parser.parse_args()
-    
+
     cfg = rdf.parse(os.path.abspath(args.rdf_file), comment='!')
     pixc_data = MutableProduct.from_ncfile(args.pixc_file)
     proc = raster.L2PixcToRaster(cfg, pixc_data, args.debug)
