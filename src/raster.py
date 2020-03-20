@@ -292,6 +292,8 @@ class RasterProcessor(object):
         else:
             # if we don't have an improved geolocation, we can at least
             # flatten with the actual geolocations to estimate the uncertainty
+            LOGGER.warning('No improved geolocation provided, '
+                           'flattening ifgram with measured geolocations')
             target_xyz = geoloc.convert_llh2ecef(
                 pixc['pixel_cloud']['latitude'],
                 pixc['pixel_cloud']['longitude'],
