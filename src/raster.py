@@ -6,6 +6,7 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 '''
 
 import utm
+import copy
 import logging
 import numpy as np
 import geoloc_raster
@@ -34,9 +35,11 @@ class L2PixcToRaster(object):
     def __init__( self,
                   config=None,
                   pixc=None,
+                  improved_geoloc_pixc=None,
                   debug_flag=False ):
         self.config = config
         self.pixc = pixc
+        self.improved_geoloc_pixc = improved_geoloc_pixc
         self.debug_flag = debug_flag
 
     def process(self):
@@ -64,14 +67,15 @@ class L2PixcToRaster(object):
             self.config['land_edge_classes'],
             self.config['dark_water_classes'])
 
-        improved_geoloc_raster_proc.rasterize(self.pixc)
+        improved_geoloc_raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
         improved_geoloc_raster = improved_geoloc_raster_proc.build_product()
 
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
             self.pixc, improved_geoloc_raster, self.config)
-
-        self.pixc['pixel_cloud']['latitude'] = new_lat
-        self.pixc['pixel_cloud']['longitude'] = new_lon
+        self.improved_geoloc_pixc = copy.deepcopy(self.pixc)
+        self.improved_geoloc_pixc['pixel_cloud']['latitude'] = new_lat
+        self.improved_geoloc_pixc['pixel_cloud']['longitude'] = new_lon
+        self.improved_geoloc_pixc['pixel_cloud']['height'] = new_height
 
     def do_raster_processing(self):
         LOGGER.info('Rasterizing')
@@ -86,9 +90,11 @@ class L2PixcToRaster(object):
             self.config['land_edge_classes'],
             self.config['dark_water_classes'])
 
-        raster_proc.rasterize(self.pixc)
+        raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
         return raster_proc.build_product()
 
+    # TODO: probably will want to remove this eventually to force the input
+    # to have all of the necessary config values defined
     def parse_config_defaults(self):
         config_defaults = {'projection_type':'utm',
                            'resolution':100,
@@ -132,7 +138,7 @@ class RasterProcessor(object):
         self.dark_water_classes = dark_water_classes
         self.debug_flag = debug_flag
 
-    def rasterize(self, pixc):
+    def rasterize(self, pixc, improved_geoloc_pixc=None):
         '''Rasterize'''
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
@@ -140,6 +146,14 @@ class RasterProcessor(object):
         self.tile_numbers = pixc.tile_number
         self.tile_names = pixc.tile_name
 
+        LOGGER.info('Calculating projection parameters')
+        corners = ((pixc.inner_first_latitude, lon_360to180(pixc.inner_first_longitude)),
+                   (pixc.inner_last_latitude, lon_360to180(pixc.inner_last_longitude)),
+                   (pixc.outer_first_latitude, lon_360to180(pixc.outer_first_longitude)),
+                   (pixc.outer_last_latitude, lon_360to180(pixc.outer_last_longitude)))
+        self.create_projection_from_bbox(corners)
+
+        # Get mask of valid pixc values
         pixc_mask = get_pixc_mask(pixc)
         # Exclude classes not defined in the processor
         pixc_mask = np.logical_and(
@@ -150,15 +164,6 @@ class RasterProcessor(object):
                                     self.land_edge_classes,
                                     self.dark_water_classes))))
 
-        LOGGER.info('Calculating Projection Parameters')
-
-        corners = ((pixc.inner_first_latitude, lon_360to180(pixc.inner_first_longitude)),
-                   (pixc.inner_last_latitude, lon_360to180(pixc.inner_last_longitude)),
-                   (pixc.outer_first_latitude, lon_360to180(pixc.outer_first_longitude)),
-                   (pixc.outer_last_latitude, lon_360to180(pixc.outer_last_longitude)))
-
-        self.create_projection_from_bbox(corners)
-
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
         # Return empty product if pixc is empty
@@ -166,10 +171,19 @@ class RasterProcessor(object):
             LOGGER.warn('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
-        self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask)
+        LOGGER.info('Mapping pixc pixels to raster bins')
+        # If we have improved geolocations, use them for raster mapping
+        if improved_geoloc_pixc is not None:
+            improved_geoloc_pixc_mask = get_pixc_mask(improved_geoloc_pixc)
+            pixc_mask = np.logical_and(pixc_mask, improved_geoloc_pixc_mask)
+            self.proj_mapping = empty_product.get_raster_mapping(
+                improved_geoloc_pixc, pixc_mask)
+        else:
+            self.proj_mapping = empty_product.get_raster_mapping(
+                pixc, pixc_mask)
 
         LOGGER.info('Rasterizing data')
-        self.aggregate_wse(pixc, pixc_mask)
+        self.aggregate_wse(pixc, pixc_mask, improved_geoloc_pixc)
         self.aggregate_water_area(pixc, pixc_mask)
         self.aggregate_cross_track(pixc, pixc_mask)
         self.aggregate_sig0(pixc, pixc_mask)
@@ -244,34 +258,10 @@ class RasterProcessor(object):
                      'y_max': self.y_max,
                      'size_y': self.size_y})
 
-    def aggregate_wse(self, pixc, mask):
+    def aggregate_wse(self, pixc, mask, improved_geoloc_pixc=None):
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
         pixc_num_med_looks = pixc['pixel_cloud']['eff_num_medium_looks']
-
-        pixc_latitude = pixc['pixel_cloud']['latitude']
-        pixc_longitude = pixc['pixel_cloud']['longitude']
-
-        # flatten the interferogram for wse aggregation
-        pixc_ifgram = pixc['pixel_cloud']['interferogram']
-        target_xyz = geoloc.convert_llh2ecef(pixc_latitude, pixc_longitude,
-                                             pixc_height, GEN_RAD_EARTH_EQ,
-                                             GEN_RAD_EARTH_POLE)
-
-        tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
-                                  pixc['tvp']['plus_y_antenna_y'],
-                                  pixc['tvp']['plus_y_antenna_z'])
-        tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
-                                   pixc['tvp']['minus_y_antenna_y'],
-                                   pixc['tvp']['minus_y_antenna_z'])
-        pixc_tvp_index = get_sensor_index(pixc)
-        pixc_wavelength = pixc.wavelength
-        flat_ifgram = compute_interferogram_flatten(pixc_ifgram,
-                                                    tvp_plus_y_antenna_xyz,
-                                                    tvp_minus_y_antenna_xyz,
-                                                    pixc_tvp_index,
-                                                    pixc_wavelength,
-                                                    target_xyz)
 
         pixc_power_plus_y = pixc['pixel_cloud']['power_plus_y']
         pixc_power_minus_y = pixc['pixel_cloud']['power_minus_y']
@@ -290,6 +280,38 @@ class RasterProcessor(object):
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
 
         looks_to_efflooks = pixc['pixel_cloud'].looks_to_efflooks
+
+        if improved_geoloc_pixc is not None:
+            # flatten the interferogram using the improved geolocation
+            target_xyz = geoloc.convert_llh2ecef(
+                improved_geoloc_pixc['pixel_cloud']['latitude'],
+                improved_geoloc_pixc['pixel_cloud']['longitude'],
+                improved_geoloc_pixc['pixel_cloud']['height'],
+                GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+        else:
+            # if we don't have an improved geolocation, we can at least
+            # flatten with the actual geolocations to estimate the uncertainty
+            target_xyz = geoloc.convert_llh2ecef(
+                pixc['pixel_cloud']['latitude'],
+                pixc['pixel_cloud']['longitude'],
+                pixc['pixel_cloud']['height'],
+                GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+
+        pixc_ifgram = pixc['pixel_cloud']['interferogram']
+        tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
+                                  pixc['tvp']['plus_y_antenna_y'],
+                                  pixc['tvp']['plus_y_antenna_z'])
+        tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
+                                   pixc['tvp']['minus_y_antenna_y'],
+                                   pixc['tvp']['minus_y_antenna_z'])
+        pixc_tvp_index = get_sensor_index(improved_geoloc_pixc)
+        pixc_wavelength = pixc.wavelength
+        ifgram = compute_interferogram_flatten(pixc_ifgram,
+                                               tvp_plus_y_antenna_xyz,
+                                               tvp_minus_y_antenna_xyz,
+                                               pixc_tvp_index,
+                                               pixc_wavelength,
+                                               target_xyz)
 
         # Only aggregate heights for interior water and water edges
         pixc_klass = pixc['pixel_cloud']['classification']
@@ -634,8 +656,6 @@ def get_sensor_index(pixc):
 
 
 # TODO: at some point this function should move back to swotCNES
-# Note that their version only flattens the part of the interferogram corresponding
-# to a water feature... This version flattens the whole interferogram
 def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
                                   minus_y_antenna_xyz, tvp_index,
                                   wavelength, target_xyz):
