@@ -45,9 +45,9 @@ def main():
 
     cfg = rdf.parse(os.path.abspath(args.rdf_file), comment='!')
     pixc_data = MutableProduct.from_ncfile(args.pixc_file)
-    if args.improved_geoloc_pixc_input_file is not None:
+    if args.improved_geoloc_pixc_file is not None:
         improved_geoloc_pixc_data = MutableProduct.from_ncfile(
-            args.improved_geoloc_pixc_input_file)
+            args.improved_geoloc_pixc_file)
     else:
         improved_geoloc_pixc_data = None
     proc = raster.L2PixcToRaster(cfg, pixc_data, improved_geoloc_pixc_data,
