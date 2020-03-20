@@ -307,7 +307,7 @@ class RasterProcessor(object):
         tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
                                    pixc['tvp']['minus_y_antenna_y'],
                                    pixc['tvp']['minus_y_antenna_z'])
-        pixc_tvp_index = get_sensor_index(improved_geoloc_pixc)
+        pixc_tvp_index = get_sensor_index(pixc)
         pixc_wavelength = pixc.wavelength
         ifgram = compute_interferogram_flatten(pixc_ifgram,
                                                tvp_plus_y_antenna_xyz,
