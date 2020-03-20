@@ -83,7 +83,7 @@ def main():
     if args['water_frac_thresh'] is not None:
         print('\033[93m' + 'Water frac >= {}'.format(args['water_frac_thresh']) + '\033[00m')
     if args['wse_uncert_thresh'] is not None:
-        print('\033[93m' + 'Wse uncert <= {}'.format(args['wse_uncert_thresh']) + '\033[00m')
+        print('\033[93m' + 'WSE uncert <= {}'.format(args['wse_uncert_thresh']) + '\033[00m')
     if args['cross_track_bounds'] is not None:
         print('\033[93m' + 'Cross track bounds = {}'.format(args['cross_track_bounds']) + '\033[00m')
     if args['min_pixels'] is not None:
@@ -311,12 +311,12 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                                           passfail=passfail)
 
 
-    metrics_to_plot = {'Wse Error (m)':all_wse_err,
+    metrics_to_plot = {'WSE Error (m)':all_wse_err,
                        'Area Percent Error (%)':all_area_perc_err,}
                        #'Water Fraction Error (%)':all_water_frac_err*100,
                        #'Dark Fraction Error (%)':all_dark_frac_err*100}
 
-    uncert_to_plot = {'Wse Error (m)':all_wse_uncert,
+    uncert_to_plot = {'WSE Error (m)':all_wse_uncert,
                        'Area Percent Error (%)':all_area_perc_uncert,}
                        #'Water Fraction Error (%)':None,
                        #'Dark Fraction Error (%)':None}
