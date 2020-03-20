@@ -312,19 +312,19 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
 
 
     metrics_to_plot = {'WSE Error (m)':all_wse_err,
-                       'Area Percent Error (%)':all_area_perc_err,}
-                       #'Water Fraction Error (%)':all_water_frac_err*100,
-                       #'Dark Fraction Error (%)':all_dark_frac_err*100}
+                       'Area Percent Error (%)':all_area_perc_err,
+                       'Water Fraction Error (%)':all_water_frac_err*100,
+                       'Dark Fraction Error (%)':all_dark_frac_err*100}
 
     uncert_to_plot = {'WSE Error (m)':all_wse_uncert,
-                       'Area Percent Error (%)':all_area_perc_uncert,}
-                       #'Water Fraction Error (%)':None,
-                       #'Dark Fraction Error (%)':None}
+                       'Area Percent Error (%)':all_area_perc_uncert,
+                       'Water Fraction Error (%)':None,
+                       'Dark Fraction Error (%)':None}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
-                               'Num Pixels':all_pixc_px,}
-                               #'Dark Fraction (%)':all_dark_frac*100,
-                               #'Water Fraction (%)':all_water_frac*100}
+                               'Num Pixels':all_pixc_px,
+                               'Dark Fraction (%)':all_dark_frac*100,
+                               'Water Fraction (%)':all_water_frac*100}
 
     plot_metrics(metrics_to_plot, metrics_to_plot_against,
         uncert_to_plot=uncert_to_plot, scatter_plot=scatter_plot)
