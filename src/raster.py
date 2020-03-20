@@ -115,6 +115,7 @@ class L2PixcToRaster(object):
             except KeyError:
                 self.config[key] = config_defaults[key]
 
+
 class RasterProcessor(object):
     def __init__(self, projection_type, resolution, buffer_size,
                  height_agg_method, area_agg_method, interior_water_classes,
