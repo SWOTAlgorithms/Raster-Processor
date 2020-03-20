@@ -140,7 +140,7 @@ class GeogCRS(object):
         self.identifier = identifier
 
     def __str__(self):
-        wkt = "GEOGCS[\"{0}\",{1},{2},{3}".format( # TODO: should reall be GEOGCRS now, but qgis cant read it
+        wkt = "GEOGCRS[\"{0}\",{1},{2},{3}".format(
             self.name, self.datum, self.primem, self.unit)
         if self.identifier is None:
             wkt = wkt + "]"
@@ -165,7 +165,7 @@ class ProjCRS(object):
         self._axis_keys = [axis.name for axis in axes]
 
     def __str__(self):
-        wkt = "PROJCS[\"{0}\",{1},{2}".format( # TODO: should really be PROJCRS now, but qgis cant read it
+        wkt = "PROJCRS[\"{0}\",{1},{2}".format(
             self.name, self.geogcs, self.projection)
         for key in self._param_keys:
             wkt = wkt + ",{0}".format(getattr(self, key))
