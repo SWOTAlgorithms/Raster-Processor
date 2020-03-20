@@ -6,7 +6,6 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 '''
 
 import utm
-import copy
 import logging
 import numpy as np
 import geoloc_raster
@@ -72,7 +71,7 @@ class L2PixcToRaster(object):
 
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
             self.pixc, improved_geoloc_raster, self.config)
-        self.improved_geoloc_pixc = copy.deepcopy(self.pixc)
+        self.improved_geoloc_pixc = self.pixc.copy()
         self.improved_geoloc_pixc['pixel_cloud']['latitude'] = new_lat
         self.improved_geoloc_pixc['pixel_cloud']['longitude'] = new_lon
         self.improved_geoloc_pixc['pixel_cloud']['height'] = new_height
