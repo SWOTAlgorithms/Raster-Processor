@@ -311,7 +311,7 @@ class RasterProcessor(object):
         flat_ifgram = ag.flatten_interferogram(pixc_ifgram,
                                                tvp_plus_y_antenna_xyz,
                                                tvp_minus_y_antenna_xyz,
-                                               target_xyz
+                                               target_xyz,
                                                pixc_tvp_index,
                                                pixc_wavelength)
 
