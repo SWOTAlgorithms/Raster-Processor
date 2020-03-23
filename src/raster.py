@@ -65,6 +65,10 @@ class L2PixcToRaster(object):
         improved_geoloc_raster = improved_geoloc_raster_proc.rasterize(
             self.pixc, self.improved_geoloc_pixc)
 
+        # if the improved geoloc raster is empty, do not call geoloc_raster
+        if improved_geoloc_raster.is_empty():
+            return
+
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
             self.pixc, improved_geoloc_raster, self.config)
         self.improved_geoloc_pixc = self.pixc.copy()

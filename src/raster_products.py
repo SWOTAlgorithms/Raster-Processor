@@ -591,6 +591,14 @@ class RasterUTM(Product):
             self.pole_tide)
         return height
 
+    def is_empty(self):
+        for variable in COMMON_VARIABLES:
+            var_data = getattr(self, variable)
+            if np.logical_not(var_data.mask.all()):
+                return 0
+        return 1
+
+
 class RasterGeo(Product):
     UID = "raster"
 
@@ -730,6 +738,13 @@ class RasterGeo(Product):
             self.load_tide_sol1 +
             self.pole_tide)
         return height
+
+    def is_empty(self):
+        for variable in COMMON_VARIABLES:
+            var_data = getattr(self, variable)
+            if np.logical_not(var_data.mask.all()):
+                return 0
+        return 1
 
 
 class RasterUTMDebug(RasterUTM):
