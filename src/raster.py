@@ -306,14 +306,14 @@ class RasterProcessor(object):
         tvp_minus_y_antenna_xyz = (pixc['tvp']['minus_y_antenna_x'],
                                    pixc['tvp']['minus_y_antenna_y'],
                                    pixc['tvp']['minus_y_antenna_z'])
-        pixc_tvp_index = get_sensor_index(pixc)
+        pixc_tvp_index = ag.get_sensor_index(pixc)
         pixc_wavelength = pixc.wavelength
-        flat_ifgram = compute_interferogram_flatten(pixc_ifgram,
-                                                    tvp_plus_y_antenna_xyz,
-                                                    tvp_minus_y_antenna_xyz,
-                                                    pixc_tvp_index,
-                                                    pixc_wavelength,
-                                                    target_xyz)
+        flat_ifgram = ag.flatten_interferogram(pixc_ifgram,
+                                               tvp_plus_y_antenna_xyz,
+                                               tvp_minus_y_antenna_xyz,
+                                               target_xyz
+                                               pixc_tvp_index,
+                                               pixc_wavelength)
 
         # Only aggregate heights for interior water and water edges
         pixc_klass = pixc['pixel_cloud']['classification']
@@ -647,36 +647,3 @@ def get_pixc_mask(pixc):
 
 def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
-
-
-def get_sensor_index(pixc):
-    f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
-    illumination_time = pixc['pixel_cloud']['illumination_time'].data[
-        np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
-    sensor_index = (np.rint(f(illumination_time))).astype(int).flatten()
-    return sensor_index
-
-
-# TODO: at some point this function should move back to swotCNES
-def compute_interferogram_flatten(ifgram, plus_y_antenna_xyz,
-                                  minus_y_antenna_xyz, tvp_index,
-                                  wavelength, target_xyz):
-    """
-    Return the flattened interferogram using provided geolocations
-    """
-    # Compute distance between target and sensor for each pixel
-    dist_e = np.sqrt(
-        (plus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
-        + (plus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2
-        + (plus_y_antenna_xyz[2][tvp_index] - target_xyz[2])**2)
-
-    dist_r = np.sqrt(
-        (minus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
-        + (minus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2
-        + (minus_y_antenna_xyz[2][tvp_index] - target_xyz[2])**2)
-
-    # Compute the corresponding reference phase and flatten the interferogram
-    phase_ref = -2*np.pi / wavelength*(dist_e - dist_r)
-    interferogram_flatten  = ifgram*np.exp(-1.j*phase_ref)
-
-    return interferogram_flatten
