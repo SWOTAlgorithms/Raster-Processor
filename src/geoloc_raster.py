@@ -20,8 +20,6 @@ from SWOTWater.constants import PIXC_CLASSES
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
-downsamp_rate = 1
-
 class GeolocRaster(object):
     """
         class GeolocRaster
