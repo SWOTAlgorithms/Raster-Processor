@@ -15,7 +15,6 @@ import coordinate_reference_systems as crs
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from datetime import datetime
-from scipy import interpolate
 from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
