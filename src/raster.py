@@ -65,8 +65,8 @@ class L2PixcToRaster(object):
             self.config['land_edge_classes'],
             self.config['dark_water_classes'])
 
-        improved_geoloc_raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
-        improved_geoloc_raster = improved_geoloc_raster_proc.build_product()
+        improved_geoloc_raster = improved_geoloc_raster_proc.rasterize(
+            self.pixc, self.improved_geoloc_pixc)
 
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
             self.pixc, improved_geoloc_raster, self.config)
@@ -88,8 +88,8 @@ class L2PixcToRaster(object):
             self.config['land_edge_classes'],
             self.config['dark_water_classes'])
 
-        raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
-        return raster_proc.build_product()
+        out_raster = raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
+        return out_raster
 
     # TODO: probably will want to remove this eventually to force the input
     # to have all of the necessary config values defined
@@ -194,6 +194,8 @@ class RasterProcessor(object):
 
         if self.debug_flag:
             self.aggregate_classification(pixc, pixc_mask)
+
+        return self.build_product()
 
     def create_projection_from_bbox(self, corners):
         # catch invalid projection type
