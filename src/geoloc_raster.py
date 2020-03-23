@@ -11,6 +11,7 @@ import raster
 import logging
 import argparse
 import numpy as np
+import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
@@ -18,8 +19,6 @@ from scipy import interpolate
 from SWOTWater.constants import PIXC_CLASSES
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
-
-downsamp_rate = 1
 
 class GeolocRaster(object):
     """
@@ -94,15 +93,10 @@ class GeolocRaster(object):
         self.out_lon_corr = np.zeros(nb_pix)  # Improved longitudes
         self.out_height_corr = np.zeros(nb_pix)  # Improved heights
 
-        # need to remap illumnation time to nearest sensor index
-        # TODO replace this by a call to a get_sensor_index or equivalent function
-        # that either interpolates the sensor or does something more efficient
-        f = interpolate.interp1d(self.pixc['tvp']['time'], range(len(self.pixc['tvp']['time'])))
-        illumination_time = self.pixc['pixel_cloud']['illumination_time'].data[~self.pixc['pixel_cloud']['illumination_time'].mask]
-        sensor_s = (np.rint(f(illumination_time))).astype(int).T
+        # Remap illumnation time to nearest sensor index
+        sensor_s = ag.get_sensor_index(self.pixc)
 
         # Loop over each pixel (could be vectorized)
-        # vectorisation
         h_noisy = self.pixc['pixel_cloud']['height']
         nadir_x_vect = np.zeros(nb_pix)
         nadir_y_vect = np.zeros(nb_pix)
