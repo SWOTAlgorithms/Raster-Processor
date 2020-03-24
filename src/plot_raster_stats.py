@@ -144,63 +144,35 @@ def load_data(
         data_not_in_truth_mask = np.logical_and(~data_tmp['wse'].mask, truth_tmp['wse'].mask)
 
         # Use additional filters to update masks
+        tmp_mask = np.ones_like(common_mask)
         if dark_frac_thresh is not None:
-            common_mask = np.logical_and(
-                common_mask,
-                truth_tmp['dark_frac'] <= dark_frac_thresh)
-            truth_not_in_data_mask = np.logical_and(
-                truth_not_in_data_mask,
-                truth_tmp['dark_frac'] <= dark_frac_thresh)
-            data_not_in_truth_mask = np.logical_and(
-                data_not_in_truth_mask,
-                truth_tmp['dark_frac'] <= dark_frac_thresh)
+            tmp_mask = np.logical_and(
+                tmp_mask, truth_tmp['dark_frac'] <= dark_frac_thresh)
 
         if water_frac_thresh is not None:
-            common_mask = np.logical_and(
-                common_mask,
-                truth_tmp['water_frac'] >= water_frac_thresh)
-            truth_not_in_data_mask = np.logical_and(
-                truth_not_in_data_mask,
-                truth_tmp['water_frac'] >= water_frac_thresh)
-            data_not_in_truth_mask = np.logical_and(
-                data_not_in_truth_mask,
-                truth_tmp['water_frac'] >= water_frac_thresh)
+            tmp_mask = np.logical_and(
+                tmp_mask, truth_tmp['water_frac'] >= water_frac_thresh)
 
         if wse_uncert_thresh is not None:
-            common_mask = np.logical_and(
-                common_mask,
-                data_tmp['wse_uncert'] <= wse_uncert_thresh)
-            truth_not_in_data_mask = np.logical_and(
-                truth_not_in_data_mask,
-                data_tmp['wse_uncert'] <= wse_uncert_thresh)
-            data_not_in_truth_mask = np.logical_and(
-                data_not_in_truth_mask,
-                data_tmp['wse_uncert'] <= wse_uncert_thresh)
+            tmp_mask = np.logical_and(
+                tmp_mask, data_tmp['wse_uncert'] <= wse_uncert_thresh)
 
         if cross_track_bounds is not None:
-            common_mask = np.logical_and.reduce(
-                (common_mask,
-                 np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
-                 np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
-            truth_not_in_data_mask = np.logical_and.reduce(
-                (truth_not_in_data_mask,
-                 np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
-                 np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
-            data_not_in_truth_mask = np.logical_and.reduce(
-                (data_not_in_truth_mask,
+            tmp_mask = np.logical_and.reduce(
+                (tmp_mask,
                  np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
                  np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
 
         if min_pixels is not None:
-            common_mask = np.logical_and(
-                common_mask,
-                data_tmp['num_pixels'] >= min_pixels)
-            truth_not_in_data_mask = np.logical_and(
-                truth_not_in_data_mask,
-                data_tmp['num_pixels'] >= min_pixels)
-            data_not_in_truth_mask = np.logical_and(
-                data_not_in_truth_mask,
-                data_tmp['num_pixels'] >= min_pixels)
+            tmp_mask = np.logical_and(
+                tmp_mask, data_tmp['num_pixels'] >= min_pixels)
+
+        total_mask = np.logical_and(total_mask, tmp_mask)
+        common_mask = np.logical_and(common_mask, tmp_mask)
+        truth_not_in_data_mask = np.logical_and(truth_not_in_data_mask,
+                                                tmp_mask)
+        data_not_in_truth_mask = np.logical_and(data_not_in_truth_mask,
+                                                tmp_mask)
 
         tile_metrics['wse_err'] = wse_err[common_mask]
         tile_metrics['wse_uncert'] = data_tmp['wse_uncert'][common_mask]
