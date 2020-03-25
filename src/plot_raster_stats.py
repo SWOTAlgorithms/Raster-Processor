@@ -252,7 +252,9 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     common_px = [tile_metrics['common_px'] for tile_metrics in metrics]
     uncommon_px_truth = [tile_metrics['uncommon_px_truth'] for tile_metrics in metrics]
     uncommon_px_data = [tile_metrics['uncommon_px_data'] for tile_metrics in metrics]
-
+    all_scenes = np.array([tile_metrics['scene'] + '_' + tile_metrics['tile_names']
+                           for tile_metrics in metrics
+                           for i in range(len(tile_metrics['cross_track']))])
     # Global metrics
     total_px_count = np.sum(total_px)
     common_px_pct = np.sum(common_px)/total_px_count * 100
@@ -299,7 +301,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                                'Water Fraction (%)':all_water_frac*100}
 
     plot_metrics(metrics_to_plot, metrics_to_plot_against,
-        uncert_to_plot=uncert_to_plot, scatter_plot=scatter_plot)
+        uncert_to_plot=uncert_to_plot, sources=all_scenes, scatter_plot=scatter_plot)
 
 def append_tile_table(tile_metrics, tile_table={},
                       wse_prefix='wse_e_', area_prefix='a_%e_',
@@ -388,7 +390,7 @@ def make_global_table(all_wse_err, all_area_perc_err,
     return global_table
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against,
-                 uncert_to_plot=None, poly=2, scatter_plot=False):
+                 uncert_to_plot=None, poly=2, sources=None, scatter_plot=False):
     warnings.simplefilter("ignore")
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
@@ -433,7 +435,7 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                         # make it easier to read
                         this_x_data = np.abs(this_x_data)
                     scatter_density(this_x_data, this_y_data,
-                        uncert=this_uncert, bin_edges=bin_edges)
+                        uncert=this_uncert, source=sources, bin_edges=bin_edges)
                     plt.title('{} vs. {}'.format(y_key, x_key))
                     plt.xlabel(x_key)
                     plt.ylabel(y_key)
