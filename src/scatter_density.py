@@ -52,6 +52,7 @@ def make_format(bins_x, bins_y, top_sources, top_source_pcts):
         row = np.searchsorted(bins_x, x)-1
         col = np.searchsorted(bins_y, y)-1
         format_str = 'x={0:1.4f}, y={1:1.4f}'.format(x, y)
+
         if row >= 0 and row < len(top_sources) \
            and col >= 0 and col < len(top_sources[0]):
             ts = top_sources[row][col]

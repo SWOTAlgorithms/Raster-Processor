@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 '''
-Script to rasterize a pixelcloud
+Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged.
+All rights reserved.
 
-Author (s): Alexander Corben
+Author(s): Alexander Corben
 '''
 
 import os

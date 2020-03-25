@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 '''
-Raster processor
+Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged.
+All rights reserved.
 
 Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 '''

@@ -7,7 +7,6 @@ Author(s): Alexander Corben
 
 '''
 
-
 import numpy as np
 
 def metrics_fit(x, y, poly=3, pts=25):

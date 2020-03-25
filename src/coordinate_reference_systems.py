@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 '''
-Raster Projection
+Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged.
+All rights reserved.
 
-Author (s): Alexander Corben (JPL)
+Author(s): Alexander Corben
 '''
 
 import utm

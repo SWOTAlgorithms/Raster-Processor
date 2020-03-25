@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 '''
-Improved geolocation for raster processor
-Adapted from geoloc_river from CNES swot-hydrology-toolbox
+Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged.
+All rights reserved.
 
-Author (s): Alexander Corben
+Author(s): Alexander Corben (adapted from geoloc_river)
+
 '''
+
 import os
 import rdf
 import raster

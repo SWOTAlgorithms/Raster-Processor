@@ -1,9 +1,11 @@
 '''
-Product description for the raster processor
+Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Government sponsorship acknowledged.
+All rights reserved.
 
-Author (s): Alexander Corben
-
+Author(s): Alexander Corben
 '''
+
 import utm
 import logging
 import textwrap
