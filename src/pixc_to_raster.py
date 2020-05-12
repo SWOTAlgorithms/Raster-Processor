@@ -13,6 +13,7 @@ import raster
 import logging
 import argparse
 
+from raster_products import RasterPixc
 from SWOTWater.products.product import MutableProduct
 
 description = """
@@ -40,13 +41,15 @@ def main():
     parser.add_argument("rdf_file", type=str, help='rdf config file')
     parser.add_argument("out_file", type=str, help='output raster file')
     parser.add_argument("-ig", "--improved_geoloc_pixc_file", type=str,
-                        help='improved geolocation pixc imput file', default=None)
+                        help='improved geolocation pixc input file', default=None)
     parser.add_argument("-d", "--debug", action='store_true',
                         help='flag to write debug version of raster product')
     args = parser.parse_args()
 
     cfg = rdf.parse(os.path.abspath(args.rdf_file), comment='!')
-    pixc_data = MutableProduct.from_ncfile(args.pixc_file)
+
+    pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
+    pixc_data = RasterPixc.from_tile(pixc_tile)
     if args.improved_geoloc_pixc_file is not None:
         improved_geoloc_pixc_data = MutableProduct.from_ncfile(
             args.improved_geoloc_pixc_file)

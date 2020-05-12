@@ -145,14 +145,14 @@ class RasterProcessor(object):
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
         # TODO: Update tile numbers/names when tiling is implemented
-        self.tile_numbers = pixc.tile_number
-        self.tile_names = pixc.tile_name
+        self.tile_numbers = pixc.tile_numbers
+        self.tile_names = pixc.tile_names
 
         LOGGER.info('Calculating projection parameters')
-        corners = ((pixc.inner_first_latitude, lon_360to180(pixc.inner_first_longitude)),
-                   (pixc.inner_last_latitude, lon_360to180(pixc.inner_last_longitude)),
-                   (pixc.outer_first_latitude, lon_360to180(pixc.outer_first_longitude)),
-                   (pixc.outer_last_latitude, lon_360to180(pixc.outer_last_longitude)))
+        corners = ((pixc.geospatial_lat_min, lon_360to180(pixc.geospatial_lon_min)),
+                   (pixc.geospatial_lat_min, lon_360to180(pixc.geospatial_lon_max)),
+                   (pixc.geospatial_lat_max, lon_360to180(pixc.geospatial_lon_max)),
+                   (pixc.geospatial_lat_max, lon_360to180(pixc.geospatial_lon_min)))
         self.create_projection_from_bbox(corners)
 
         # Get mask of valid pixc values
@@ -192,6 +192,7 @@ class RasterProcessor(object):
         self.aggregate_inc(pixc, pixc_mask)
         self.aggregate_num_pixels(pixc, pixc_mask)
         self.aggregate_dark_frac(pixc, pixc_mask)
+        self.aggregate_illumination_time(pixc, pixc_mask)
         self.aggregate_corrections(pixc, pixc_mask)
         self.apply_wse_corrections()
 
@@ -207,21 +208,27 @@ class RasterProcessor(object):
                 self.projection_type))
 
         # get corners separately
-        in_1st = corners[0]
-        in_last = corners[1]
-        out_1st = corners[2]
-        out_last = corners[3]
+        lower_left = corners[0]
+        lower_right = corners[1]
+        upper_right = corners[2]
+        upper_left = corners[3]
 
-        x_min = np.min(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
-        y_min = np.min(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
-        x_max = np.max(np.array([in_1st[1],in_last[1],out_1st[1],out_last[1]]))
-        y_max = np.max(np.array([in_1st[0],in_last[0],out_1st[0],out_last[0]]))
+        x_min = np.min(np.array([lower_left[1], lower_right[1],
+                                 upper_right[1], upper_left[1]]))
+        y_min = np.min(np.array([lower_left[0], lower_right[0],
+                                 upper_right[0], upper_left[0]]))
+        x_max = np.max(np.array([lower_left[1], lower_right[1],
+                                 upper_right[1], upper_left[1]]))
+        y_max = np.max(np.array([lower_left[0], lower_right[0],
+                                 upper_right[0], upper_left[0]]))
         proj_center_x = 0
 
         # find the UTM zone number for the middle of the swath-tile
         if self.projection_type=='utm':
-            lat_mid = (in_1st[0] + in_last[0] + out_1st[0] + out_last[0])/4.0
-            lon_mid = (in_1st[1] + in_last[1] + out_1st[1] + out_last[1])/4.0
+            lat_mid = (lower_left[0] + lower_right[0] \
+                       + upper_right[0] + upper_left[0])/4.0
+            lon_mid = (lower_left[1] + lower_right[1] \
+                       + upper_right[1] + upper_left[1])/4.0
             x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid, lon_mid)
 
             x_min, y_min, u_num, u_zone = utm.from_latlon(y_min, x_min,
@@ -490,6 +497,27 @@ class RasterProcessor(object):
                     self.classification[i][j] = ag.simple(
                         pixc_klass[self.proj_mapping[i][j]][good], metric='mode')
 
+    def aggregate_illumination_time(self, pixc, mask):
+        pixc_illumination_time = pixc['pixel_cloud']['illumination_time']
+        pixc_illumination_time_tai = pixc['pixel_cloud']['illumination_time_tai']
+
+        self.illumination_time = np.ma.masked_all((self.size_y, self.size_x))
+        self.illumination_time_tai = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if len(self.proj_mapping[i][j]) != 0:
+                    good = mask[self.proj_mapping[i][j]]
+                    self.illumination_time[i][j] = ag.simple(
+                        pixc_illumination_time[self.proj_mapping[i][j]][good],
+                        metric='mean')
+                    self.illumination_time_tai[i][j] = ag.simple(
+                        pixc_illumination_time_tai[self.proj_mapping[i][j]][good],
+                        metric='mean')
+
+        self.tai_utc_difference = \
+            self.illumination_time_tai[0] - self.illumination_time[0]
+
     def aggregate_corrections(self, pixc, mask):
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
@@ -577,9 +605,12 @@ class RasterProcessor(object):
                                        self.size_y)
             coordinate_system = crs.utm_crs(self.utm_zone_num,
                                             self.utm_hemisphere)
-            product.VARIABLES['crs']['projected_crs_name'] = coordinate_system.name
-            product.VARIABLES['crs']['false_northing'] = coordinate_system.false_northing.value
-            product.VARIABLES['crs']['longitude_of_central_meridian'] = coordinate_system.central_meridian.value
+            product.VARIABLES['crs']['projected_crs_name'] = \
+                coordinate_system.name
+            product.VARIABLES['crs']['false_northing'] = \
+                coordinate_system.false_northing.value
+            product.VARIABLES['crs']['longitude_of_central_meridian'] = \
+                coordinate_system.central_meridian.value
 
         elif self.projection_type == 'geo':
             product.longitude_min = self.x_min
@@ -595,8 +626,13 @@ class RasterProcessor(object):
             coordinate_system = crs.wgs84_crs()
 
         product.VARIABLES['crs']['crs_wkt'] = str(coordinate_system)
+        product.VARIABLES['crs']['spatial_ref'] = str(coordinate_system)
 
         if populate_values:
+            product['illumination_time'] = self.illumination_time
+            product['illumination_time_tai'] = self.illumination_time_tai
+            product['illumination_time'].tai_utc_difference = \
+                self.tai_utc_difference
             product['wse'] = self.wse
             product['wse_uncert'] = self.wse_u
             product['water_area'] = self.water_area

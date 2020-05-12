@@ -39,7 +39,7 @@ class GeolocRaster(object):
         """
         Update pixelcloud heights from raster
         """
-        self.new_height = np.ma.masked_all_like(self.pixc['pixel_cloud'].height)
+        self.new_height = np.ma.masked_all_like(self.pixc['pixel_cloud']['height'])
 
         pixc_mask = raster.get_pixc_mask(self.pixc)
         pixc_mask = np.logical_and(
@@ -118,6 +118,20 @@ class GeolocRaster(object):
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
 
         # improve height with vectorised pixel
+        print('alex print start')
+        print(np.transpose(np.array([x, y, z])))
+        print(h_noisy)
+        print(np.transpose(np.array(
+            [nadir_x_vect, nadir_y_vect,
+             nadir_z_vect])))
+        print(np.transpose(np.array(
+            [nadir_vx_vect, nadir_vy_vect,
+             nadir_vz_vect])))
+        print(ri)
+        print(self.new_height)
+        print(self.new_height[np.logical_not(self.new_height.mask)])
+        print(self.new_height.count)
+        print('print done')
         p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
                                                                                                              h_noisy,
                                                                                                              np.transpose(np.array(

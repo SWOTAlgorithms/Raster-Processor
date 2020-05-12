@@ -25,415 +25,459 @@ def textjoin(text):
     return text
 
 COMMON_ATTRIBUTES = odict([
-    ['Conventions', {'dtype': 'str' ,'value': 'CF-1.7',
-                     'docstr':textjoin("""
-                     NetCDF-4 conventions adopted in this group. This
-                     attribute should be set to CF-1.7 to indicate that the group is
-                     compliant with the Climate and Forecast NetCDF conventions.""") }],
-    ['title', {'dtype': 'str', 'value':'Level 2 KaRIn High Rate Raster Data Product',
-               'docstr': 'Level 2 KaRIn High Rate Raster Data Product'}],
-    ['institution', {'dtype': 'str', 'value': 'JPL',
-                     'docstr': 'Name of producing agency.'}],
-    ['source', {'dtype': 'str', 'value': 'Ka-band radar interferometer',
-                'docstr': textjoin("""
-                The method of production of the original data.
-                If it was model-generated, source should name the model and its
-                version, as specifically as could be useful. If it is observational,
-                source should characterize it (e.g., 'Ka-band radar interferometer').""")}],
-    ['history', {'dtype': 'str',
-                 'docstr': textjoin("""
-                 UTC time when file generated. Format is:
-                 'YYYY-MM-DD hh:mm:ss : Creation'""")}],
+    ['Conventions',
+     {'dtype': 'str' ,'value': 'CF-1.7',
+      'docstr':textjoin("""
+          NetCDF-4 conventions adopted in this group. This
+          attribute should be set to CF-1.7 to indicate that the group is
+          compliant with the Climate and Forecast NetCDF conventions.""") }],
+    ['title',
+     {'dtype': 'str', 'value':'Level 2 KaRIn High Rate Raster Data Product',
+      'docstr': 'Level 2 KaRIn High Rate Raster Data Product'}],
+    ['institution',
+     {'dtype': 'str', 'value': 'JPL',
+      'docstr': 'Name of producing agency.'}],
+    ['source',
+     {'dtype': 'str', 'value': 'Ka-band radar interferometer',
+      'docstr': textjoin("""
+          The method of production of the original data.
+          If it was model-generated, source should name the model and its
+          version, as specifically as could be useful. If it is observational,
+          source should characterize it (e.g., 'Ka-band radar interferometer').""")}],
+    ['history',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          UTC time when file generated. Format is:
+          'YYYY-MM-DD hh:mm:ss : Creation'""")}],
     ['mission_name', {'dtype': 'str' ,'value':'SWOT','docstr': 'SWOT'}],
-    ['references', {'dtype': 'str',
-                    'docstr': textjoin("""
-                    Published or web-based references that describe
-                    the data or methods used to product it. Provides version number of
-                    software generating product.""")}],
-    ['reference_document', {'dtype': 'str',
-                            'docstr': textjoin("""
-                            Name and version of Product Description Document
-                            to use as reference for product.""")}],
-    ['contact', {'dtype': 'str',
-                 'docstr': textjoin("""
-                 Contact information for producer of product.
-                 (e.g., 'ops@jpl.nasa.gov').""")}],
-    ['cycle_number', {'dtype': 'i2',
-                      'docstr': 'Cycle number of the product granule.'}],
-    ['pass_number', {'dtype': 'i2',
-                     'docstr': 'Pass number of the product granule.'}],
-    ['scene_number', {'dtype': 'i2',
-                      'docstr': 'Scene number of the product granule.'}],
-    ['tile_numbers', {'dtype': 'i2',
-                      'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
-    ['tile_names', {'dtype': 'str',
-                    'docstr': textjoin("""
-                    Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
-                    pass number with leading zeros, TTT is a 3 digit tile number within the pass,
-                    and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
-    ['projection', {'dtype': 'str',
-                    'docstr': 'Projection type.'}],
-    ['resolution', {'dtype': 'f4',
-                    'docstr': 'Raster projection resolution.'}],
-    ['start_time', {'dtype': 'str',
-                    'docstr': textjoin("""
-                    UTC time of first measurement.
-                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],
-    ['stop_time', {'dtype': 'str',
-                    'docstr': textjoin("""
-                    UTC time of last measurement.
-                    Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ""")}],
+    ['references',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Published or web-based references that describe
+          the data or methods used to product it. Provides version number of
+          software generating product.""")}],
+    ['reference_document',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Name and version of Product Description Document
+          to use as reference for product.""")}],
+    ['contact',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Contact information for producer of product.
+          (e.g., 'ops@jpl.nasa.gov').""")}],
+    ['cycle_number',
+     {'dtype': 'i2',
+      'docstr': 'Cycle number of the product granule.'}],
+    ['pass_number',
+     {'dtype': 'i2',
+      'docstr': 'Pass number of the product granule.'}],
+    ['scene_number',
+     {'dtype': 'i2',
+      'docstr': 'Scene number of the product granule.'}],
+    ['tile_numbers',
+     {'dtype': 'i2',
+      'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
+    ['tile_names',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
+          pass number with leading zeros, TTT is a 3 digit tile number within the pass,
+          and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
+    ['projection',
+     {'dtype': 'str',
+      'docstr': 'Projection type.'}],
+    ['resolution',
+     {'dtype': 'f4',
+      'docstr': 'Raster projection resolution.'}],
+    ['time_coverage_start',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          UTC time of first measurement.
+          Format is: YYYY-MM-DD hh:mm:ss.ssssssZ""")}],
+    ['time_coverage_end',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          UTC time of last measurement.
+          Format is: YYYY-MM-DD hh:mm:ss.ssssssZ""")}],
+    ['geospatial_lon_min',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Westernmost longitude (deg) of granule posting grid""")}],
 ])
 
 COMMON_VARIABLES = odict([
-        ['wse',
-         odict([['dtype', 'f4'],
-                ['long_name', 'water surface elevation above geoid'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -1500],
-                ['valid_max', 15000],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    'Water surface elevation of the pixel above the geoid.""")],
-                ])],
-        ['wse_uncert',
-         odict([['dtype', 'f4'],
-                ['long_name',
-                 'total uncertainty in the water surface elevation above geoid'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', 0],
-                ['valid_max', 100],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Total one-sigma uncertainty in the water surface elevation
-                    above geoid including uncertainties of corrections.""")],
-                ])],
-        ['water_area',
-         odict([['dtype', 'f4'],
-                ['long_name',
-                 'Surface area of detected water'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm^2'],
-                ['valid_min', 0],
-                ['valid_max', 2000000000],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Surface area of the detected water pixels.""")],
-                ])],
-        ['water_area_uncert',
-         odict([['dtype', 'f4'],
-                ['long_name', textjoin("""
-                    Uncertainty estimate of the surface area of
-                    detected water""")],
-                ['grid_mapping', 'crs'],
-                ['units', 'm^2'],
-                ['valid_min', 0],
-                ['valid_max', 2000000000],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Total one-sigma uncertainty in the surface area of the
-                    detected water pixels.""")],
-                ])],
-        ['water_frac',
-         odict([['dtype', 'f4'],
-                ['long_name', 'water fraction'],
-                ['grid_mapping', 'crs'],
-                ['units', '1'],
-                ['valid_min', -999999],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Noisy estimate of the fraction of the pixel that is
-                    water.""")],
-                ])],
-        ['water_frac_uncert',
-         odict([['dtype', 'f4'],
-                ['long_name', 'water fraction uncertainty'],
-                ['grid_mapping', 'crs'],
-                ['units', '1'],
-                ['valid_min', 0],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Uncertainty estimate of the water fraction estimate
-                    (width of noisy water frac estimate distribution).""")],
-                ])],
-        ['sig0',
-         odict([['dtype', 'f4'],
-                ['long_name', 'sigma0'],
-                ['grid_mapping', 'crs'],
-                ['units', '1'],
-                ['valid_min', -999999],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Normalized radar cross section, or backscatter
-                    brightness.""")],
-                ])],
-        ['sig0_uncert',
-         odict([['dtype', 'f4'],
-                ['long_name', 'uncertainty in sigma0'],
-                ['grid_mapping', 'crs'],
-                ['units', '1'],
-                ['valid_min', 0],
-                ['valid_max', 1000],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Uncertainty of sigma0. The value is provided in linear units.
-                    This value is a one-sigma additive (not multiplicative)
-                    uncertainty term, which can be added to or subtracted from
-                    sigma0.""")],
-                ])],
-        ['inc',
-         odict([['dtype', 'f4'],
-                ['long_name', 'incidence angle'],
-                ['grid_mapping', 'crs'],
-                ['units', 'degrees'],
-                ['valid_min', 0],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Incidence angle.""")],
-                ])],
-        ['cross_track',
-         odict([['dtype', 'f4'],
-                ['long_name', 'approximate cross-track location'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -75000],
-                ['valid_max', 75000],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Approximate cross-track location of the pixel.""")],
-                ])],
-        ['qual_flag',
-         odict([['dtype', 'i1'],
-                ['standard_name', 'quality_flag'],
-                ['grid_mapping', 'crs'],
-                ['flag_meanings', 'good bad'],
-                ['flag_values', np.array([0, 1]).astype('i1')],
-                ['valid_min', 0],
-                ['valid_max', 1],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Quality flag for raster data.""")],
-                ])],
-        ['num_pixels',
-         odict([['dtype', 'i4'],
-                ['long_name', 'number_of_pixels'],
-                ['grid_mapping', 'crs'],
-                ['units', 'l'],
-                ['valid_min', 1],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Number of contributing pixelcloud pixels""")],
-                ])],
-        ['dark_frac',
-         odict([['dtype', 'f4'],
-                ['long_name', 'fractional area of dark water'],
-                ['grid_mapping', 'crs'],
-                ['units', 'l'],
-                ['valid_min', 0],
-                ['valid_max', 1],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Fraction of pixel water area covered by dark water.""")],
-                ])],
-        ['ice_clim_flag',
-         odict([['dtype', 'u1'],
-                ['long_name', 'climatological ice cover flag'],
-                ['source', 'UNC'],
-                ['grid_mapping', 'crs'],
-                ['flag_meanings', textjoin("""
-                    no_ice_cover partial_ice_cover full_ice_cover
-                    not_available""")],
-                ['flag_values', np.array([0, 1, 2, 255]).astype('i2')],
-                ['valid_min', 0],
-                ['valid_max', 255],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Climatological ice cover flag indicating whether the pixel
-                    is ice-covered on the day of the observation based on
-                    external climatological information (not the SWOT
-                    measurement).  Values of 0, 1, and 2 indicate that the
-                    pixel is not ice covered, partially ice covered, and fully
-                    ice covered, respectively. A value of 255 indicates that
-                    this flag is not available.""")],
-                ])],
-        ['ice_dyn_flag',
-         odict([['dtype', 'u1'],
-                ['long_name', 'dynamic ice cover flag'],
-                ['source', 'UNC'],
-                ['grid_mapping', 'crs'],
-                ['flag_meanings', textjoin("""
-                    no_ice_cover partial_ice_cover full_ice_cover
-                    not_available""")],
-                ['flag_values', np.array([0, 1, 2, 255]).astype('u1')],
-                ['valid_min', 0],
-                ['valid_max', 255],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Dynamic ice cover flag indicating whether the surface is
-                    ice-covered on the day of the observation based on
-                    analysis of external satellite optical data.  Values of
-                    0, 1, and 2 indicate that the pixel is not ice covered,
-                    partially ice covered, and fully ice covered, respectively.
-                    A value of 255 indicates that this flag is not available.
-                    """)],
-                ])],
-        ['layover_impact',
-         odict([['dtype', 'f4'],
-                ['long_name', 'layover impact'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -999999],
-                ['valid_max', 999999],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Estimate of the height error caused by layover.""")],
-                ])],
-        ['geoid',
-         odict([['dtype', 'f4'],
-                ['long_name', 'geoid height'],
-                ['standard_name','geoid_height_above_reference_ellipsoid'],
-                ['source', 'EGM2008 (Pavlis et al., 2012)'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -150],
-                ['valid_max', 150],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Geoid height above the reference ellipsoid with a
-                    correction to refer the value to the mean tide system,
-                    i.e. includes the permanent tide (zero frequency).""")],
-                ])],
-        ['solid_earth_tide',
-         odict([['dtype', 'f4'],
-                ['long_name', 'solid Earth tide height'],
-                ['source', textjoin("""
-                    Cartwright and Taylor (1971) and Cartwright and Edden
-                    (1973)""")],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -1],
-                ['valid_max', 1],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Solid-Earth (body) tide height. The zero-frequency
-                    permanent tide component is not included.""")],
-                ])],
-        ['load_tide_sol1',
-         odict([['dtype', 'f4'],
-                ['long_name', 'geocentric load tide height from model 1'],
-                ['source', 'FES2014b (Carrere et al., 2016)'],
-                ['institution', 'LEGOS/CNES'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -0.2],
-                ['valid_max', 0.2],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Geocentric load tide height. The effect of the ocean tide
-                    loading of the Earth’s crust. This value is reported for
-                    reference but is not applied to the reported height.""")],
-                ])],
-        ['load_tide_sol2',
-         odict([['dtype', 'f4'],
-                ['long_name', 'geocentric load tide height from model 2'],
-                ['source', 'GOT4.10c (Ray, 2013)'],
-                ['institution', 'GSFC'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -0.2],
-                ['valid_max', 0.2],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Geocentric load tide height. The effect of the ocean tide
-                    loading of the Earth’s crust. This value is reported for
-                    reference but is not applied to the reported height.""")],
-                ])],
-        ['pole_tide',
-         odict([['dtype', 'f4'],
-                ['long_name', 'geocentric pole tide height'],
-                ['source', 'Wahr (1985) and Desai et al. (2015)'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -0.2],
-                ['valid_max', 0.2],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Geocentric pole tide height. The total of the contribution
-                    from the solid-Earth (body) pole tide height and the load
-                    pole tide height (i.e., the effect of the ocean pole tide
-                    loading of the Earth’s crust).""")],
-                ])],
-        ['model_dry_tropo_cor',
-         odict([['dtype', 'f4'],
-                ['long_name', 'dry troposphere vertical correction'],
-                ['source', 'European Centre for Medium-Range Weather Forecasts'],
-                ['institution', 'ECMWF'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -3],
-                ['valid_max', -1.5],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Equivalent vertical correction due to dry troposphere delay.
-                    The reported pixel height, latitude and longitude are
-                    computed after adding negative media corrections to
-                    uncorrected range along slant-range paths, accounting for
-                    the differential delay between the two KaRIn antennas. The
-                    equivalent vertical correction is computed by applying
-                    obliquity factors to the slant-path correction. Adding the
-                    reported correction to the reported pixel height results
-                    in the uncorrected pixel height.""")],
-                ])],
-        ['model_wet_tropo_cor',
-         odict([['dtype', 'f4'],
-                ['long_name', 'wet troposphere vertical correction'],
-                ['source', 'European Centre for Medium-Range Weather Forecasts'],
-                ['institution', 'ECMWF'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -1],
-                ['valid_max', 0],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Equivalent vertical correction due to wet troposphere delay.
-                    The reported pixel height, latitude and longitude are
-                    computed after adding negative media corrections to
-                    uncorrected range along slant-range paths, accounting for
-                    the differential delay between the two KaRIn antennas. The
-                    equivalent vertical correction is computed by applying
-                    obliquity factors to the slant-path correction. Adding the
-                    reported correction to the reported pixel height results
-                    in the uncorrected pixel height.""")],
-                ])],
-        ['iono_cor_gim_ka',
-         odict([['dtype', 'f4'],
-                ['long_name', 'ionosphere vertical correction'],
-                ['source', 'Global Ionosphere Maps'],
-                ['institution', 'JPL'],
-                ['grid_mapping', 'crs'],
-                ['units', 'm'],
-                ['valid_min', -0.5],
-                ['valid_max', 0],
-                ['coordinates', '[Raster coordinates]'],
-                ['comment', textjoin("""
-                    Equivalent vertical correction due to ionosphere delay.
-                    The reported pixel height, latitude and longitude are
-                    computed after adding negative media corrections to
-                    uncorrected range along slant-range paths, accounting for
-                    the differential delay between the two KaRIn antennas. The
-                    equivalent vertical correction is computed by applying
-                    obliquity factors to the slant-path correction. Adding the
-                    reported correction to the reported pixel height results
-                    in the uncorrected pixel height.""")],
-                ])],
-    ])
+    ['wse',
+     odict([['dtype', 'f4'],
+            ['long_name', 'water surface elevation above geoid'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -1500],
+            ['valid_max', 15000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                'Water surface elevation of the pixel above the geoid.""")],
+        ])],
+    ['wse_uncert',
+     odict([['dtype', 'f4'],
+            ['long_name',
+             'total uncertainty in the water surface elevation'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', 0],
+            ['valid_max', 100],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                1-sigma uncertainty in the water surface elevation.""")],
+        ])],
+    ['water_area',
+     odict([['dtype', 'f4'],
+            ['long_name', 'surface area of detected water'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm^2'],
+            ['valid_min', 0],
+            ['valid_max', 2000000000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Surface area of the detected water pixels.""")],
+        ])],
+    ['water_area_uncert',
+     odict([['dtype', 'f4'],
+            ['long_name', textjoin("""
+                uncertainty estimate of the surface area of
+                detected water""")],
+            ['grid_mapping', 'crs'],
+            ['units', 'm^2'],
+            ['valid_min', 0],
+            ['valid_max', 2000000000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                1-sigma uncertainty in the surface area of the
+                detected water pixels.""")],
+        ])],
+    ['water_frac',
+     odict([['dtype', 'f4'],
+            ['long_name', 'water fraction'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Estimate of the fraction of the pixel that is
+                water.""")],
+        ])],
+    ['water_frac_uncert',
+     odict([['dtype', 'f4'],
+            ['long_name', 'water fraction uncertainty'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', 0],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                1-sigma uncertainty estimate of the water fraction estimate.""")],
+        ])],
+    ['sig0',
+     odict([['dtype', 'f4'],
+            ['long_name', 'sigma0'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Normalized radar cross section, or backscatter brightness.""")],
+        ])],
+    ['sig0_uncert',
+     odict([['dtype', 'f4'],
+            ['long_name', 'uncertainty in sigma0'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', 0],
+            ['valid_max', 1000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                1-sigma uncertainty of sigma0. The value is provided in linear units.
+                This value is a one-sigma additive (not multiplicative)
+                uncertainty term, which can be added to or subtracted from
+                sigma0.""")],
+        ])],
+    ['inc',
+     odict([['dtype', 'f4'],
+            ['long_name', 'incidence angle'],
+            ['grid_mapping', 'crs'],
+            ['units', 'degrees'],
+            ['valid_min', 0],
+            ['valid_max', 90],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Incidence angle.""")],
+        ])],
+    ['cross_track',
+     odict([['dtype', 'f4'],
+            ['long_name', 'approximate cross-track location'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -75000],
+            ['valid_max', 75000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Approximate cross-track location of the pixel.""")],
+        ])],
+    ['illumination_time',
+     odict([['dtype', 'f8'],
+            ['long_name', 'time of illumination of each pixel (UTC)'],
+            ['standard_name','time'],
+            ['calendar','gregorian'],
+            ['tai_utc_difference', '[Value of TAI-UTC at time of first record]'],
+            ['leap_second','YYYY-MM-DD hh:mm:ss'],
+            ['units', 'seconds since 2000-01-01 00:00:00.000'],
+            ['comment', textjoin("""
+                Time of measurement in seconds
+                in the UTC time scale since 1 Jan 2000 00:00:00 UTC.
+                [tai_utc_difference] is the difference between TAI
+                and UTC reference time (seconds) for the first
+                measurement of the data set.If a leap second occurs
+                within the data set, the attribute leap_second is set
+                to the UTC time at which the leap second occurs.""")],
+        ])],
+    ['illumination_time_tai',
+     odict([['dtype', 'f8'],
+            ['long_name', 'time of illumination of each pixel (TAI)'],
+            ['standard_name','time'],
+            ['calendar','gregorian'],
+            ['units', 'seconds since 2000-01-01 00:00:00.000'],
+            ['comment', textjoin("""
+                Time of measurement in seconds
+                in the TAI time scale since 1 Jan 2000 00:00:00 TAI.
+                This time scale contains no leap seconds.The
+                difference (in seconds) with time in UTC is given
+                by the attribute [illumination_time:tai_utc_difference].""")],
+        ])],
+    ['qual_flag',
+     odict([['dtype', 'i1'],
+            ['standard_name', 'quality_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', 'good bad'],
+            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['valid_min', 0],
+            ['valid_max', 1],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Quality flag for raster data.""")],
+        ])],
+    ['num_pixels',
+     odict([['dtype', 'u4'],
+            ['long_name', 'number_of_pixels'],
+            ['grid_mapping', 'crs'],
+            ['units', 'l'],
+            ['valid_min', 1],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Number of contributing pixelcloud pixels""")],
+        ])],
+    ['dark_frac',
+     odict([['dtype', 'f4'],
+            ['long_name', 'fractional area of dark water'],
+            ['grid_mapping', 'crs'],
+            ['units', 'l'],
+            ['valid_min', 0],
+            ['valid_max', 1],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Fraction of pixel water area covered by dark water.""")],
+        ])],
+    ['ice_clim_flag',
+     odict([['dtype', 'u1'],
+            ['long_name', 'climatological ice cover flag'],
+            ['source', 'UNC'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', textjoin("""
+                no_ice_cover partial_ice_cover full_ice_cover""")],
+            ['flag_values', np.array([0, 1, 2]).astype('u1')],
+            ['valid_min', 0],
+            ['valid_max', 255],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Climatological ice cover flag indicating whether the pixel
+                is ice-covered on the day of the observation based on
+                external climatological information (not the SWOT
+                measurement).  Values of 0, 1, and 2 indicate that the
+                pixel is not ice covered, partially ice covered, and fully
+                ice covered, respectively. A value of 255 indicates that
+                this flag is not available.""")],
+        ])],
+    ['ice_dyn_flag',
+     odict([['dtype', 'u1'],
+            ['long_name', 'dynamic ice cover flag'],
+            ['source', 'UNC'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', textjoin("""
+                no_ice_cover partial_ice_cover full_ice_cover""")],
+            ['flag_values', np.array([0, 1, 2]).astype('u1')],
+            ['valid_min', 0],
+            ['valid_max', 255],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Dynamic ice cover flag indicating whether the surface is
+                ice-covered on the day of the observation based on
+                analysis of external satellite optical data.  Values of
+                0, 1, and 2 indicate that the pixel is not ice covered,
+                partially ice covered, and fully ice covered, respectively.
+                A value of 255 indicates that this flag is not available.""")],
+        ])],
+    ['layover_impact',
+     odict([['dtype', 'f4'],
+            ['long_name', 'layover impact'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Estimate of the height error caused by layover.""")],
+        ])],
+    ['geoid',
+     odict([['dtype', 'f4'],
+            ['long_name', 'geoid height'],
+            ['standard_name','geoid_height_above_reference_ellipsoid'],
+            ['source', 'EGM2008 (Pavlis et al., 2012)'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -150],
+            ['valid_max', 150],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Geoid height above the reference ellipsoid with a
+                correction to refer the value to the mean tide system,
+                i.e. includes the permanent tide (zero frequency).""")],
+        ])],
+    ['solid_earth_tide',
+     odict([['dtype', 'f4'],
+            ['long_name', 'solid Earth tide height'],
+            ['source', textjoin("""
+                Cartwright and Taylor (1971) and Cartwright and Edden
+                (1973)""")],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -1],
+            ['valid_max', 1],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Solid-Earth (body) tide height. The zero-frequency
+                permanent tide component is not included.""")],
+        ])],
+    ['load_tide_sol1',
+     odict([['dtype', 'f4'],
+            ['long_name', 'geocentric load tide height from model 1'],
+            ['source', 'FES2014b (Carrere et al., 2016)'],
+            ['institution', 'LEGOS/CNES'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -0.2],
+            ['valid_max', 0.2],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Geocentric load tide height. The effect of the ocean tide
+                loading of the Earth’s crust. This value is reported for
+                reference but is not applied to the reported height.""")],
+        ])],
+    ['load_tide_sol2',
+     odict([['dtype', 'f4'],
+            ['long_name', 'geocentric load tide height from model 2'],
+            ['source', 'GOT4.10c (Ray, 2013)'],
+            ['institution', 'GSFC'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -0.2],
+            ['valid_max', 0.2],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Geocentric load tide height. The effect of the ocean tide
+                loading of the Earth’s crust. This value is reported for
+                reference but is not applied to the reported height.""")],
+        ])],
+    ['pole_tide',
+     odict([['dtype', 'f4'],
+            ['long_name', 'geocentric pole tide height'],
+            ['source', 'Wahr (1985) and Desai et al. (2015)'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -0.2],
+            ['valid_max', 0.2],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Geocentric pole tide height. The total of the contribution
+                from the solid-Earth (body) pole tide height and the load
+                pole tide height (i.e., the effect of the ocean pole tide
+                loading of the Earth’s crust).""")],
+        ])],
+    ['model_dry_tropo_cor',
+     odict([['dtype', 'f4'],
+            ['long_name', 'dry troposphere vertical correction'],
+            ['source', 'European Centre for Medium-Range Weather Forecasts'],
+            ['institution', 'ECMWF'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -3],
+            ['valid_max', -1.5],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Equivalent vertical correction due to dry troposphere delay.
+                The reported pixel height, latitude and longitude are
+                computed after adding negative media corrections to
+                uncorrected range along slant-range paths, accounting for
+                the differential delay between the two KaRIn antennas. The
+                equivalent vertical correction is computed by applying
+                obliquity factors to the slant-path correction. Adding the
+                reported correction to the reported pixel height results
+                in the uncorrected pixel height.""")],
+        ])],
+    ['model_wet_tropo_cor',
+     odict([['dtype', 'f4'],
+            ['long_name', 'wet troposphere vertical correction'],
+            ['source', 'European Centre for Medium-Range Weather Forecasts'],
+            ['institution', 'ECMWF'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -1],
+            ['valid_max', 0],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Equivalent vertical correction due to wet troposphere delay.
+                The reported pixel height, latitude and longitude are
+                computed after adding negative media corrections to
+                uncorrected range along slant-range paths, accounting for
+                the differential delay between the two KaRIn antennas. The
+                equivalent vertical correction is computed by applying
+                obliquity factors to the slant-path correction. Adding the
+                reported correction to the reported pixel height results
+                in the uncorrected pixel height.""")],
+        ])],
+    ['iono_cor_gim_ka',
+     odict([['dtype', 'f4'],
+            ['long_name', 'ionosphere vertical correction'],
+            ['source', 'Global Ionosphere Maps'],
+            ['institution', 'JPL'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -0.5],
+            ['valid_max', 0],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Equivalent vertical correction due to ionosphere delay.
+                The reported pixel height, latitude and longitude are
+                computed after adding negative media corrections to
+                uncorrected range along slant-range paths, accounting for
+                the differential delay between the two KaRIn antennas. The
+                equivalent vertical correction is computed by applying
+                obliquity factors to the slant-path correction. Adding the
+                reported correction to the reported pixel height results
+                in the uncorrected pixel height.""")],
+        ])],
+])
 
 
 class RasterUTM(Product):
@@ -473,8 +517,8 @@ class RasterUTM(Product):
                    'docstr': 'Projected minimum y (northing) coordinate.'}],
         ['y_max', {'dtype': 'f8',
                    'docstr': 'Projected maximum y (northing) coordinate.'}],
-        ['start_time', COMMON_ATTRIBUTES['start_time']],
-        ['stop_time', COMMON_ATTRIBUTES['stop_time']],
+        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
+        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
     ])
     VARIABLES = odict([
         ['crs',
@@ -495,6 +539,7 @@ class RasterUTM(Product):
                 ['semi_major_axis', 6378137.],
                 ['inverse_flattening', 298.257223563],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
+                ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'UTM zone coordinate reference system'],
          ])],
         ['x',
@@ -528,6 +573,8 @@ class RasterUTM(Product):
         ['sig0_uncert', COMMON_VARIABLES['sig0_uncert'].copy()],
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
+        ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
+        ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
         ['num_pixels', COMMON_VARIABLES['num_pixels'].copy()],
         ['qual_flag', COMMON_VARIABLES['qual_flag'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
@@ -636,8 +683,8 @@ class RasterGeo(Product):
                           'docstr': 'Minimum latitude coordinate.'}],
         ['latitude_max', {'dtype': 'f8',
                           'docstr': 'Maximum latitude coordinate.'}],
-        ['start_time', COMMON_ATTRIBUTES['start_time']],
-        ['stop_time', COMMON_ATTRIBUTES['stop_time']],
+        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
+        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
     ])
 
     VARIABLES = odict([
@@ -653,6 +700,7 @@ class RasterGeo(Product):
                 ['semi_major_axis', 6378137.],
                 ['inverse_flattening', 298.257223563],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
+                ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'WGS84 geodetic lat/lon coordinate reference system'],
          ])],
         ['longitude',
@@ -688,6 +736,8 @@ class RasterGeo(Product):
         ['sig0_uncert', COMMON_VARIABLES['sig0_uncert'].copy()],
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
+        ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
+        ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
         ['num_pixels', COMMON_VARIABLES['num_pixels'].copy()],
         ['qual_flag', COMMON_VARIABLES['qual_flag'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
@@ -787,3 +837,298 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
+
+
+class RasterPixc(Product):
+    ATTRIBUTES = odict([
+        ['cycle_number', odict([])],
+        ['pass_number', odict([])],
+        ['tile_numbers', odict([])],
+        ['tile_names', odict([])],
+        ['time_coverage_start', odict([])],
+        ['time_coverage_end', odict([])],
+        ['wavelength', odict([])],
+        ['near_range', odict([])],
+        ['nominal_slant_range_spacing', odict([])],
+        ['left_first_longitude', odict([])],
+        ['left_last_longitude', odict([])],
+        ['left_first_latitude', odict([])],
+        ['left_last_latitude', odict([])],
+        ['right_first_longitude', odict([])],
+        ['right_last_longitude', odict([])],
+        ['right_first_latitude', odict([])],
+        ['right_last_latitude', odict([])],
+        ['geospatial_lon_min', odict([])],
+        ['geospatial_lon_max', odict([])],
+        ['geospatial_lat_min', odict([])],
+        ['geospatial_lat_max', odict([])],
+    ])
+    GROUPS = odict([
+        ['pixel_cloud', 'PixelCloud'],
+        ['tvp', 'TVP'],
+    ])
+
+    @classmethod
+    def from_tile(cls, pixc_tile):
+        """Constructs self from a single pixc tile"""
+        raster_pixc = cls()
+
+        # Copy over attributes
+        raster_pixc.cycle_number = pixc_tile.cycle_number
+        raster_pixc.pass_number = pixc_tile.pass_number
+        raster_pixc.tile_numbers = [pixc_tile.tile_number]
+        raster_pixc.tile_names = [pixc_tile.tile_name]
+        raster_pixc.wavelength = pixc_tile.wavelength
+        raster_pixc.near_range = pixc_tile.near_range
+        raster_pixc.nominal_slant_range_spacing = \
+            pixc_tile.nominal_slant_range_spacing
+
+        swath_side = pixc_tile.swath_side
+
+        if swath_side == 'L':
+            raster_pixc.left_first_longitude = pixc_tile.outer_first_longitude
+            raster_pixc.left_last_longitude = pixc_tile.outer_last_longitude
+            raster_pixc.left_first_latitude = pixc_tile.outer_first_latitude
+            raster_pixc.left_last_latitude = pixc_tile.outer_last_latitude
+            raster_pixc.right_first_longitude = pixc_tile.inner_first_longitude
+            raster_pixc.right_last_longitude = pixc_tile.inner_last_longitude
+            raster_pixc.right_first_latitude = pixc_tile.inner_first_latitude
+            raster_pixc.right_last_latitude = pixc_tile.inner_last_latitude
+        elif swath_side == 'R':
+            raster_pixc.left_first_longitude = pixc_tile.inner_first_longitude
+            raster_pixc.left_last_longitude = pixc_tile.inner_last_longitude
+            raster_pixc.left_first_latitude = pixc_tile.inner_first_latitude
+            raster_pixc.left_last_latitude = pixc_tile.inner_last_latitude
+            raster_pixc.right_first_longitude = pixc_tile.outer_first_longitude
+            raster_pixc.right_last_longitude = pixc_tile.outer_last_longitude
+            raster_pixc.right_first_latitude = pixc_tile.outer_first_latitude
+            raster_pixc.right_last_latitude = pixc_tile.outer_last_latitude
+
+        raster_pixc.geospatial_lon_min = pixc_tile.geospatial_lon_min
+        raster_pixc.geospatial_lon_max = pixc_tile.geospatial_lon_max
+        raster_pixc.geospatial_lat_min = pixc_tile.geospatial_lat_min
+        raster_pixc.geospatial_lat_max = pixc_tile.geospatial_lat_max
+
+        # Copy over groups
+        raster_pixc['pixel_cloud'] = PixelCloud.from_tile(pixc_tile['pixel_cloud'])
+        raster_pixc['tvp'] = TVP.from_tile(pixc_tile['tvp'])
+
+        return raster_pixc
+
+    @classmethod
+    def from_tiles(cls, pixc_tiles, swath_bounding_box):
+        """Constructs self from a list of pixc tiles and swath bounding box"""
+        for tile in pixc_tiles:
+            tile_objs.append(cls.from_tile(tile))
+
+        # Add all of the pixel_cloud/tvp data
+        raster_pixc = sum(tile_objs)
+
+        # Copy most attributes from one of the central tiles
+        # Central tile is one with the median time
+        start_times = [tile.time_coverage_start for tile in tile_objs]
+        central_tile_index = start_times.index(
+            np.percentile(start_times, 50, interpolation='nearest'))
+        raster_pixc.cycle_number = tile_objs[central_tile_index].cycle_number
+        raster_pixc.pass_number = tile_objs[central_tile_index].pass_number
+        raster_pixc.tile_numbers = sorted([tile.tile_numbers for sublist in tile_objs \
+                                           for tile in sublist])
+        raster_pixc.tile_names = sorted([tile.tile_names for sublist in tile_objs \
+                                         for tile in sublist])
+        raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
+        raster_pixc.near_range = tile_objs[central_tile_index].near_range
+        raster_pixc.nominal_slant_range_spacing = \
+            tile_objs[central_tile_index].nominal_slant_range_spacing
+
+        # Set the first/last lats/lons from the swath bounds
+        # swath_bounding_box = ((left_first_lat, left_first_lon),
+        #                       (right_first_lat, right_first_lon),
+        #                       (left_last_lat, left_last_lon),
+        #                       (right_last_lat, right_last_lon))
+        raster_pixc.left_first_latitude = swath_bounding_box[0][0]
+        raster_pixc.left_first_longitude = swath_bounding_box[0][1]
+        raster_pixc.right_first_latitude = swath_bounding_box[1][0]
+        raster_pixc.right_first_longitude = swath_bounding_box[1][1]
+        raster_pixc.left_last_latitude = swath_bounding_box[2][0]
+        raster_pixc.left_last_longitude = swath_bounding_box[2][1]
+        raster_pixc.right_last_latitude = swath_bounding_box[3][0]
+        raster_pixc.right_last_longitude = swath_bounding_box[3][1]
+
+        # Get the scene bounds - note that we need to check the bounds of
+        # every pixc AND the merged bounding box to account for
+        # tiles at pass edges and missing tiles
+        lats = ([tile.left_first_latitude for tile in tile_objs]
+                + [tile.right_first_latitude for tile in tile_objs]
+                + [tile.left_last_latitude for tile in tile_objs]
+                + [tile.right_last_latitude for tile in tile_objs]
+                + [raster_pixc.left_first_latitude,
+                   raster_pixc.right_first_latitude,
+                   raster_pixc.left_last_latitude,
+                   raster_pixc.right_last_latitude])
+        lons = ([tile.left_first_longitude for tile in tile_objs]
+                + [tile.right_first_longitude for tile in tile_objs]
+                + [tile.left_last_longitude for tile in tile_objs]
+                + [tile.right_last_longitude for tile in tile_objs]
+                + [raster_pixc.left_first_longitude,
+                   raster_pixc.right_first_longitude,
+                   raster_pixc.left_last_longitude,
+                   raster_pixc.right_last_longitude])
+        raster_pixc.geospatial_lat_min = min(lats)
+        raster_pixc.geospatial_lat_max = max(lats)
+        raster_pixc.geospatial_lon_min = min(lons)
+        raster_pixc.geospatial_lon_max = max(lons)
+
+        return raster_pixc
+
+    def __add__(self, other):
+        """Adds other to self"""
+        klass = RasterPixc()
+        klass.tvp = self.tvp + other.tvp
+        klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
+        return klass
+
+
+class PixelCloud(Product):
+    ATTRIBUTES = odict([
+        ['description',{'dtype': 'str',
+            'value':'cloud of geolocated interferogram pixels'}],
+        ['interferogram_size_azimuth',{'dtype': 'i4',
+            'docstr':textjoin("""
+                number of azimuth rows of interferogram image
+                """)}],
+        ['interferogram_size_range',{'dtype': 'i4',
+            'docstr':textjoin("""
+                number of range-bin columns of interferogram image
+                """)}],
+        ['looks_to_efflooks',{'dtype': 'f8',
+            'docstr':'ratio of the number of real looks to the effective number of independent looks'}],
+    ])
+    ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
+    DIMENSIONS = odict([['points', 0]])
+    VARIABLES = odict([
+        ['latitude', odict([])],
+        ['longitude', odict([])],
+        ['height', odict([])],
+        ['azimuth_index', odict([])],
+        ['range_index', odict([])],
+        ['interferogram', odict([])],
+        ['classification', odict([])],
+        ['eff_num_rare_looks', odict([])],
+        ['eff_num_medium_looks', odict([])],
+        ['power_plus_y', odict([])],
+        ['power_minus_y', odict([])],
+        ['dheight_dphase', odict([])],
+        ['dlatitude_dphase', odict([])],
+        ['dlongitude_dphase', odict([])],
+        ['phase_noise_std', odict([])],
+        ['pixel_area', odict([])],
+        ['water_frac', odict([])],
+        ['water_frac_uncert', odict([])],
+        ['darea_dheight', odict([])],
+        ['false_detection_rate', odict([])],
+        ['missed_detection_rate', odict([])],
+        ['cross_track', odict([])],
+        ['sig0', odict([])],
+        ['inc', odict([])],
+        ['illumination_time', odict([])],
+        ['illumination_time_tai', odict([])],
+        ['geoid', odict([])],
+        ['solid_earth_tide', odict([])],
+        ['load_tide_sol1', odict([])],
+        ['load_tide_sol2', odict([])],
+        ['pole_tide', odict([])],
+        ['model_dry_tropo_cor', odict([])],
+        ['model_wet_tropo_cor', odict([])],
+        ['iono_cor_gim_ka', odict([])],
+        ['pixc_qual', odict([])], # TODO: implement qual checks in raster proc
+    ])
+    for name, reference in VARIABLES.items():
+        reference['dimensions'] = DIMENSIONS
+
+    @classmethod
+    def from_tile(cls, pixc_tile):
+        """Constructs self from a single pixc pixelcloud tile"""
+        raster_pixel_cloud = cls()
+
+        # Copy common variables
+        pixel_cloud_vars = set(raster_pixel_cloud.VARIABLES.keys())
+        for field in pixel_cloud_vars.intersection(
+                pixc_tile.VARIABLES.keys()):
+            raster_pixel_cloud[field] = pixc_tile[field]
+
+        # Copy common attributes
+        pixel_cloud_attr = set(raster_pixel_cloud.ATTRIBUTES.keys())
+        for field in pixel_cloud_attr.intersection(
+                pixc_tile.ATTRIBUTES):
+            attr_val = getattr(pixc_tile, field)
+            setattr(raster_pixel_cloud, field, attr_val)
+
+        return raster_pixel_cloud
+
+    def __add__(self, other):
+        """adds other to self"""
+        klass = PixelCloud()
+        klass.looks_to_efflooks = self.looks_to_efflooks
+        for key in klass.VARIABLES:
+            setattr(klass, key, np.concatenate((
+                getattr(self, key), getattr(other, key))))
+        return klass
+
+class TVP(Product):
+    ATTRIBUTES = odict([
+        ['description', {'dtype': 'str',
+            'value': textjoin("""
+                 Time varying parameters group
+                 including spacecraft attitude, position, velocity,
+                 and antenna position information""")}],
+        ])
+    ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
+    DIMENSIONS = odict([['num_tvps', 0]])
+    VARIABLES = odict([
+        ['time', odict([])],
+        ['x', odict([])],
+        ['y', odict([])],
+        ['z', odict([])],
+        ['vx', odict([])],
+        ['vy', odict([])],
+        ['vz', odict([])],
+        ['plus_y_antenna_x', odict([])],
+        ['plus_y_antenna_y', odict([])],
+        ['plus_y_antenna_z', odict([])],
+        ['minus_y_antenna_x', odict([])],
+        ['minus_y_antenna_y', odict([])],
+        ['minus_y_antenna_z', odict([])],
+    ])
+    for name, reference in VARIABLES.items():
+        reference['dimensions'] = DIMENSIONS
+
+    @classmethod
+    def from_tile(cls, pixc_tile):
+        """Constructs self from a single pixc tvp tile"""
+        raster_tvp = cls()
+
+        # Copy common variables
+        tvp_vars = set(raster_tvp.VARIABLES.keys())
+        for field in tvp_vars.intersection(
+                pixc_tile.VARIABLES.keys()):
+            raster_tvp[field] = pixc_tile[field]
+
+        # Copy common attributes
+        tvp_attr = set(raster_tvp.ATTRIBUTES.keys())
+        for field in tvp_attr.intersection(
+                pixc_tile.ATTRIBUTES):
+            attr_val = getattr(pixc_tile, field)
+            setattr(raster_tvp, field, attr_val)
+
+        return raster_tvp
+
+    def __add__(self, other):
+        """Adds other to self"""
+        # discard overlapping TVP records
+        time = np.concatenate((self.time, other.time))
+        [junk, indx] = np.unique(time, return_index=True)
+        klass = TVP()
+        for key in klass.VARIABLES:
+            setattr(klass, key, np.concatenate((
+                getattr(self, key), getattr(other, key)))[indx])
+        return klass
