@@ -77,19 +77,31 @@ COMMON_ATTRIBUTES = odict([
       'docstr': 'Scene number of the product granule.'}],
     ['tile_numbers',
      {'dtype': 'i2',
-      'docstr': 'Pixelcloud tile numbers used to assemble the product granule.'}],
+      'docstr': textjoin("""
+          List of pixel cloud tile numbers in the product granule.
+          The numbers are listed in order of increasing measurement time for the
+          left side, followed by the right side.""")}],
     ['tile_names',
      {'dtype': 'str',
       'docstr': textjoin("""
           Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
-          pass number with leading zeros, TTT is a 3 digit tile number within the pass,
-          and S is a character 'L' or 'R' for the left and right swath, respectively.""")}],
+          pass number with leading zeros, TTT is a 3 digit tile number within
+          the pass, and S is a character 'L' or 'R' for the left and right
+          swath, respectively. The tile order matches that of the tile_numbers
+          attribute.""")}],
+    ['tile_polarizations',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          List of pixel cloud tile polarization flags, inficating whether the
+          tile was observed with a horizontal (H) or vertical (V) radar signal
+          polarization. The tile order matches that of the tile_numbers
+          attribute.""")}],
     ['projection',
      {'dtype': 'str',
-      'docstr': 'Projection type.'}],
+      'docstr': 'Name of the projection.'}],
     ['resolution',
      {'dtype': 'f4',
-      'docstr': 'Raster projection resolution.'}],
+      'docstr': 'Raster projection resolution. Units depend on the projection'}],
     ['time_coverage_start',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -103,7 +115,69 @@ COMMON_ATTRIBUTES = odict([
     ['geospatial_lon_min',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Westernmost longitude (deg) of granule posting grid""")}],
+          Westernmost longitude (deg) of raster posting grid.""")}],
+    ['geospatial_lon_max',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Easternmost longitude (deg) of raster posting grid.""")}],
+    ['geospatial_lat_min',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Southernmost longitude (deg) of raster posting grid.""")}],
+    ['geospatial_lat_max',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Northernmost longitude (deg) of raster posting grid.""")}],
+    ['left_first_longitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the first range line and left edge
+          of the swath (degrees_east).""")}],
+    ['left_first_latitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the first range line and left edge
+          of the swath (degrees_north).""")}],
+    ['left_last_longitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the last range line and left edge
+          of the swath (degrees_east).""")}],
+    ['left_last_latitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the last range line and left edge
+          of the swath (degrees_north).""")}],
+    ['right_first_longitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the first range line and right edge
+          of the swath (degrees_east).""")}],
+    ['right_first_latitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the first range line and right edge
+          of the swath (degrees_north).""")}],
+    ['right_last_longitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the last range line and right edge
+          of the swath (degrees_east).""")}],
+    ['right_last_latitude',
+     {'dtype': 'f8',
+      'docstr': textjoin("""
+          Nominal swath corner longitude for the last range line and right edge
+          of the swath (degrees_north).""")}],
+    ['xref_input_l2_hr_pixc_files',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          List of input Level 2 KaRIn high rate water mask pixel cloud product
+          files.""")}],
+    ['xref_input_l2_hr_pixcvec_files',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          List of input Level 2 KaRIn high rate pixel cloud vector attribute
+          files.""")}],
 ])
 
 COMMON_VARIABLES = odict([
@@ -501,10 +575,27 @@ class RasterUTM(Product):
         ['scene_number', COMMON_ATTRIBUTES['scene_number']],
         ['tile_numbers', COMMON_ATTRIBUTES['tile_numbers']],
         ['tile_names', COMMON_ATTRIBUTES['tile_names']],
+        ['tile_polarizations', COMMON_ATTRIBUTES['tile_polarizations']],
         ['projection', {'dtype': COMMON_ATTRIBUTES['projection']['dtype'],
                         'value':'Universal Transverse Mercator',
                         'docstr': COMMON_ATTRIBUTES['projection']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
+        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
+        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
+        ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
+        ['geospatial_lon_max', COMMON_ATTRIBUTES['geospatial_lon_max']],
+        ['geospatial_lat_min', COMMON_ATTRIBUTES['geospatial_lat_min']],
+        ['geospatial_lat_max', COMMON_ATTRIBUTES['geospatial_lat_max']],
+        ['left_first_longitude', COMMON_ATTRIBUTES['left_first_longitude']],
+        ['left_first_latitude', COMMON_ATTRIBUTES['left_first_latitude']],
+        ['left_last_longitude', COMMON_ATTRIBUTES['left_last_longitude']],
+        ['left_last_latitude', COMMON_ATTRIBUTES['left_first_latitude']],
+        ['right_first_longitude', COMMON_ATTRIBUTES['right_first_longitude']],
+        ['right_first_latitude', COMMON_ATTRIBUTES['right_first_latitude']],
+        ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
+        ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
+        ['xref_input_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixc_files']],
+        ['xref_input_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixcvec_files']],
         ['utm_zone_num', {'dtype': 'i2',
                           'docstr': 'UTM zone number.'}],
         ['mgrs_latitude_band', {'dtype': 'str',
@@ -671,10 +762,27 @@ class RasterGeo(Product):
         ['scene_number', COMMON_ATTRIBUTES['scene_number']],
         ['tile_numbers', COMMON_ATTRIBUTES['tile_numbers']],
         ['tile_names', COMMON_ATTRIBUTES['tile_names']],
+        ['tile_polarizations', COMMON_ATTRIBUTES['tile_polarizations']],
         ['projection', {'dtype': COMMON_ATTRIBUTES['projection']['dtype'],
                         'value':'Geodetic Latitude/Longitude',
                         'docstr': COMMON_ATTRIBUTES['projection']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
+        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
+        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
+        ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
+        ['geospatial_lon_max', COMMON_ATTRIBUTES['geospatial_lon_max']],
+        ['geospatial_lat_min', COMMON_ATTRIBUTES['geospatial_lat_min']],
+        ['geospatial_lat_max', COMMON_ATTRIBUTES['geospatial_lat_max']],
+        ['left_first_longitude', COMMON_ATTRIBUTES['left_first_longitude']],
+        ['left_first_latitude', COMMON_ATTRIBUTES['left_first_latitude']],
+        ['left_last_longitude', COMMON_ATTRIBUTES['left_last_longitude']],
+        ['left_last_latitude', COMMON_ATTRIBUTES['left_first_latitude']],
+        ['right_first_longitude', COMMON_ATTRIBUTES['right_first_longitude']],
+        ['right_first_latitude', COMMON_ATTRIBUTES['right_first_latitude']],
+        ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
+        ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
+        ['xref_input_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixc_files']],
+        ['xref_input_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixcvec_files']],
         ['longitude_min', {'dtype': 'f8',
                            'docstr': 'Minimum longitude coordinate.'}],
         ['longitude_max', {'dtype': 'f8',
@@ -845,6 +953,7 @@ class RasterPixc(Product):
         ['pass_number', odict([])],
         ['tile_numbers', odict([])],
         ['tile_names', odict([])],
+        ['tile_polarizations', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
         ['wavelength', odict([])],
@@ -878,6 +987,9 @@ class RasterPixc(Product):
         raster_pixc.pass_number = pixc_tile.pass_number
         raster_pixc.tile_numbers = [pixc_tile.tile_number]
         raster_pixc.tile_names = [pixc_tile.tile_name]
+        raster_pixc.tile_polarizations = [pixc_tile.polarization]
+        raster_pixc.time_coverage_start = pixc_tile.time_coverage_start
+        raster_pixc.time_coverage_end = pixc_tile.time_coverage_end
         raster_pixc.wavelength = pixc_tile.wavelength
         raster_pixc.near_range = pixc_tile.near_range
         raster_pixc.nominal_slant_range_spacing = \
@@ -913,6 +1025,8 @@ class RasterPixc(Product):
         raster_pixc['pixel_cloud'] = PixelCloud.from_tile(pixc_tile['pixel_cloud'])
         raster_pixc['tvp'] = TVP.from_tile(pixc_tile['tvp'])
 
+        print(raster_pixc.time_coverage_start)
+        print(raster_pixc.time_coverage_end)
         return raster_pixc
 
     @classmethod
@@ -927,14 +1041,22 @@ class RasterPixc(Product):
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
         start_times = [tile.time_coverage_start for tile in tile_objs]
+        end_times = [tile.time_coverage_end for tile in tile_objs]
         central_tile_index = start_times.index(
             np.percentile(start_times, 50, interpolation='nearest'))
         raster_pixc.cycle_number = tile_objs[central_tile_index].cycle_number
         raster_pixc.pass_number = tile_objs[central_tile_index].pass_number
-        raster_pixc.tile_numbers = sorted([tile.tile_numbers for sublist in tile_objs \
+        raster_pixc.tile_numbers = sorted([tile.tile_numbers \
+                                           for sublist in tile_objs \
                                            for tile in sublist])
-        raster_pixc.tile_names = sorted([tile.tile_names for sublist in tile_objs \
+        raster_pixc.tile_names = sorted([tile.tile_names \
+                                         for sublist in tile_objs \
                                          for tile in sublist])
+        raster_pixc.tile_polarizations = sorted([tile.tile_polarizations \
+                                                 for sublist in tile_objs \
+                                                 for tile in sublist])
+        raster_pixc.time_coverage_start = min(start_times)
+        raster_pixc.time_coverage_end = max(end_times)
         raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
         raster_pixc.near_range = tile_objs[central_tile_index].near_range
         raster_pixc.nominal_slant_range_spacing = \

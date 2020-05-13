@@ -144,15 +144,29 @@ class RasterProcessor(object):
         '''Rasterize'''
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
-        # TODO: Update tile numbers/names when tiling is implemented
         self.tile_numbers = pixc.tile_numbers
         self.tile_names = pixc.tile_names
+        self.tile_polarizations = pixc.tile_polarizations
+        self.time_coverage_start = pixc.time_coverage_start
+        self.time_coverage_end = pixc.time_coverage_end
+        self.geospatial_lon_min = pixc.geospatial_lon_min
+        self.geospatial_lon_max = pixc.geospatial_lon_max
+        self.geospatial_lat_min = pixc.geospatial_lat_min
+        self.geospatial_lat_max = pixc.geospatial_lat_max
+        self.left_first_longitude = pixc.left_first_longitude
+        self.left_first_latitude = pixc.left_first_latitude
+        self.left_last_longitude = pixc.left_last_longitude
+        self.left_last_latitude = pixc.left_last_latitude
+        self.right_first_longitude = pixc.right_first_longitude
+        self.right_first_latitude = pixc.right_first_latitude
+        self.right_last_longitude = pixc.right_last_longitude
+        self.right_last_latitude = pixc.right_last_latitude
 
         LOGGER.info('Calculating projection parameters')
-        corners = ((pixc.geospatial_lat_min, lon_360to180(pixc.geospatial_lon_min)),
-                   (pixc.geospatial_lat_min, lon_360to180(pixc.geospatial_lon_max)),
-                   (pixc.geospatial_lat_max, lon_360to180(pixc.geospatial_lon_max)),
-                   (pixc.geospatial_lat_max, lon_360to180(pixc.geospatial_lon_min)))
+        corners = ((self.geospatial_lat_min, lon_360to180(self.geospatial_lon_min)),
+                   (self.geospatial_lat_min, lon_360to180(self.geospatial_lon_max)),
+                   (self.geospatial_lat_max, lon_360to180(self.geospatial_lon_max)),
+                   (self.geospatial_lat_max, lon_360to180(self.geospatial_lon_min)))
         self.create_projection_from_bbox(corners)
 
         # Get mask of valid pixc values
@@ -588,7 +602,22 @@ class RasterProcessor(object):
         product.pass_number = self.pass_number
         product.tile_numbers = self.tile_numbers
         product.tile_names = self.tile_names
+        product.tile_polarizations = self.tile_polarizations
         product.resolution = self.resolution
+        product.time_coverage_start = self.time_coverage_start
+        product.time_coverage_end = self.time_coverage_end
+        product.geospatial_lon_min = self.geospatial_lon_min
+        product.geospatial_lon_max = self.geospatial_lon_max
+        product.geospatial_lat_min = self.geospatial_lat_min
+        product.geospatial_lat_max = self.geospatial_lat_max
+        product.left_first_longitude = self.left_first_longitude
+        product.left_first_latitude = self.left_first_latitude
+        product.left_last_longitude = self.left_last_longitude
+        product.left_last_latitude = self.left_last_latitude
+        product.right_first_longitude = self.right_first_longitude
+        product.right_first_latitude = self.right_first_latitude
+        product.right_last_longitude = self.right_last_longitude
+        product.right_last_latitude = self.right_last_latitude
 
         if self.projection_type == 'utm':
             product.utm_zone_num = self.utm_zone_num
