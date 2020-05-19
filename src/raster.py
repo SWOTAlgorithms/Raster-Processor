@@ -281,6 +281,7 @@ class RasterProcessor(object):
             x_max, y_max = transf.TransformPoint(y_max, x_max)[:2]
 
             proj_center_x = output_crs.GetProjParm('false_easting')
+            proj_center_y = output_crs.GetProjParm('false_northing')
 
         # round limits to the nearest bin (centered at proj_center_x and add buffer
         x_min = int(round((x_min - proj_center_x) / self.resolution)) * self.resolution \
