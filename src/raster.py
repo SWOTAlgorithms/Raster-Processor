@@ -772,6 +772,3 @@ def get_pixc_mask(pixc):
 
 def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
-
-def lon_180to360(longitude):
-    return np.mod(longitude, 360)
