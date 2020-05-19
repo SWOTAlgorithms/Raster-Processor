@@ -9,13 +9,14 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 
 import utm
 import logging
+import raster_crs
 import numpy as np
 import geoloc_raster
 import raster_products
 import SWOTWater.aggregate as ag
-import coordinate_reference_systems as crs
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
+from osgeo import osr
 from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
@@ -30,21 +31,21 @@ LAND_EDGE_KLASS = 3
 class L2PixcToRaster(object):
     '''Turns PixelClouds into Rasters'''
     def __init__( self,
-                  config=None,
                   pixc=None,
                   improved_geoloc_pixc=None,
-                  debug_flag=False ):
-        self.config = config
+                  algorithmic_config=None,
+                  runtime_config=None):
+        self.algorithmic_config = algorithmic_config
+        self.runtime_config = runtime_config
         self.pixc = pixc
         self.improved_geoloc_pixc = improved_geoloc_pixc
-        self.debug_flag = debug_flag
 
     def process(self):
-        # Parse the config and set defaults
+        # Parse the algorithmic config file and set defaults
         self.parse_config_defaults()
 
         # Do improved geolocation if specified in config
-        if self.config['do_improved_geolocation']:
+        if self.algorithmic_config['do_improved_geolocation']:
             self.do_improved_geolocation()
 
         product = self.do_raster_processing()
@@ -54,15 +55,19 @@ class L2PixcToRaster(object):
     def do_improved_geolocation(self):
         LOGGER.info('Rasterizing for improved geolocation')
         improved_geoloc_raster_proc = RasterProcessor(
-            self.config['projection_type'],
-            self.config['improved_geolocation_res'],
-            self.config['improved_geolocation_buffer_size'],
-            self.config['height_agg_method'],
-            self.config['area_agg_method'],
-            self.config['interior_water_classes'],
-            self.config['water_edge_classes'],
-            self.config['land_edge_classes'],
-            self.config['dark_water_classes'])
+            self.runtime_config['output_sampling_grid_type'],
+            self.runtime_config['raster_resolution'] \
+            * self.algorithmic_config['improved_geolocation_smooth_factor'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['latitude_band_adjust'],
+            self.algorithmic_config['buffer_size'],
+            self.algorithmic_config['height_agg_method'],
+            self.algorithmic_config['area_agg_method'],
+            self.algorithmic_config['interior_water_classes'],
+            self.algorithmic_config['water_edge_classes'],
+            self.algorithmic_config['land_edge_classes'],
+            self.algorithmic_config['dark_water_classes'],
+            self.algorithmic_config['debug_flag'])
 
         improved_geoloc_raster = improved_geoloc_raster_proc.rasterize(
             self.pixc, self.improved_geoloc_pixc)
@@ -72,7 +77,7 @@ class L2PixcToRaster(object):
             return
 
         new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
-            self.pixc, improved_geoloc_raster, self.config)
+            self.pixc, improved_geoloc_raster, self.algorithmic_config)
         self.improved_geoloc_pixc = self.pixc.copy()
         self.improved_geoloc_pixc['pixel_cloud']['latitude'] = new_lat
         self.improved_geoloc_pixc['pixel_cloud']['longitude'] = new_lon
@@ -81,25 +86,24 @@ class L2PixcToRaster(object):
     def do_raster_processing(self):
         LOGGER.info('Rasterizing')
         raster_proc = RasterProcessor(
-            self.config['projection_type'],
-            self.config['resolution'],
-            self.config['buffer_size'],
-            self.config['height_agg_method'],
-            self.config['area_agg_method'],
-            self.config['interior_water_classes'],
-            self.config['water_edge_classes'],
-            self.config['land_edge_classes'],
-            self.config['dark_water_classes'])
+            self.runtime_config['output_sampling_grid_type'],
+            self.runtime_config['raster_resolution'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['latitude_band_adjust'],
+            self.algorithmic_config['buffer_size'],
+            self.algorithmic_config['height_agg_method'],
+            self.algorithmic_config['area_agg_method'],
+            self.algorithmic_config['interior_water_classes'],
+            self.algorithmic_config['water_edge_classes'],
+            self.algorithmic_config['land_edge_classes'],
+            self.algorithmic_config['dark_water_classes'],
+            self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
         return out_raster
 
-    # TODO: probably will want to remove this eventually to force the input
-    # to have all of the necessary config values defined
     def parse_config_defaults(self):
-        config_defaults = {'projection_type':'utm',
-                           'resolution':100,
-                           'buffer_size':100,
+        config_defaults = {'buffer_size':0,
                            'height_agg_method':'weight',
                            'area_agg_method':'composite',
                            'interior_water_classes':[PIXC_CLASSES['open_water'],
@@ -113,24 +117,33 @@ class L2PixcToRaster(object):
                                                  PIXC_CLASSES['land_near_dark_water']],
                            'do_improved_geolocation':True,
                            'improved_geolocation_method':'taylor',
-                           'improved_geolocation_res':500,
-                           'improved_geolocation_buffer_size':500}
+                           'improved_geolocation_smooth_factor':5,
+                           'debug_flag':False}
 
         for key in config_defaults:
             try:
-                tmp = self.config[key]
+                tmp = self.algorithmic_config[key]
             except KeyError:
-                self.config[key] = config_defaults[key]
+                self.algorithmic_config[key] = config_defaults[key]
 
 
 class RasterProcessor(object):
-    def __init__(self, projection_type, resolution, buffer_size,
+    def __init__(self, projection_type, resolution, utm_zone_adjust,
+                 latitude_band_adjust, buffer_size,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  debug_flag=False):
         '''Initialize'''
         self.projection_type = projection_type
-        self.resolution = resolution
+
+        if projection_type=='geo':
+            # Geodetic resolution is given in arcsec
+            self.resolution = resolution/(60*60)
+        elif projection_type=='utm':
+            self.resolution = resolution
+            self.utm_zone_adjust = utm_zone_adjust
+            self.latitude_band_adjust = latitude_band_adjust
+
         self.buffer_size = buffer_size
         self.height_agg_method = height_agg_method
         self.area_agg_method = area_agg_method
@@ -204,11 +217,12 @@ class RasterProcessor(object):
         self.aggregate_cross_track(pixc, pixc_mask)
         self.aggregate_sig0(pixc, pixc_mask)
         self.aggregate_inc(pixc, pixc_mask)
-        self.aggregate_num_pixels(pixc, pixc_mask)
         self.aggregate_dark_frac(pixc, pixc_mask)
         self.aggregate_illumination_time(pixc, pixc_mask)
         self.aggregate_corrections(pixc, pixc_mask)
         self.apply_wse_corrections()
+        if self.projection_type == 'utm':
+            self.aggregate_lat_lon(pixc_mask)
 
         if self.debug_flag:
             self.aggregate_classification(pixc, pixc_mask)
@@ -229,13 +243,16 @@ class RasterProcessor(object):
 
         x_min = np.min(np.array([lower_left[1], lower_right[1],
                                  upper_right[1], upper_left[1]]))
-        y_min = np.min(np.array([lower_left[0], lower_right[0],
-                                 upper_right[0], upper_left[0]]))
         x_max = np.max(np.array([lower_left[1], lower_right[1],
                                  upper_right[1], upper_left[1]]))
+        y_min = np.min(np.array([lower_left[0], lower_right[0],
+                                 upper_right[0], upper_left[0]]))
         y_max = np.max(np.array([lower_left[0], lower_right[0],
                                  upper_right[0], upper_left[0]]))
         proj_center_x = 0
+        proj_center_y = 0
+        output_crs = raster_crs.wgs84_crs()
+        self.input_crs = output_crs
 
         # find the UTM zone number for the middle of the swath-tile
         if self.projection_type=='utm':
@@ -243,36 +260,49 @@ class RasterProcessor(object):
                        + upper_right[0] + upper_left[0])/4.0
             lon_mid = (lower_left[1] + lower_right[1] \
                        + upper_right[1] + upper_left[1])/4.0
-            x_mid, y_mid, utm_num, zone_mid = utm.from_latlon(lat_mid, lon_mid)
+            utm_zone = utm.latlon_to_zone_number(lat_mid, lon_mid)
+            mgrs_band = utm.latitude_to_zone_letter(lat_mid)
+            # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
+            utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
+                              raster_crs.UTM_NUM_ZONES) + 1
 
-            x_min, y_min, u_num, u_zone = utm.from_latlon(y_min, x_min,
-                                                          force_zone_number=utm_num)
-            x_max, y_max, u_num1, u_zone1 = utm.from_latlon(y_max, x_max,
-                                                            force_zone_number=utm_num)
-            proj_center_x = crs.UTM_FALSE_EASTING
+            # adjust the latitude band
+            band_num = raster_crs.UTM_VALID_BANDS.find(mgrs_band) \
+                       + self.latitude_band_adjust
+            if band_num < 0:
+                band_num = 0
+            elif band_num >= len(raster_crs.UTM_VALID_BANDS):
+                band_num = len(raster_crs.UTM_VALID_BANDS)-1
 
-        # round limits to the nearest bin (centered at proj_center_x) and add buffer
-        x_min = round((x_min - proj_center_x) / self.resolution) * self.resolution \
+            mgrs_band = raster_crs.UTM_VALID_BANDS[band_num]
+            output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
+            transf = osr.CoordinateTransformation(self.input_crs, output_crs)
+            x_min, y_min = transf.TransformPoint(y_min, x_min)[:2]
+            x_max, y_max = transf.TransformPoint(y_max, x_max)[:2]
+
+            proj_center_x = output_crs.GetProjParm('false_easting')
+
+        # round limits to the nearest bin (centered at proj_center_x and add buffer
+        x_min = int(round((x_min - proj_center_x) / self.resolution)) * self.resolution \
                 + proj_center_x - self.buffer_size
-        x_max = round((x_max - proj_center_x) / self.resolution) * self.resolution \
+        x_max = int(round((x_max - proj_center_x) / self.resolution)) * self.resolution \
                 + proj_center_x + self.buffer_size
-        y_min = round(y_min  / self.resolution) * self.resolution - self.buffer_size
-        y_max = round(y_max / self.resolution) * self.resolution + self.buffer_size
+        y_min = int(round((y_min - proj_center_y) / self.resolution)) * self.resolution \
+                + proj_center_y - self.buffer_size
+        y_max = int(round((y_max - proj_center_y) / self.resolution)) * self.resolution \
+                + proj_center_y + self.buffer_size
 
+        self.output_crs = output_crs
         self.x_min = x_min
         self.x_max = x_max
         self.y_min = y_min
         self.y_max = y_max
-        self.size_x = round((x_max - x_min) / self.resolution).astype(int) + 1
-        self.size_y = round((y_max - y_min) / self.resolution).astype(int) + 1
-
+        self.size_x = int(round((x_max - x_min) / self.resolution)) + 1
+        self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
         if self.projection_type=='utm':
-            self.utm_zone_num = utm_num
-            if zone_mid >= 'N':
-                self.utm_hemisphere = 'N'
-            else:
-                self.utm_hemisphere = 'S'
-            self.mgrs_latitude_band = zone_mid
+            self.utm_zone = utm_zone
+            self.utm_hemisphere = raster_crs.utm_hemisphere(mgrs_band)
+            self.mgrs_band = mgrs_band
 
         LOGGER.info({'proj': self.projection_type,
                      'res': self.resolution,
@@ -349,6 +379,7 @@ class RasterProcessor(object):
 
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_wse_pix = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -371,6 +402,7 @@ class RasterProcessor(object):
 
                     self.wse[i][j] = grid_height[0]
                     self.wse_u[i][j] = grid_height[2]
+                    self.n_wse_pix[i][j] = ag.simple(good, metric='sum')
 
     def aggregate_water_area(self, pixc, mask):
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
@@ -394,6 +426,7 @@ class RasterProcessor(object):
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac_u = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_area_pix = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -415,8 +448,17 @@ class RasterProcessor(object):
 
                     self.water_area[i][j] = grid_area[0]
                     self.water_area_u[i][j] = grid_area[1]
-                    self.water_frac[i][j] = grid_area[0]/(self.resolution**2)
-                    self.water_frac_u[i][j] = grid_area[1]/(self.resolution**2)
+
+                    if self.projection_type == 'utm':
+                        pixel_area = self.resolution**2
+                    elif self.projection_type == 'geo':
+                        px_latitude = self.y_min + self.resolution*i
+                        pixel_area = raster_crs.wgs84_px_area(px_latitude,
+                                                       self.resolution)
+
+                    self.water_frac[i][j] = grid_area[0]/pixel_area
+                    self.water_frac_u[i][j] = grid_area[1]/pixel_area
+                    self.n_area_pix[i][j] = ag.simple(good, metric='sum')
 
     def aggregate_cross_track(self, pixc, mask):
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
@@ -428,7 +470,8 @@ class RasterProcessor(object):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
                     self.cross_track[i][j] = ag.simple(
-                        pixc_cross_track[self.proj_mapping[i][j]][good], metric='mean')
+                        pixc_cross_track[self.proj_mapping[i][j]][good],
+                        metric='mean')
 
     def aggregate_sig0(self, pixc, mask):
         pixc_sig0 = pixc['pixel_cloud']['sig0']
@@ -462,15 +505,6 @@ class RasterProcessor(object):
                     self.inc[i][j] = ag.simple(
                         pixc_inc[self.proj_mapping[i][j]][good], metric='mean')
 
-    def aggregate_num_pixels(self, pixc, mask):
-        self.num_pixels = np.ma.masked_all((self.size_y, self.size_x))
-
-        for i in range(0, self.size_y):
-            for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
-                    self.num_pixels[i][j] = ag.simple(good, metric='sum')
-
     def aggregate_dark_frac(self, pixc, mask):
         pixc_klass = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
@@ -488,7 +522,6 @@ class RasterProcessor(object):
                         pixc_water_fraction[self.proj_mapping[i][j]][good])
 
     def calc_dark_frac(self, pixel_area, klass, water_frac):
-        water_frac[water_frac<0] = 0
         klass_dark = np.isin(klass, self.dark_water_classes)
         dark_area = np.sum(pixel_area[klass_dark]*water_frac[klass_dark])
         total_area = np.sum(pixel_area*water_frac)
@@ -579,6 +612,24 @@ class RasterProcessor(object):
             self.load_tide_sol1 +
             self.pole_tide)
 
+    def aggregate_lat_lon(self, mask):
+        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
+        y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
+        self.latitude = np.ma.masked_all((self.size_y, self.size_x))
+        self.longitude = np.ma.masked_all((self.size_y, self.size_x))
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if len(self.proj_mapping[i][j]) != 0:
+                    good = mask[self.proj_mapping[i][j]]
+                    # get the lat and lon if there are any good pixels at all
+                    if np.any(good):
+                        transf = osr.CoordinateTransformation(self.output_crs,
+                                                              self.input_crs)
+                        lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
+                        self.latitude[i][j] = lon
+                        self.longitude[i][j] = lat
+
+
     def build_product(self, populate_values=True):
         # Assemble the product
         LOGGER.info('Assembling Raster Product - populated?: {}'.format(populate_values))
@@ -620,26 +671,21 @@ class RasterProcessor(object):
         product.right_last_latitude = self.right_last_latitude
 
         if self.projection_type == 'utm':
-            product.utm_zone_num = self.utm_zone_num
-            product.mgrs_latitude_band = self.mgrs_latitude_band
+            product.utm_zone_num = self.utm_zone
+            product.mgrs_latitude_band = self.mgrs_band
             product.x_min = self.x_min
             product.x_max = self.x_max
             product.y_min = self.y_min
             product.y_max = self.y_max
-            product['x'] = np.linspace(self.x_min,
-                                       self.x_max,
-                                       self.size_x)
-            product['y'] = np.linspace(self.y_min,
-                                       self.y_max,
-                                       self.size_y)
-            coordinate_system = crs.utm_crs(self.utm_zone_num,
-                                            self.utm_hemisphere)
+            product['x'] = np.linspace(self.x_min, self.x_max, self.size_x)
+            product['y'] = np.linspace(self.y_min, self.y_max, self.size_y)
+            coordinate_system = self.output_crs
             product.VARIABLES['crs']['projected_crs_name'] = \
-                coordinate_system.name
+                coordinate_system.GetName()
             product.VARIABLES['crs']['false_northing'] = \
-                coordinate_system.false_northing.value
+                coordinate_system.GetProjParm('false_northing')
             product.VARIABLES['crs']['longitude_of_central_meridian'] = \
-                coordinate_system.central_meridian.value
+                coordinate_system.GetProjParm('central_meridian')
 
         elif self.projection_type == 'geo':
             product.longitude_min = self.x_min
@@ -652,12 +698,17 @@ class RasterProcessor(object):
             product['latitude'] = np.linspace(self.y_min,
                                               self.y_max,
                                               self.size_y)
-            coordinate_system = crs.wgs84_crs()
+            coordinate_system = raster_crs.wgs84_crs()
 
-        product.VARIABLES['crs']['crs_wkt'] = str(coordinate_system)
-        product.VARIABLES['crs']['spatial_ref'] = str(coordinate_system)
+        product.VARIABLES['crs']['crs_wkt'] = coordinate_system.ExportToWkt()
+        product.VARIABLES['crs']['spatial_ref'] = \
+            product.VARIABLES['crs']['crs_wkt']
 
         if populate_values:
+            if self.projection_type == 'utm':
+                product['longitude'] = self.longitude
+                product['latitude'] = self.latitude
+
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
             product['illumination_time'].tai_utc_difference = \
@@ -672,7 +723,8 @@ class RasterProcessor(object):
             product['sig0'] = self.sig0
             product['sig0_uncert'] = self.sig0_u
             product['inc'] = self.inc
-            product['num_pixels'] = self.num_pixels
+            product['n_wse_pix'] = self.n_wse_pix
+            product['n_area_pix'] = self.n_area_pix
             product['dark_frac'] = self.dark_frac
             product['geoid'] = self.geoid
             product['solid_earth_tide'] = self.solid_earth_tide
@@ -692,6 +744,7 @@ class RasterProcessor(object):
 def get_pixc_mask(pixc):
     lats = pixc['pixel_cloud']['latitude']
     lons = pixc['pixel_cloud']['longitude']
+    height = pixc['pixel_cloud']['height']
     area = pixc['pixel_cloud']['pixel_area']
     klass =pixc['pixel_cloud']['classification']
     mask = np.ones(np.shape(pixc['pixel_cloud']['latitude']))
@@ -700,6 +753,8 @@ def get_pixc_mask(pixc):
         mask[lats.mask] = 0
     if np.ma.is_masked(lons):
         mask[lons.mask] = 0
+    if np.ma.is_masked(height):
+        mask[height.mask] = 0
     if np.ma.is_masked(area):
         mask[area.mask] = 0
 
@@ -716,3 +771,6 @@ def get_pixc_mask(pixc):
 
 def lon_360to180(longitude):
     return np.mod(longitude + 180, 360) - 180
+
+def lon_180to360(longitude):
+    return np.mod(longitude, 360)

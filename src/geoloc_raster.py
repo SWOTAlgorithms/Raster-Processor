@@ -18,8 +18,6 @@ import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
-from scipy import interpolate
-from SWOTWater.constants import PIXC_CLASSES
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
@@ -27,13 +25,13 @@ class GeolocRaster(object):
     """
         class GeolocRaster
     """
-    def __init__(self, pixc, raster, raster_config):
+    def __init__(self, pixc, raster, algorithmic_config):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("GeolocRaster initialization")
 
         self.pixc = pixc
         self.raster = raster
-        self.raster_config = raster_config
+        self.algorithmic_config = algorithmic_config
 
     def update_heights_from_raster(self):
         """
@@ -45,10 +43,10 @@ class GeolocRaster(object):
         pixc_mask = np.logical_and(
             pixc_mask,
             np.isin(self.pixc['pixel_cloud']['classification'],
-                    np.concatenate((self.raster_config['interior_water_classes'],
-                                    self.raster_config['water_edge_classes'],
-                                    self.raster_config['land_edge_classes'],
-                                    self.raster_config['dark_water_classes']))))
+                    np.concatenate((self.algorithmic_config['interior_water_classes'],
+                                    self.algorithmic_config['water_edge_classes'],
+                                    self.algorithmic_config['land_edge_classes'],
+                                    self.algorithmic_config['dark_water_classes']))))
         proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask)
 
         raster_uncorrected_height = self.raster.get_uncorrected_height()
@@ -60,7 +58,7 @@ class GeolocRaster(object):
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
-        method = self.raster_config['improved_geolocation_method']
+        method = self.algorithmic_config['improved_geolocation_method']
         if method == 'taylor':
             self.taylor_improved_geoloc()
         else:
@@ -118,25 +116,26 @@ class GeolocRaster(object):
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
 
         # improve height with vectorised pixel
-        p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
-                                                                                                             h_noisy,
-                                                                                                             np.transpose(np.array(
-                                                                                                                 [nadir_x_vect, nadir_y_vect,
-                                                                                                                  nadir_z_vect])),
-                                                                                                             np.transpose(np.array(
-                                                                                                                 [nadir_vx_vect, nadir_vy_vect,
-                                                                                                                  nadir_vz_vect])),
-                                                                                                             ri, self.new_height,
-                                                                                                             recompute_doppler=True,
-                                                                                                             recompute_range=True, verbose=False,
-                                                                                                             max_iter_grad=1, height_goal=1.e-3)
+        p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = \
+            geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
+                                                 h_noisy,
+                                                 np.transpose(np.array(
+                                                     [nadir_x_vect, nadir_y_vect,
+                                                      nadir_z_vect])),
+                                                 np.transpose(np.array(
+                                                     [nadir_vx_vect, nadir_vy_vect,
+                                                      nadir_vz_vect])),
+                                                 ri, self.new_height,
+                                                 recompute_doppler=True,
+                                                 recompute_range=True, verbose=False,
+                                                 max_iter_grad=1, height_goal=1.e-3)
 
         self.out_lat_corr, self.out_lon_corr, self.out_height_corr = np.transpose(p_final_llh)
 
 
-def geoloc_raster(pixc_prod, raster_prod, raster_config):
+def geoloc_raster(pixc_prod, raster_prod, algorithmic_config):
     """ Improved raster geolocation """
-    geoloc_raster = GeolocRaster(pixc_prod, raster_prod, raster_config)
+    geoloc_raster = GeolocRaster(pixc_prod, raster_prod, algorithmic_config)
     # Do the improved raster geolocation
     logger = logging.getLogger()
     logger.info("Improved geolocation")
@@ -152,16 +151,16 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('pixc_file')
     parser.add_argument('raster_file')
-    parser.add_argument('raster_config')
+    parser.add_argument('algorithmic_config')
     parser.add_argument('out_pixc_file')
     args = parser.parse_args()
 
     pixc_prod = MutableProduct.from_ncfile(args.pixc_file)
     raster_prod = MutableProduct.from_ncfile(args.raster_file)
-    raster_config = rdf.parse(os.path.abspath(args.raster_config), comment='!')
+    algorithmic_config = rdf.parse(os.path.abspath(args.algorithmic_config), comment='!')
     out_lat, out_lon, out_height = geoloc_raster(pixc_prod,
                                                  raster_prod,
-                                                 raster_config)
+                                                 algorithmic_config)
     pixc_prod['pixel_cloud']['height'][:] = out_height
     pixc_prod['pixel_cloud']['latitude'][:] = out_lat
     pixc_prod['pixel_cloud']['longitude'][:] = out_lon

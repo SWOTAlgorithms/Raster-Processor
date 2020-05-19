@@ -9,9 +9,12 @@ Author(s): Alexander Corben
 import utm
 import logging
 import textwrap
+import raster_crs
 import numpy as np
 
+from osgeo import osr
 from netCDF4 import Dataset
+from datetime import datetime
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product
 
@@ -181,6 +184,28 @@ COMMON_ATTRIBUTES = odict([
 ])
 
 COMMON_VARIABLES = odict([
+    ['longitude',
+     odict([['dtype', 'f8'],
+            ['long_name', 'longitude (degrees East)'],
+            ['standard_name', 'longitude'],
+            ['units', 'degrees_east'],
+            ['valid_min', -180],
+            ['valid_max', 180],
+            ['comment', textjoin("""
+            Geodetic longitude [-180,180] (east of the Greenwich meridian)
+            of the pixel.""")],
+        ])],
+    ['latitude',
+     odict([['dtype', 'f8'],
+            ['long_name', 'latitude (positive N, negative S)'],
+            ['standard_name', 'latitude'],
+            ['units', 'degrees_north'],
+            ['valid_min', -80],
+            ['valid_max', 80],
+            ['comment', textjoin("""
+            Geodetic latitude [-80,80] (degrees north of equator) of
+            the pixel.""")]
+        ])],
     ['wse',
      odict([['dtype', 'f4'],
             ['long_name', 'water surface elevation above geoid'],
@@ -209,7 +234,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'surface area of detected water'],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
-            ['valid_min', 0],
+            ['valid_min', -2000000000],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
@@ -246,7 +271,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'water fraction uncertainty'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
-            ['valid_min', 0],
+            ['valid_min', -999999],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
@@ -329,9 +354,9 @@ COMMON_VARIABLES = odict([
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
-    ['qual_flag',
+    ['raster_qual',
      odict([['dtype', 'i1'],
-            ['standard_name', 'quality_flag'],
+            ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good bad'],
             ['flag_values', np.array([0, 1]).astype('i1')],
@@ -341,24 +366,37 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Quality flag for raster data.""")],
         ])],
-    ['num_pixels',
+    ['n_wse_pix',
      odict([['dtype', 'u4'],
-            ['long_name', 'number_of_pixels'],
+            ['long_name', 'number of wse pixels'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
             ['valid_min', 1],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Number of contributing pixelcloud pixels""")],
+                Number of pixel cloud samples used in water surface elevation
+                aggregation.""")],
+        ])],
+    ['n_area_pix',
+     odict([['dtype', 'u4'],
+            ['long_name', 'number of area pixels'],
+            ['grid_mapping', 'crs'],
+            ['units', 'l'],
+            ['valid_min', 1],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Number of pixel cloud samples used in water area and
+                water fraction aggregation.""")],
         ])],
     ['dark_frac',
      odict([['dtype', 'f4'],
             ['long_name', 'fractional area of dark water'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
-            ['valid_min', 0],
-            ['valid_max', 1],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Fraction of pixel water area covered by dark water.""")],
@@ -653,6 +691,8 @@ class RasterUTM(Product):
                 ['comment', textjoin("""
                     UTM northing coordinate of the pixel""")],
          ])],
+        ['longitude', COMMON_VARIABLES['longitude'].copy()],
+        ['latitude', COMMON_VARIABLES['latitude'].copy()],
         ['wse', COMMON_VARIABLES['wse'].copy()],
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
         ['water_area', COMMON_VARIABLES['water_area'].copy()],
@@ -666,8 +706,9 @@ class RasterUTM(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['num_pixels', COMMON_VARIABLES['num_pixels'].copy()],
-        ['qual_flag', COMMON_VARIABLES['qual_flag'].copy()],
+        ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
+        ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
+        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -694,12 +735,16 @@ class RasterUTM(Product):
         pixc_lats = pixc['pixel_cloud']['latitude']
         pixc_lons = np.mod(pixc['pixel_cloud']['longitude'] + 180, 360) - 180
 
+        input_crs = raster_crs.wgs84_crs()
+        output_crs = raster_crs.utm_crs(self.utm_zone_num,
+                                        self.mgrs_latitude_band)
+
         x_tmp=[]
         y_tmp=[]
         for x in range(0,len(pixc_lats)):
             if mask[x]:
-                u_x, u_y, u_num, u_zone = utm.from_latlon(
-                    pixc_lats[x], pixc_lons[x], force_zone_number=self.utm_zone_num)
+                transf = osr.CoordinateTransformation(input_crs, output_crs)
+                u_x, u_y = transf.TransformPoint(pixc_lats[x], pixc_lons[x])[:2]
                 x_tmp.append(u_x)
                 y_tmp.append(u_y)
             else:
@@ -714,8 +759,8 @@ class RasterUTM(Product):
 
         for x in range(0,len(pixc_lats)):
             if mask[x]:
-                i = round((y_tmp[x] - self.y_min) / self.resolution).astype(int)
-                j = round((x_tmp[x] - self.x_min) / self.resolution).astype(int)
+                i = round((y_tmp[x] - self.y_min) / self.resolution)
+                j = round((x_tmp[x] - self.x_min) / self.resolution)
                 # check bounds
                 if (i >= 0 and i < self.dimensions['y'] and
                     j >= 0 and j < self.dimensions['x']):
@@ -810,7 +855,7 @@ class RasterGeo(Product):
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'WGS84 geodetic lat/lon coordinate reference system'],
-         ])],
+        ])],
         ['longitude',
          odict([['dtype', 'f8'],
                 ['long_name', 'longitude (degrees East)'],
@@ -819,9 +864,9 @@ class RasterGeo(Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                    Geodetic longitude [-180,180] (east of the Greenwich meridian)
-                    of the pixel.""")],
-         ])],
+                Geodetic longitude [-180,180] (east of the Greenwich meridian)
+                of the pixel.""")],
+        ])],
         ['latitude',
          odict([['dtype', 'f8'],
                 ['long_name', 'latitude (positive N, negative S)'],
@@ -830,9 +875,9 @@ class RasterGeo(Product):
                 ['valid_min', -80],
                 ['valid_max', 80],
                 ['comment', textjoin("""
-                    Geodetic latitude [-80,80] (degrees north of equator) of
-                    the pixel.""")],
-         ])],
+                Geodetic latitude [-80,80] (degrees north of equator) of
+                the pixel.""")]
+        ])],
         ['wse', COMMON_VARIABLES['wse'].copy()],
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
         ['water_area', COMMON_VARIABLES['water_area'].copy()],
@@ -846,8 +891,9 @@ class RasterGeo(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['num_pixels', COMMON_VARIABLES['num_pixels'].copy()],
-        ['qual_flag', COMMON_VARIABLES['qual_flag'].copy()],
+        ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
+        ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
+        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -925,7 +971,8 @@ class RasterUTMDebug(RasterUTM):
     VARIABLES['x']['dimensions'] = odict([['x', 0]])
     VARIABLES['y']['dimensions'] = odict([['y', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
-
+    VARIABLES['classification']['dimensions'] = \
+        odict([['y', 0], ['x', 0]])
 
 class RasterGeoDebug(RasterGeo):
     ATTRIBUTES = odict({key:RasterGeo.ATTRIBUTES[key].copy()
@@ -945,7 +992,8 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
-
+    VARIABLES['classification']['dimensions'] = \
+        odict([['latitude', 0], ['longitude', 0]])
 
 class RasterPixc(Product):
     ATTRIBUTES = odict([
@@ -973,8 +1021,8 @@ class RasterPixc(Product):
         ['geospatial_lat_max', odict([])],
     ])
     GROUPS = odict([
-        ['pixel_cloud', 'PixelCloud'],
-        ['tvp', 'TVP'],
+        ['pixel_cloud', 'RasterPixelCloud'],
+        ['tvp', 'RasterTVP'],
     ])
 
     @classmethod
@@ -1022,41 +1070,45 @@ class RasterPixc(Product):
         raster_pixc.geospatial_lat_max = pixc_tile.geospatial_lat_max
 
         # Copy over groups
-        raster_pixc['pixel_cloud'] = PixelCloud.from_tile(pixc_tile['pixel_cloud'])
-        raster_pixc['tvp'] = TVP.from_tile(pixc_tile['tvp'])
+        raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(pixc_tile['pixel_cloud'])
+        raster_pixc['tvp'] = RasterTVP.from_tile(pixc_tile['tvp'])
 
-        print(raster_pixc.time_coverage_start)
-        print(raster_pixc.time_coverage_end)
         return raster_pixc
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_bounding_box):
         """Constructs self from a list of pixc tiles and swath bounding box"""
+        tile_objs = []
         for tile in pixc_tiles:
             tile_objs.append(cls.from_tile(tile))
 
         # Add all of the pixel_cloud/tvp data
-        raster_pixc = sum(tile_objs)
-
+        raster_pixc = np.array(tile_objs).sum()
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
-        start_times = [tile.time_coverage_start for tile in tile_objs]
-        end_times = [tile.time_coverage_end for tile in tile_objs]
+        start_times = [datetime.strptime(
+            tile.time_coverage_start, '%Y-%m-%d:%H:%M:%S.%fZ') for tile in tile_objs]
+        end_times = [datetime.strptime(
+            tile.time_coverage_end,'%Y-%m-%d:%H:%M:%S.%fZ') for tile in tile_objs]
         central_tile_index = start_times.index(
             np.percentile(start_times, 50, interpolation='nearest'))
         raster_pixc.cycle_number = tile_objs[central_tile_index].cycle_number
         raster_pixc.pass_number = tile_objs[central_tile_index].pass_number
-        raster_pixc.tile_numbers = sorted([tile.tile_numbers \
-                                           for sublist in tile_objs \
-                                           for tile in sublist])
-        raster_pixc.tile_names = sorted([tile.tile_names \
-                                         for sublist in tile_objs \
-                                         for tile in sublist])
-        raster_pixc.tile_polarizations = sorted([tile.tile_polarizations \
-                                                 for sublist in tile_objs \
-                                                 for tile in sublist])
-        raster_pixc.time_coverage_start = min(start_times)
-        raster_pixc.time_coverage_end = max(end_times)
+
+        swath_sides = [tile_name[-1] for tile in tile_objs
+                       for tile_name in tile.tile_names]
+        sort_indices = np.argsort(
+            [swath_side + str(start_time)
+             for swath_side, start_time in zip(swath_sides, start_times)])
+
+        raster_pixc.tile_numbers = [tile_num for i in sort_indices
+                                    for tile_num in tile_objs[i].tile_numbers]
+        raster_pixc.tile_names = [tile_name for i in sort_indices
+                                  for tile_name in tile_objs[i].tile_names]
+        raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
+                                          for tile_pol in tile_objs[i].tile_polarizations]
+        raster_pixc.time_coverage_start = tile_objs[np.argmin(start_times)].time_coverage_start
+        raster_pixc.time_coverage_end = tile_objs[np.argmax(end_times)].time_coverage_end
         raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
         raster_pixc.near_range = tile_objs[central_tile_index].near_range
         raster_pixc.nominal_slant_range_spacing = \
@@ -1110,18 +1162,10 @@ class RasterPixc(Product):
         return klass
 
 
-class PixelCloud(Product):
+class RasterPixelCloud(Product):
     ATTRIBUTES = odict([
         ['description',{'dtype': 'str',
             'value':'cloud of geolocated interferogram pixels'}],
-        ['interferogram_size_azimuth',{'dtype': 'i4',
-            'docstr':textjoin("""
-                number of azimuth rows of interferogram image
-                """)}],
-        ['interferogram_size_range',{'dtype': 'i4',
-            'docstr':textjoin("""
-                number of range-bin columns of interferogram image
-                """)}],
         ['looks_to_efflooks',{'dtype': 'f8',
             'docstr':'ratio of the number of real looks to the effective number of independent looks'}],
     ])
@@ -1189,14 +1233,14 @@ class PixelCloud(Product):
 
     def __add__(self, other):
         """adds other to self"""
-        klass = PixelCloud()
+        klass = RasterPixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
             setattr(klass, key, np.concatenate((
                 getattr(self, key), getattr(other, key))))
         return klass
 
-class TVP(Product):
+class RasterTVP(Product):
     ATTRIBUTES = odict([
         ['description', {'dtype': 'str',
             'value': textjoin("""
@@ -1249,7 +1293,7 @@ class TVP(Product):
         # discard overlapping TVP records
         time = np.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)
-        klass = TVP()
+        klass = RasterTVP()
         for key in klass.VARIABLES:
             setattr(klass, key, np.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
