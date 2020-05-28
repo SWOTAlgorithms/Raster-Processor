@@ -47,7 +47,8 @@ class GeolocRaster(object):
                                     self.algorithmic_config['water_edge_classes'],
                                     self.algorithmic_config['land_edge_classes'],
                                     self.algorithmic_config['dark_water_classes']))))
-        proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask)
+        proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask,
+                                                      use_improved_geoloc=False)
 
         raster_uncorrected_height = self.raster.get_uncorrected_height()
 
@@ -58,7 +59,8 @@ class GeolocRaster(object):
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
-        method = self.algorithmic_config['improved_geolocation_method']
+        method = self.algorithmic_config[ \
+            'lowres_raster_height_constrained_geoloc_method']
         if method == 'taylor':
             self.taylor_improved_geoloc()
         else:
@@ -87,7 +89,8 @@ class GeolocRaster(object):
         nadir_vz = self.pixc['tvp']['vz']
 
         # Get distance from satellite to target point
-        ri = self.pixc.near_range + self.pixc['pixel_cloud']['range_index'] * self.pixc.nominal_slant_range_spacing
+        ri = self.pixc.near_range + (self.pixc['pixel_cloud']['range_index']
+                                     * self.pixc.nominal_slant_range_spacing)
 
         # Init output vectors
         self.out_lat_corr = np.zeros(nb_pix)  # Improved latitudes

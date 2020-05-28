@@ -5,8 +5,6 @@ All rights reserved.
 
 Author(s): Alexander Corben
 '''
-
-import utm
 import logging
 import textwrap
 import raster_crs
@@ -15,6 +13,7 @@ import numpy as np
 from osgeo import osr
 from netCDF4 import Dataset
 from datetime import datetime
+from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product
 
@@ -184,28 +183,6 @@ COMMON_ATTRIBUTES = odict([
 ])
 
 COMMON_VARIABLES = odict([
-    ['longitude',
-     odict([['dtype', 'f8'],
-            ['long_name', 'longitude (degrees East)'],
-            ['standard_name', 'longitude'],
-            ['units', 'degrees_east'],
-            ['valid_min', -180],
-            ['valid_max', 180],
-            ['comment', textjoin("""
-            Geodetic longitude [-180,180] (east of the Greenwich meridian)
-            of the pixel.""")],
-        ])],
-    ['latitude',
-     odict([['dtype', 'f8'],
-            ['long_name', 'latitude (positive N, negative S)'],
-            ['standard_name', 'latitude'],
-            ['units', 'degrees_north'],
-            ['valid_min', -80],
-            ['valid_max', 80],
-            ['comment', textjoin("""
-            Geodetic latitude [-80,80] (degrees north of equator) of
-            the pixel.""")]
-        ])],
     ['wse',
      odict([['dtype', 'f4'],
             ['long_name', 'water surface elevation above geoid'],
@@ -691,8 +668,30 @@ class RasterUTM(Product):
                 ['comment', textjoin("""
                     UTM northing coordinate of the pixel""")],
          ])],
-        ['longitude', COMMON_VARIABLES['longitude'].copy()],
-        ['latitude', COMMON_VARIABLES['latitude'].copy()],
+        ['longitude',
+         odict([['dtype', 'f8'],
+                ['long_name', 'longitude (degrees East)'],
+                ['standard_name', 'longitude'],
+                ['grid_mapping', 'crs'],
+                ['units', 'degrees_east'],
+                ['valid_min', -180],
+                ['valid_max', 180],
+                ['comment', textjoin("""
+                    Geodetic longitude [-180,180] (east of the Greenwich meridian)
+                    of the pixel.""")],
+            ])],
+        ['latitude',
+         odict([['dtype', 'f8'],
+                ['long_name', 'latitude (positive N, negative S)'],
+                ['standard_name', 'latitude'],
+                ['grid_mapping', 'crs'],
+                ['units', 'degrees_north'],
+                ['valid_min', -80],
+                ['valid_max', 80],
+                ['comment', textjoin("""
+                    Geodetic latitude [-80,80] (degrees north of equator) of
+                    the pixel.""")]
+            ])],
         ['wse', COMMON_VARIABLES['wse'].copy()],
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
         ['water_area', COMMON_VARIABLES['water_area'].copy()],
@@ -726,24 +725,37 @@ class RasterUTM(Product):
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
+
+    VARIABLES['latitude']['coordinates'] = 'x y'
+    VARIABLES['latitude']['dimensions'] = odict([['y', 0], ['x', 0]])
+    VARIABLES['longitude']['coordinates'] = 'x y'
+    VARIABLES['longitude']['dimensions'] = odict([['y', 0], ['x', 0]])
+
     VARIABLES['x']['dimensions'] = odict([['x', 0]])
     VARIABLES['y']['dimensions'] = odict([['y', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
 
-    def get_raster_mapping(self, pixc, mask):
+    def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
         LOGGER.info('Getting raster mapping')
-        pixc_lats = pixc['pixel_cloud']['latitude']
-        pixc_lons = np.mod(pixc['pixel_cloud']['longitude'] + 180, 360) - 180
+        if use_improved_geoloc:
+            lat_keyword = 'improved_latitude'
+            lon_keyword = 'improved_longitude'
+        else:
+            lat_keyword = 'latitude'
+            lon_keyword = 'longitude'
+
+        pixc_lats = pixc['pixel_cloud'][lat_keyword]
+        pixc_lons = raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
 
         input_crs = raster_crs.wgs84_crs()
         output_crs = raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
+        transf = osr.CoordinateTransformation(input_crs, output_crs)
 
         x_tmp=[]
         y_tmp=[]
-        for x in range(0,len(pixc_lats)):
+        for x in range(0, len(pixc_lats)):
             if mask[x]:
-                transf = osr.CoordinateTransformation(input_crs, output_crs)
                 u_x, u_y = transf.TransformPoint(pixc_lats[x], pixc_lons[x])[:2]
                 x_tmp.append(u_x)
                 y_tmp.append(u_y)
@@ -767,6 +779,33 @@ class RasterUTM(Product):
                     mapping_tmp[i][j].append(x)
 
         return mapping_tmp
+
+    def crop_to_bounds(self, swath_polygon_points):
+        """Crops a raster to the given swath polygon"""
+        # Convert polygon points to UTM
+        input_crs = raster_crs.wgs84_crs()
+        output_crs = raster_crs.utm_crs(self.utm_zone_num,
+                                        self.mgrs_latitude_band)
+        transf = osr.CoordinateTransformation(input_crs, output_crs)
+        swath_polygon_points_utm = []
+        for pt in swath_polygon_points:
+            swath_polygon_points_utm.append(transf.TransformPoint(pt[0],
+                                                                  pt[1])[:2])
+
+        poly = Polygon(swath_polygon_points_utm)
+
+        # Check whether each pixel center is within the polygon
+        mask = np.zeros((self.dimensions['y'], self.dimensions['x']))
+        for i in range(0, self.dimensions['y']):
+            for j in range(0, self.dimensions['x']):
+                if Point((self.x[j], self.y[i])).within(poly):
+                    mask[i][j] = True
+
+        # Mask the datasets
+        for var in self.variables:
+            if var not in ['crs', 'x', 'y']: # only the 2d datasets
+                self.variables[var].mask = np.logical_or(
+                    self.variables[var].mask, np.logical_not(mask))
 
     def get_uncorrected_height(self):
         height = self.wse + (
@@ -864,8 +903,8 @@ class RasterGeo(Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                Geodetic longitude [-180,180] (east of the Greenwich meridian)
-                of the pixel.""")],
+                    Geodetic longitude [-180,180] (east of the Greenwich meridian)
+                    of the pixel.""")],
         ])],
         ['latitude',
          odict([['dtype', 'f8'],
@@ -875,8 +914,8 @@ class RasterGeo(Product):
                 ['valid_min', -80],
                 ['valid_max', 80],
                 ['comment', textjoin("""
-                Geodetic latitude [-80,80] (degrees north of equator) of
-                the pixel.""")]
+                    Geodetic latitude [-80,80] (degrees north of equator) of
+                    the pixel.""")]
         ])],
         ['wse', COMMON_VARIABLES['wse'].copy()],
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
@@ -915,10 +954,17 @@ class RasterGeo(Product):
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
 
-    def get_raster_mapping(self, pixc, mask):
+    def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
         LOGGER.info('Getting raster mapping')
-        pixc_lats = pixc['pixel_cloud']['latitude']
-        pixc_lons = np.mod(pixc['pixel_cloud']['longitude'] + 180, 360) - 180
+        if use_improved_geoloc:
+            lat_keyword = 'improved_latitude'
+            lon_keyword = 'improved_longitude'
+        else:
+            lat_keyword = 'latitude'
+            lon_keyword = 'longitude'
+
+        pixc_lats = pixc['pixel_cloud'][lat_keyword]
+        pixc_lons = raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
 
         mapping_tmp = []
         for i in range(0, self.dimensions['latitude']):
@@ -926,16 +972,36 @@ class RasterGeo(Product):
             for j in range(0, self.dimensions['longitude']):
                 mapping_tmp[i].append([])
 
-        for x in range(0,len(pixc_lats)):
+        for x in range(0, len(pixc_lats)):
             if mask[x]:
-                i = round((pixc_lats[x] - self.latitude_min) / self.resolution).astype(int)
-                j = round((pixc_lons[x] - self.longitude_min) / self.resolution).astype(int)
+                i = round((pixc_lats[x] - self.latitude_min)
+                          / self.resolution).astype(int)
+                j = round((pixc_lons[x] - self.longitude_min)
+                          / self.resolution).astype(int)
                 # check bounds
                 if (i >= 0 and i < self.dimensions['latitude'] and
                     j >= 0 and j < self.dimensions['longitude']):
                     mapping_tmp[i][j].append(x)
 
         return mapping_tmp
+
+    def crop_to_bounds(self, swath_polygon_points):
+        """Crops a raster to the given swath polygon"""
+        poly = Polygon(swath_polygon_points)
+
+        # Check whether each pixel center is within the polygon
+        mask = np.zeros((self.dimensions['latitude'],
+                         self.dimensions['longitude']))
+        for i in range(0, self.dimensions['latitude']):
+            for j in range(0, self.dimensions['longitude']):
+                if Point((self.latitude[i], self.longitude[j])).within(poly):
+                    mask[i][j] = True
+
+        # Mask the datasets
+        for var in self.variables:
+            if var not in ['crs', 'longitude', 'latitude']: # only the 2d datasets
+                self.variables[var].mask = np.logical_or(
+                    self.variables[var].mask, np.logical_not(mask))
 
     def get_uncorrected_height(self):
         height = self.wse + (
@@ -1026,8 +1092,8 @@ class RasterPixc(Product):
     ])
 
     @classmethod
-    def from_tile(cls, pixc_tile):
-        """Constructs self from a single pixc tile"""
+    def from_tile(cls, pixc_tile, pixcvec_tile=None):
+        """Constructs self from a single pixc tile (and associated pixcvec tile)"""
         raster_pixc = cls()
 
         # Copy over attributes
@@ -1045,7 +1111,7 @@ class RasterPixc(Product):
 
         swath_side = pixc_tile.swath_side
 
-        if swath_side == 'L':
+        if swath_side.lower() == 'l':
             raster_pixc.left_first_longitude = pixc_tile.outer_first_longitude
             raster_pixc.left_last_longitude = pixc_tile.outer_last_longitude
             raster_pixc.left_first_latitude = pixc_tile.outer_first_latitude
@@ -1054,7 +1120,7 @@ class RasterPixc(Product):
             raster_pixc.right_last_longitude = pixc_tile.inner_last_longitude
             raster_pixc.right_first_latitude = pixc_tile.inner_first_latitude
             raster_pixc.right_last_latitude = pixc_tile.inner_last_latitude
-        elif swath_side == 'R':
+        elif swath_side.lower() == 'r':
             raster_pixc.left_first_longitude = pixc_tile.inner_first_longitude
             raster_pixc.left_last_longitude = pixc_tile.inner_last_longitude
             raster_pixc.left_first_latitude = pixc_tile.inner_first_latitude
@@ -1064,23 +1130,44 @@ class RasterPixc(Product):
             raster_pixc.right_first_latitude = pixc_tile.outer_first_latitude
             raster_pixc.right_last_latitude = pixc_tile.outer_last_latitude
 
-        raster_pixc.geospatial_lon_min = pixc_tile.geospatial_lon_min
-        raster_pixc.geospatial_lon_max = pixc_tile.geospatial_lon_max
-        raster_pixc.geospatial_lat_min = pixc_tile.geospatial_lat_min
-        raster_pixc.geospatial_lat_max = pixc_tile.geospatial_lat_max
+        lats = [raster_pixc.left_first_latitude,
+                 raster_pixc.right_first_latitude,
+                 raster_pixc.left_last_latitude,
+                 raster_pixc.right_last_latitude]
+        lons = [raster_pixc.left_first_longitude,
+                   raster_pixc.right_first_longitude,
+                   raster_pixc.left_last_longitude,
+                   raster_pixc.right_last_longitude]
+        raster_pixc.geospatial_lat_min = min(lats)
+        raster_pixc.geospatial_lat_max = max(lats)
+        raster_pixc.geospatial_lon_min = min(lons)
+        raster_pixc.geospatial_lon_max = max(lons)
 
         # Copy over groups
-        raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(pixc_tile['pixel_cloud'])
+        if pixcvec_tile is not None:
+            raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
+                pixc_tile['pixel_cloud'], pixcvec_tile['pixel_cloud'])
+        else:
+            raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
+                pixc_tile['pixel_cloud'])
         raster_pixc['tvp'] = RasterTVP.from_tile(pixc_tile['tvp'])
 
         return raster_pixc
 
     @classmethod
-    def from_tiles(cls, pixc_tiles, swath_bounding_box):
-        """Constructs self from a list of pixc tiles and swath bounding box"""
+    def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
+                   pixcvec_tiles=None):
+        """Constructs self from a list of pixc tiles (and associated pixcvec
+           tiles). Pixcvec_tiles must either have a one-to-one correspondence
+           with pixc_tiles or be None."""
+        num_tiles = len(pixc_tiles)
+        if pixcvec_tiles is None:
+            pixcvec_tiles = [None]*num_tiles
+
         tile_objs = []
-        for tile in pixc_tiles:
-            tile_objs.append(cls.from_tile(tile))
+        for tile_idx in range(num_tiles):
+            tile_objs.append(cls.from_tile(pixc_tiles[tile_idx],
+                                           pixcvec_tiles[tile_idx]))
 
         # Add all of the pixel_cloud/tvp data
         raster_pixc = np.array(tile_objs).sum()
@@ -1114,44 +1201,26 @@ class RasterPixc(Product):
         raster_pixc.nominal_slant_range_spacing = \
             tile_objs[central_tile_index].nominal_slant_range_spacing
 
-        # Set the first/last lats/lons from the swath bounds
-        # swath_bounding_box = ((left_first_lat, left_first_lon),
-        #                       (right_first_lat, right_first_lon),
-        #                       (left_last_lat, left_last_lon),
-        #                       (right_last_lat, right_last_lon))
-        raster_pixc.left_first_latitude = swath_bounding_box[0][0]
-        raster_pixc.left_first_longitude = swath_bounding_box[0][1]
-        raster_pixc.right_first_latitude = swath_bounding_box[1][0]
-        raster_pixc.right_first_longitude = swath_bounding_box[1][1]
-        raster_pixc.left_last_latitude = swath_bounding_box[2][0]
-        raster_pixc.left_last_longitude = swath_bounding_box[2][1]
-        raster_pixc.right_last_latitude = swath_bounding_box[3][0]
-        raster_pixc.right_last_longitude = swath_bounding_box[3][1]
+        # Set the first/last lats/lons from the swath edges
+        # swath_edges = ((left_first_lat, left_first_lon),
+        #                (right_first_lat, right_first_lon),
+        #                (left_last_lat, left_last_lon),
+        #                (right_last_lat, right_last_lon))
+        raster_pixc.left_first_latitude = swath_edges[0][0]
+        raster_pixc.left_first_longitude = swath_edges[0][1]
+        raster_pixc.right_first_latitude = swath_edges[1][0]
+        raster_pixc.right_first_longitude = swath_edges[1][1]
+        raster_pixc.left_last_latitude = swath_edges[2][0]
+        raster_pixc.left_last_longitude = swath_edges[2][1]
+        raster_pixc.right_last_latitude = swath_edges[3][0]
+        raster_pixc.right_last_longitude = swath_edges[3][1]
 
-        # Get the scene bounds - note that we need to check the bounds of
-        # every pixc AND the merged bounding box to account for
-        # tiles at pass edges and missing tiles
-        lats = ([tile.left_first_latitude for tile in tile_objs]
-                + [tile.right_first_latitude for tile in tile_objs]
-                + [tile.left_last_latitude for tile in tile_objs]
-                + [tile.right_last_latitude for tile in tile_objs]
-                + [raster_pixc.left_first_latitude,
-                   raster_pixc.right_first_latitude,
-                   raster_pixc.left_last_latitude,
-                   raster_pixc.right_last_latitude])
-        lons = ([tile.left_first_longitude for tile in tile_objs]
-                + [tile.right_first_longitude for tile in tile_objs]
-                + [tile.left_last_longitude for tile in tile_objs]
-                + [tile.right_last_longitude for tile in tile_objs]
-                + [raster_pixc.left_first_longitude,
-                   raster_pixc.right_first_longitude,
-                   raster_pixc.left_last_longitude,
-                   raster_pixc.right_last_longitude])
+        lats = [latlon[0] for latlon in swath_polygon_points]
+        lons = [latlon[1] for latlon in swath_polygon_points]
         raster_pixc.geospatial_lat_min = min(lats)
         raster_pixc.geospatial_lat_max = max(lats)
         raster_pixc.geospatial_lon_min = min(lons)
         raster_pixc.geospatial_lon_max = max(lons)
-
         return raster_pixc
 
     def __add__(self, other):
@@ -1175,6 +1244,9 @@ class RasterPixelCloud(Product):
         ['latitude', odict([])],
         ['longitude', odict([])],
         ['height', odict([])],
+        ['improved_latitude', odict([])],
+        ['improved_longitude', odict([])],
+        ['improved_height', odict([])],
         ['azimuth_index', odict([])],
         ['range_index', odict([])],
         ['interferogram', odict([])],
@@ -1206,29 +1278,43 @@ class RasterPixelCloud(Product):
         ['model_dry_tropo_cor', odict([])],
         ['model_wet_tropo_cor', odict([])],
         ['iono_cor_gim_ka', odict([])],
+        ['ice_clim_flag', odict([])],
+        ['ice_dyn_flag', odict([])],
         ['pixc_qual', odict([])], # TODO: implement qual checks in raster proc
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = DIMENSIONS
 
     @classmethod
-    def from_tile(cls, pixc_tile):
-        """Constructs self from a single pixc pixelcloud tile"""
+    def from_tile(cls, pixc_tile, pixcvec_tile=None):
+        """Constructs self from a single pixc pixelcloud tile,
+           (and matching pixcvec tile)"""
         raster_pixel_cloud = cls()
 
-        # Copy common variables
+        # Copy common pixc variables
         pixel_cloud_vars = set(raster_pixel_cloud.VARIABLES.keys())
         for field in pixel_cloud_vars.intersection(
                 pixc_tile.VARIABLES.keys()):
             raster_pixel_cloud[field] = pixc_tile[field]
 
-        # Copy common attributes
+        # Copy pixcvec variables (set improved llh to pixcvec llh here)
+        if pixcvec_tile is not None:
+            raster_pixel_cloud['improved_latitude'] = \
+                pixcvec_tile['latitude_vectorproc']
+            raster_pixel_cloud['improved_longitude'] = \
+                pixcvec_tile['longitude_vectorproc']
+            raster_pixel_cloud['improved_height'] = \
+                pixcvec_tile['height_vectorproc']
+
+            raster_pixel_cloud['ice_clim_flag'] = pixcvec_tile['ice_clim_f']
+            raster_pixel_cloud['ice_dyn_flag'] = pixcvec_tile['ice_dyn_f']
+
+        # Copy common pixc attributes
         pixel_cloud_attr = set(raster_pixel_cloud.ATTRIBUTES.keys())
         for field in pixel_cloud_attr.intersection(
                 pixc_tile.ATTRIBUTES):
             attr_val = getattr(pixc_tile, field)
             setattr(raster_pixel_cloud, field, attr_val)
-
         return raster_pixel_cloud
 
     def __add__(self, other):

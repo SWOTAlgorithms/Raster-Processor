@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 '''
 
-import utm
 import logging
 import raster_crs
 import numpy as np
@@ -30,37 +29,53 @@ LAND_EDGE_KLASS = 3
 
 class L2PixcToRaster(object):
     '''Turns PixelClouds into Rasters'''
-    def __init__( self,
-                  pixc=None,
-                  improved_geoloc_pixc=None,
-                  algorithmic_config=None,
-                  runtime_config=None):
+    def __init__( self, pixc=None, algorithmic_config=None, runtime_config=None):
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
         self.pixc = pixc
-        self.improved_geoloc_pixc = improved_geoloc_pixc
 
     def process(self):
         # Parse the algorithmic config file and set defaults
         self.parse_config_defaults()
 
-        # Do improved geolocation if specified in config
-        if self.algorithmic_config['do_improved_geolocation']:
-            self.do_improved_geolocation()
+        # Get height-constrained geolocation as specified in config:
+        # "none" - we want to use non-improved geoloc
+        # "lowres_raster" - we want to get height constrained geolocation using
+        #                   a lowres raster for improved geoloc
+        # "pixcvec" - we want to keep pixcvec improved geoloc as improved geoloc
+
+        if self.algorithmic_config['height_constrained_geoloc_source'].lower() \
+           == "none":
+            new_height = self.get_smoothed_height()
+            self.pixc['pixel_cloud']['improved_height'] = new_height
+            self.use_improved_geoloc = False
+        elif self.algorithmic_config['height_constrained_geoloc_source'].lower() \
+             == "lowres_raster":
+            new_lat, new_lon, new_height = self.do_height_constrained_geolocation()
+            self.pixc['pixel_cloud']['improved_latitude'] = new_lat
+            self.pixc['pixel_cloud']['improved_longitude'] = new_lon
+            self.pixc['pixel_cloud']['improved_height'] = new_height
+            self.use_improved_geoloc = True
+        elif self.algorithmic_config['height_constrained_geoloc_source'].lower() \
+             == "pixcvec":
+            self.use_improved_geoloc = True
+        else:
+            raise ValueError('Invalid height_constrained_geoloc_source: {}'.format( \
+                self.algorithmic_config['height_constrained_geoloc_source']))
 
         product = self.do_raster_processing()
 
         return product
 
-    def do_improved_geolocation(self):
-        LOGGER.info('Rasterizing for improved geolocation')
-        improved_geoloc_raster_proc = RasterProcessor(
+    def do_height_constrained_geolocation(self):
+        LOGGER.info('Rasterizing for height-constrained geolocation')
+        height_constrained_geoloc_raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'] \
-            * self.algorithmic_config['improved_geolocation_smooth_factor'],
+            / self.algorithmic_config['lowres_raster_scale_factor'],
             self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['latitude_band_adjust'],
-            self.algorithmic_config['buffer_size'],
+            self.runtime_config['mgrs_band_adjust'],
+            self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
             self.algorithmic_config['interior_water_classes'],
@@ -69,19 +84,50 @@ class L2PixcToRaster(object):
             self.algorithmic_config['dark_water_classes'],
             self.algorithmic_config['debug_flag'])
 
-        improved_geoloc_raster = improved_geoloc_raster_proc.rasterize(
-            self.pixc, self.improved_geoloc_pixc)
+        height_constrained_geoloc_raster = \
+            height_constrained_geoloc_raster_proc.rasterize(
+                self.pixc, use_improved_geoloc=False)
 
-        # if the improved geoloc raster is empty, do not call geoloc_raster
-        if improved_geoloc_raster.is_empty():
-            return
+        # if the height-constrained geoloc raster is empty, return fully masked
+        # output
+        if height_constrained_geoloc_raster.is_empty():
+            return (np.ma.masked_all_like(self.pixc['pixel_cloud']['latitude']),
+                    np.ma.masked_all_like(self.pixc['pixel_cloud']['longitude']),
+                    np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
 
-        new_lat, new_lon, new_height = geoloc_raster.geoloc_raster(
-            self.pixc, improved_geoloc_raster, self.algorithmic_config)
-        self.improved_geoloc_pixc = self.pixc.copy()
-        self.improved_geoloc_pixc['pixel_cloud']['latitude'] = new_lat
-        self.improved_geoloc_pixc['pixel_cloud']['longitude'] = new_lon
-        self.improved_geoloc_pixc['pixel_cloud']['height'] = new_height
+        return geoloc_raster.geoloc_raster(
+            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
+
+    def get_smoothed_height(self):
+        LOGGER.info('Getting smoothed heights')
+        height_constrained_geoloc_raster_proc = RasterProcessor(
+            self.runtime_config['output_sampling_grid_type'],
+            self.runtime_config['raster_resolution'] \
+            / self.algorithmic_config['lowres_raster_scale_factor'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['mgrs_band_adjust'],
+            self.algorithmic_config['padding'],
+            self.algorithmic_config['height_agg_method'],
+            self.algorithmic_config['area_agg_method'],
+            self.algorithmic_config['interior_water_classes'],
+            self.algorithmic_config['water_edge_classes'],
+            self.algorithmic_config['land_edge_classes'],
+            self.algorithmic_config['dark_water_classes'],
+            self.algorithmic_config['debug_flag'])
+
+        height_constrained_geoloc_raster = \
+            height_constrained_geoloc_raster_proc.rasterize(
+                self.pixc, use_improved_geoloc=False)
+
+        # if the height-constrained geoloc raster is empty, return fully masked
+        # output
+        if height_constrained_geoloc_raster.is_empty():
+            return np.ma.masked_all_like(self.pixc['pixel_cloud']['height'])
+
+        this_geoloc_raster = geoloc_raster.GeolocRaster(
+            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
+        this_geoloc_raster.update_heights_from_raster()
+        return this_geoloc_raster.new_height
 
     def do_raster_processing(self):
         LOGGER.info('Rasterizing')
@@ -89,8 +135,8 @@ class L2PixcToRaster(object):
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'],
             self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['latitude_band_adjust'],
-            self.algorithmic_config['buffer_size'],
+            self.runtime_config['mgrs_band_adjust'],
+            self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
             self.algorithmic_config['interior_water_classes'],
@@ -99,11 +145,12 @@ class L2PixcToRaster(object):
             self.algorithmic_config['dark_water_classes'],
             self.algorithmic_config['debug_flag'])
 
-        out_raster = raster_proc.rasterize(self.pixc, self.improved_geoloc_pixc)
+        out_raster = raster_proc.rasterize(
+            self.pixc, use_improved_geoloc=self.use_improved_geoloc)
         return out_raster
 
     def parse_config_defaults(self):
-        config_defaults = {'buffer_size':0,
+        config_defaults = {'padding':0,
                            'height_agg_method':'weight',
                            'area_agg_method':'composite',
                            'interior_water_classes':[PIXC_CLASSES['open_water'],
@@ -129,7 +176,7 @@ class L2PixcToRaster(object):
 
 class RasterProcessor(object):
     def __init__(self, projection_type, resolution, utm_zone_adjust,
-                 latitude_band_adjust, buffer_size,
+                 mgrs_band_adjust, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  debug_flag=False):
@@ -142,9 +189,9 @@ class RasterProcessor(object):
         elif projection_type=='utm':
             self.resolution = resolution
             self.utm_zone_adjust = utm_zone_adjust
-            self.latitude_band_adjust = latitude_band_adjust
+            self.mgrs_band_adjust = mgrs_band_adjust
 
-        self.buffer_size = buffer_size
+        self.padding = padding
         self.height_agg_method = height_agg_method
         self.area_agg_method = area_agg_method
         self.interior_water_classes = interior_water_classes
@@ -153,8 +200,12 @@ class RasterProcessor(object):
         self.dark_water_classes = dark_water_classes
         self.debug_flag = debug_flag
 
-    def rasterize(self, pixc, improved_geoloc_pixc=None):
+    def rasterize(self, pixc, use_improved_geoloc=True):
         '''Rasterize'''
+        # Note: use_improved_geoloc indicates whether improved geolocations
+        # are used for pixel binning. Improved heights are still needed for
+        # interferogram flattening.
+        self.input_crs = raster_crs.wgs84_crs()
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
         self.tile_numbers = pixc.tile_numbers
@@ -176,14 +227,18 @@ class RasterProcessor(object):
         self.right_last_latitude = pixc.right_last_latitude
 
         LOGGER.info('Calculating projection parameters')
-        corners = ((self.geospatial_lat_min, lon_360to180(self.geospatial_lon_min)),
-                   (self.geospatial_lat_min, lon_360to180(self.geospatial_lon_max)),
-                   (self.geospatial_lat_max, lon_360to180(self.geospatial_lon_max)),
-                   (self.geospatial_lat_max, lon_360to180(self.geospatial_lon_min)))
+        corners = ((self.left_first_latitude,
+                    raster_crs.lon_360to180(self.left_first_longitude)),
+                   (self.right_first_latitude,
+                    raster_crs.lon_360to180(self.right_first_longitude)),
+                   (self.left_last_latitude,
+                    raster_crs.lon_360to180(self.left_last_longitude)),
+                   (self.right_last_latitude,
+                    raster_crs.lon_360to180(self.right_last_longitude)))
         self.create_projection_from_bbox(corners)
 
         # Get mask of valid pixc values
-        pixc_mask = get_pixc_mask(pixc)
+        pixc_mask = get_pixc_mask(pixc, use_improved_geoloc)
         # Exclude classes not defined in the processor
         pixc_mask = np.logical_and(
             pixc_mask,
@@ -196,23 +251,16 @@ class RasterProcessor(object):
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
         # Return empty product if pixc is empty
-        if len(pixc['pixel_cloud']['latitude'])==0:
+        if len(pixc['pixel_cloud']['height'])==0:
             LOGGER.warn('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
         LOGGER.info('Mapping pixc pixels to raster bins')
-        # If we have improved geolocations, use them for raster mapping
-        if improved_geoloc_pixc is not None:
-            improved_geoloc_pixc_mask = get_pixc_mask(improved_geoloc_pixc)
-            pixc_mask = np.logical_and(pixc_mask, improved_geoloc_pixc_mask)
-            self.proj_mapping = empty_product.get_raster_mapping(
-                improved_geoloc_pixc, pixc_mask)
-        else:
-            self.proj_mapping = empty_product.get_raster_mapping(
-                pixc, pixc_mask)
+        self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask,
+                                                             use_improved_geoloc)
 
         LOGGER.info('Rasterizing data')
-        self.aggregate_wse(pixc, pixc_mask, improved_geoloc_pixc)
+        self.aggregate_wse(pixc, pixc_mask, use_improved_geoloc)
         self.aggregate_water_area(pixc, pixc_mask)
         self.aggregate_cross_track(pixc, pixc_mask)
         self.aggregate_sig0(pixc, pixc_mask)
@@ -235,65 +283,61 @@ class RasterProcessor(object):
             raise Exception('Unknown projection type: {}'.format(
                 self.projection_type))
 
-        # get corners separately
-        lower_left = corners[0]
-        lower_right = corners[1]
-        upper_right = corners[2]
-        upper_left = corners[3]
-
-        x_min = np.min(np.array([lower_left[1], lower_right[1],
-                                 upper_right[1], upper_left[1]]))
-        x_max = np.max(np.array([lower_left[1], lower_right[1],
-                                 upper_right[1], upper_left[1]]))
-        y_min = np.min(np.array([lower_left[0], lower_right[0],
-                                 upper_right[0], upper_left[0]]))
-        y_max = np.max(np.array([lower_left[0], lower_right[0],
-                                 upper_right[0], upper_left[0]]))
-        proj_center_x = 0
-        proj_center_y = 0
-        output_crs = raster_crs.wgs84_crs()
-        self.input_crs = output_crs
+        corners_y = [corner[0] for corner in corners]
+        corners_x = [corner[1] for corner in corners]
 
         # find the UTM zone number for the middle of the swath-tile
+        if self.projection_type=='geo':
+            self.output_crs = raster_crs.wgs84_crs()
+            proj_center_x = 0
+            proj_center_y = 0
         if self.projection_type=='utm':
-            lat_mid = (lower_left[0] + lower_right[0] \
-                       + upper_right[0] + upper_left[0])/4.0
-            lon_mid = (lower_left[1] + lower_right[1] \
-                       + upper_right[1] + upper_left[1])/4.0
-            utm_zone = utm.latlon_to_zone_number(lat_mid, lon_mid)
-            mgrs_band = utm.latitude_to_zone_letter(lat_mid)
+            lat_mid = sum(corners_y)/4.0
+            lon_mid = sum(corners_x)/4.0
+            utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
+            mgrs_band = raster_crs.mgrs_band_from_lat(lat_mid)
             # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
             utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
                               raster_crs.UTM_NUM_ZONES) + 1
 
-            # adjust the latitude band
-            band_num = raster_crs.UTM_VALID_BANDS.find(mgrs_band) \
-                       + self.latitude_band_adjust
+            # adjust the mgrs band
+            band_num = raster_crs.MGRS_VALID_BANDS.find(mgrs_band) \
+                       + self.mgrs_band_adjust
             if band_num < 0:
                 band_num = 0
-            elif band_num >= len(raster_crs.UTM_VALID_BANDS):
-                band_num = len(raster_crs.UTM_VALID_BANDS)-1
+            elif band_num >= len(raster_crs.MGRS_VALID_BANDS):
+                band_num = len(raster_crs.MGRS_VALID_BANDS)-1
 
-            mgrs_band = raster_crs.UTM_VALID_BANDS[band_num]
-            output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
-            transf = osr.CoordinateTransformation(self.input_crs, output_crs)
-            x_min, y_min = transf.TransformPoint(y_min, x_min)[:2]
-            x_max, y_max = transf.TransformPoint(y_max, x_max)[:2]
+            mgrs_band = raster_crs.MGRS_VALID_BANDS[band_num]
+            self.output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
 
-            proj_center_x = output_crs.GetProjParm('false_easting')
-            proj_center_y = output_crs.GetProjParm('false_northing')
+            transf = osr.CoordinateTransformation(self.input_crs,
+                                                  self.output_crs)
+
+            corners = [(transf.TransformPoint(corner[0], corner[1])[:2])
+                       for corner in corners]
+            corners_y = [corner[1] for corner in corners]
+            corners_x = [corner[0] for corner in corners]
+
+            proj_center_x = self.output_crs.GetProjParm('false_easting')
+            proj_center_y = self.output_crs.GetProjParm('false_northing')
+
+        # get the coordinate limits
+        x_min = np.min(corners_x)
+        x_max = np.max(corners_x)
+        y_min = np.min(corners_y)
+        y_max = np.max(corners_y)
 
         # round limits to the nearest bin (centered at proj_center_x and add buffer
         x_min = int(round((x_min - proj_center_x) / self.resolution)) * self.resolution \
-                + proj_center_x - self.buffer_size
+                + proj_center_x - self.padding
         x_max = int(round((x_max - proj_center_x) / self.resolution)) * self.resolution \
-                + proj_center_x + self.buffer_size
+                + proj_center_x + self.padding
         y_min = int(round((y_min - proj_center_y) / self.resolution)) * self.resolution \
-                + proj_center_y - self.buffer_size
+                + proj_center_y - self.padding
         y_max = int(round((y_max - proj_center_y) / self.resolution)) * self.resolution \
-                + proj_center_y + self.buffer_size
+                + proj_center_y + self.padding
 
-        self.output_crs = output_crs
         self.x_min = x_min
         self.x_max = x_max
         self.y_min = y_min
@@ -302,10 +346,10 @@ class RasterProcessor(object):
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
         if self.projection_type=='utm':
             self.utm_zone = utm_zone
-            self.utm_hemisphere = raster_crs.utm_hemisphere(mgrs_band)
+            self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
             self.mgrs_band = mgrs_band
 
-        LOGGER.info({'proj': self.projection_type,
+        LOGGER.info({'proj': self.output_crs.ExportToWkt(),
                      'res': self.resolution,
                      'x_min': self.x_min,
                      'x_max': self.x_max,
@@ -314,7 +358,7 @@ class RasterProcessor(object):
                      'y_max': self.y_max,
                      'size_y': self.size_y})
 
-    def aggregate_wse(self, pixc, mask, improved_geoloc_pixc=None):
+    def aggregate_wse(self, pixc, mask, use_improved_geoloc=True):
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
         pixc_num_med_looks = pixc['pixel_cloud']['eff_num_medium_looks']
@@ -337,22 +381,19 @@ class RasterProcessor(object):
 
         looks_to_efflooks = pixc['pixel_cloud'].looks_to_efflooks
 
-        if improved_geoloc_pixc is not None:
-            # flatten the interferogram using the improved geolocation
+        if use_improved_geoloc:
+            # Flatten ifgram with improved geoloc and height
             target_xyz = geoloc.convert_llh2ecef(
-                improved_geoloc_pixc['pixel_cloud']['latitude'],
-                improved_geoloc_pixc['pixel_cloud']['longitude'],
-                improved_geoloc_pixc['pixel_cloud']['height'],
+                pixc['pixel_cloud']['improved_latitude'],
+                pixc['pixel_cloud']['improved_longitude'],
+                pixc['pixel_cloud']['improved_height'],
                 GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
         else:
-            # if we don't have an improved geolocation, we can at least
-            # flatten with the actual geolocations to estimate the uncertainty
-            LOGGER.warning('No improved geolocation provided, '
-                           'flattening ifgram with measured geolocations')
+            # Flatten ifgram with original geoloc and improved height
             target_xyz = geoloc.convert_llh2ecef(
                 pixc['pixel_cloud']['latitude'],
                 pixc['pixel_cloud']['longitude'],
-                pixc['pixel_cloud']['height'],
+                pixc['pixel_cloud']['improved_height'],
                 GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
 
         pixc_ifgram = pixc['pixel_cloud']['interferogram']
@@ -616,16 +657,19 @@ class RasterProcessor(object):
     def aggregate_lat_lon(self, mask):
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
+
+        transf = osr.CoordinateTransformation(self.output_crs,
+                                              self.input_crs)
+
         self.latitude = np.ma.masked_all((self.size_y, self.size_x))
         self.longitude = np.ma.masked_all((self.size_y, self.size_x))
+
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
                     # get the lat and lon if there are any good pixels at all
                     if np.any(good):
-                        transf = osr.CoordinateTransformation(self.output_crs,
-                                                              self.input_crs)
                         lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
                         self.latitude[i][j] = lon
                         self.longitude[i][j] = lat
@@ -742,13 +786,20 @@ class RasterProcessor(object):
         return product
 
 
-def get_pixc_mask(pixc):
-    lats = pixc['pixel_cloud']['latitude']
-    lons = pixc['pixel_cloud']['longitude']
+def get_pixc_mask(pixc, use_improved_geoloc=False):
+    if use_improved_geoloc:
+        lat_keyword = 'improved_latitude'
+        lon_keyword = 'improved_longitude'
+    else:
+        lat_keyword = 'latitude'
+        lon_keyword = 'longitude'
+
+    lats = pixc['pixel_cloud'][lat_keyword]
+    lons = pixc['pixel_cloud'][lon_keyword]
     height = pixc['pixel_cloud']['height']
     area = pixc['pixel_cloud']['pixel_area']
-    klass =pixc['pixel_cloud']['classification']
-    mask = np.ones(np.shape(pixc['pixel_cloud']['latitude']))
+    klass = pixc['pixel_cloud']['classification']
+    mask = np.ones(np.shape(pixc['pixel_cloud']['height']))
 
     if np.ma.is_masked(lats):
         mask[lats.mask] = 0
@@ -768,7 +819,3 @@ def get_pixc_mask(pixc):
     mask[lats <= -80.0] = 0
 
     return mask==1
-
-
-def lon_360to180(longitude):
-    return np.mod(longitude + 180, 360) - 180
