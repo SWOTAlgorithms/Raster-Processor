@@ -98,12 +98,13 @@ COMMON_ATTRIBUTES = odict([
           tile was observed with a horizontal (H) or vertical (V) radar signal
           polarization. The tile order matches that of the tile_numbers
           attribute.""")}],
-    ['projection',
+    ['coordinate_reference_system',
      {'dtype': 'str',
-      'docstr': 'Name of the projection.'}],
+      'docstr': 'Name of the coordinate reference system.'}],
     ['resolution',
      {'dtype': 'f4',
-      'docstr': 'Raster projection resolution. Units depend on the projection'}],
+      'docstr': 'Raster sampling grid resolution. Units depend on the
+          coordinate reference system.'}],
     ['time_coverage_start',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -211,7 +212,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'surface area of detected water'],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
-            ['valid_min', -2000000000],
+            ['valid_min', -2000000],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
