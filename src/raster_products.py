@@ -1150,7 +1150,7 @@ class RasterPixc(Product):
         # Copy over groups
         if pixcvec_tile is not None:
             raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
-                pixc_tile['pixel_cloud'], pixcvec_tile['pixel_cloud'])
+                pixc_tile['pixel_cloud'], pixcvec_tile)
         else:
             raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
                 pixc_tile['pixel_cloud'])
