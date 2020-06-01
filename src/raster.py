@@ -35,9 +35,6 @@ class L2PixcToRaster(object):
         self.pixc = pixc
 
     def process(self):
-        # Parse the algorithmic config file and set defaults
-        self.parse_config_defaults()
-
         # Get height-constrained geolocation as specified in config:
         # "none" - we want to use non-improved geoloc
         # "lowres_raster" - we want to get height constrained geolocation using
@@ -149,30 +146,6 @@ class L2PixcToRaster(object):
             self.pixc, use_improved_geoloc=self.use_improved_geoloc)
         return out_raster
 
-    def parse_config_defaults(self):
-        config_defaults = {'padding':0,
-                           'height_agg_method':'weight',
-                           'area_agg_method':'composite',
-                           'interior_water_classes':[PIXC_CLASSES['open_water'],
-                                                     PIXC_CLASSES['dark_water']],
-                           'water_edge_classes':[PIXC_CLASSES['water_near_land'],
-                                                 PIXC_CLASSES['dark_water_edge']],
-                           'land_edge_classes':[PIXC_CLASSES['land_near_water'],
-                                                PIXC_CLASSES['land_near_dark_water']],
-                           'dark_water_classes':[PIXC_CLASSES['dark_water'],
-                                                 PIXC_CLASSES['dark_water_edge'],
-                                                 PIXC_CLASSES['land_near_dark_water']],
-                           'do_improved_geolocation':True,
-                           'improved_geolocation_method':'taylor',
-                           'improved_geolocation_smooth_factor':5,
-                           'debug_flag':False}
-
-        for key in config_defaults:
-            try:
-                tmp = self.algorithmic_config[key]
-            except KeyError:
-                self.algorithmic_config[key] = config_defaults[key]
-
 
 class RasterProcessor(object):
     def __init__(self, projection_type, resolution, utm_zone_adjust,
@@ -190,6 +163,9 @@ class RasterProcessor(object):
             self.resolution = resolution
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
+        else:
+            raise Exception(
+                'Unknown projection type: {}'.format(self.projection_type))
 
         self.padding = padding
         self.height_agg_method = height_agg_method
@@ -279,10 +255,6 @@ class RasterProcessor(object):
 
     def create_projection_from_bbox(self, corners):
         # catch invalid projection type
-        if self.projection_type != 'utm' and self.projection_type != 'geo':
-            raise Exception('Unknown projection type: {}'.format(
-                self.projection_type))
-
         corners_y = [corner[0] for corner in corners]
         corners_x = [corner[1] for corner in corners]
 
