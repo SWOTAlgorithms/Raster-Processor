@@ -17,6 +17,9 @@ from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product
 
+UNIX_EPOCH = datetime(1970, 1, 1)
+SWOT_EPOCH = datetime(2000, 1, 1)
+
 LOGGER = logging.getLogger(__name__)
 
 def textjoin(text):
@@ -810,6 +813,18 @@ class RasterUTM(Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
+        # Set the time coverage start and end
+        start_time = datetime.fromtimestamp(
+            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+            + np.min(self.illumination_time))
+        stop_time = datetime.fromtimestamp(
+            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+            + np.max(self.illumination_time))
+
+        self.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+        self.time_coverage_end = stop_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+
+
     def get_uncorrected_height(self):
         height = self.wse + (
             self.geoid +
@@ -1007,6 +1022,17 @@ class RasterGeo(Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
+        # Set the time coverage start and end
+        start_time = datetime.fromtimestamp(
+            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+            + np.min(self.illumination_time))
+        stop_time = datetime.fromtimestamp(
+            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+            + np.max(self.illumination_time))
+
+        self.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+        self.time_coverage_end = stop_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+
     def get_uncorrected_height(self):
         height = self.wse + (
             self.geoid +
@@ -1178,9 +1204,9 @@ class RasterPixc(Product):
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
         start_times = [datetime.strptime(
-            tile.time_coverage_start, '%Y-%m-%d:%H:%M:%S.%fZ') for tile in tile_objs]
+            tile.time_coverage_start, '%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
         end_times = [datetime.strptime(
-            tile.time_coverage_end,'%Y-%m-%d:%H:%M:%S.%fZ') for tile in tile_objs]
+            tile.time_coverage_end,'%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
         central_tile_index = start_times.index(
             np.percentile(start_times, 50, interpolation='nearest'))
         raster_pixc.cycle_number = tile_objs[central_tile_index].cycle_number
@@ -1274,6 +1300,9 @@ class RasterPixelCloud(Product):
         ['inc', odict([])],
         ['illumination_time', odict([])],
         ['illumination_time_tai', odict([])],
+        ['ice_clim_flag', odict([])],
+        ['ice_dyn_flag', odict([])],
+        ['layover_impact', odict([])],
         ['geoid', odict([])],
         ['solid_earth_tide', odict([])],
         ['load_tide_sol1', odict([])],
@@ -1282,8 +1311,6 @@ class RasterPixelCloud(Product):
         ['model_dry_tropo_cor', odict([])],
         ['model_wet_tropo_cor', odict([])],
         ['iono_cor_gim_ka', odict([])],
-        ['ice_clim_flag', odict([])],
-        ['ice_dyn_flag', odict([])],
         ['pixc_qual', odict([])], # TODO: implement qual checks in raster proc
     ])
     for name, reference in VARIABLES.items():
@@ -1304,14 +1331,14 @@ class RasterPixelCloud(Product):
         # Copy pixcvec variables (set improved llh to pixcvec llh here)
         if pixcvec_tile is not None:
             raster_pixel_cloud['improved_latitude'] = \
-                pixcvec_tile['latitude_vectorproc']
+                pixcvec_tile.latitude_vectorproc
             raster_pixel_cloud['improved_longitude'] = \
-                pixcvec_tile['longitude_vectorproc']
+                pixcvec_tile.longitude_vectorproc
             raster_pixel_cloud['improved_height'] = \
-                pixcvec_tile['height_vectorproc']
+                pixcvec_tile.height_vectorproc
 
-            raster_pixel_cloud['ice_clim_flag'] = pixcvec_tile['ice_clim_f']
-            raster_pixel_cloud['ice_dyn_flag'] = pixcvec_tile['ice_dyn_f']
+            raster_pixel_cloud['ice_clim_flag'] = pixcvec_tile.ice_clim_f
+            raster_pixel_cloud['ice_dyn_flag'] = pixcvec_tile.ice_dyn_f
 
         # Copy common pixc attributes
         pixel_cloud_attr = set(raster_pixel_cloud.ATTRIBUTES.keys())

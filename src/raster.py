@@ -243,6 +243,8 @@ class RasterProcessor(object):
         self.aggregate_inc(pixc, pixc_mask)
         self.aggregate_dark_frac(pixc, pixc_mask)
         self.aggregate_illumination_time(pixc, pixc_mask)
+        self.aggregate_ice_flags(pixc, pixc_mask)
+        self.aggregate_layover_impact(pixc, pixc_mask)
         self.aggregate_corrections(pixc, pixc_mask)
         self.apply_wse_corrections()
         if self.projection_type == 'utm':
@@ -579,6 +581,46 @@ class RasterProcessor(object):
         self.tai_utc_difference = \
             self.illumination_time_tai[0] - self.illumination_time[0]
 
+    def aggregate_ice_flags(self, pixc, mask):
+        # TODO: names likely to change to ice_clim_flag and ice_dyn_flag
+        pixc_ice_clim_flag = pixc['pixel_cloud']['ice_clim_flag']
+        pixc_ice_dyn_flag = pixc['pixel_cloud']['ice_dyn_flag']
+
+        self.ice_clim_flag = np.ma.masked_all((self.size_y, self.size_x))
+        self.ice_dyn_flag = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if len(self.proj_mapping[i][j]) != 0:
+                    good = mask[self.proj_mapping[i][j]]
+                    good_ice_clim_flag = \
+                        pixc_ice_clim_flag[self.proj_mapping[i][j]][good]
+                    good_ice_dyn_flag = \
+                        pixc_ice_dyn_flag[self.proj_mapping[i][j]][good]
+
+                    # If all flags are the same, then we return that flag value
+                    if np.all(good_ice_clim_flag == good_ice_clim_flag[0]):
+                        self.ice_clim_flag[i][j] = good_ice_clim_flag[0]
+                    else: # otherwise, return a value of 1 (partially covered)
+                        self.ice_clim_flag[i][j] = 1
+
+                    # If all flags are the same, then we return that flag value
+                    if np.all(good_ice_dyn_flag == good_ice_dyn_flag[0]):
+                        self.ice_dyn_flag[i][j] = good_ice_dyn_flag[0]
+                    else: # otherwise, return a value of 1 (partially covered)
+                        self.ice_dyn_flag[i][j] = 1
+
+    def aggregate_layover_impact(self, pixc, mask):
+        pixc_layover_impact = pixc['pixel_cloud']['layover_impact']
+        self.layover_impact = np.ma.masked_all((self.size_y, self.size_x))
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if len(self.proj_mapping[i][j]) != 0:
+                    good = mask[self.proj_mapping[i][j]]
+                    self.layover_impact[i][j] = ag.simple(
+                        pixc_layover_impact[self.proj_mapping[i][j]][good],
+                        metric='mean')
+
     def aggregate_corrections(self, pixc, mask):
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
@@ -743,6 +785,9 @@ class RasterProcessor(object):
             product['n_wse_pix'] = self.n_wse_pix
             product['n_area_pix'] = self.n_area_pix
             product['dark_frac'] = self.dark_frac
+            product['ice_clim_flag'] = self.ice_clim_flag
+            product['ice_dyn_flag'] = self.ice_dyn_flag
+            product['layover_impact'] = self.layover_impact
             product['geoid'] = self.geoid
             product['solid_earth_tide'] = self.solid_earth_tide
             product['load_tide_sol1'] = self.load_tide_sol1
