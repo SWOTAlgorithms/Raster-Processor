@@ -206,7 +206,7 @@ COMMON_VARIABLES = odict([
             ['grid_mapping', 'crs'],
             ['units', 'm'],
             ['valid_min', 0],
-            ['valid_max', 100],
+            ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 1-sigma uncertainty in the water surface elevation.""")],
@@ -241,8 +241,8 @@ COMMON_VARIABLES = odict([
             ['long_name', 'water fraction'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
-            ['valid_min', -999999],
-            ['valid_max', 999999],
+            ['valid_min', -1000],
+            ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Estimate of the fraction of the pixel that is
@@ -253,7 +253,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'water fraction uncertainty'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
-            ['valid_min', -999999],
+            ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
@@ -377,8 +377,8 @@ COMMON_VARIABLES = odict([
             ['long_name', 'fractional area of dark water'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
-            ['valid_min', -999999],
-            ['valid_max', 999999],
+            ['valid_min', -1000],
+            ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Fraction of pixel water area covered by dark water.""")],
