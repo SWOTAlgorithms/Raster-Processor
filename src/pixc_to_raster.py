@@ -22,24 +22,23 @@ description:
     parameters in algorithmic and runtime config files
 
 example algorithmic config parameters:
-    buffer_size                         (-) = 0
-    interior_water_classes              (-) = [4, 24]
-    water_edge_classes                  (-) = [3, 23]
-    land_edge_classes                   (-) = [2, 22]
-    dark_water_classes                  (-) = [22, 23, 24]
-    height_agg_method                   (-) = weight
-    area_agg_method                     (-) = composite
-    do_improved_geolocation             (-) = True
-    improved_geolocation_method         (-) = taylor
-    improved_geolocation_smooth_factor  (-) = 5
-    debug_flag                          (-) = False
+    padding                                         (-) = 0
+    interior_water_classes                          (-) = [4, 24]
+    water_edge_classes                              (-) = [3, 23]
+    land_edge_classes                               (-) = [2, 22]
+    dark_water_classes                              (-) = [22, 23, 24]
+    height_agg_method                               (-) = weight
+    area_agg_method                                 (-) = composite
+    height_constrained_geoloc_source                (-) = lowres_raster
+    lowres_raster_height_constrained_geoloc_method  (-) = taylor
+    lowres_raster_scale_factor                      (-) = 0.2
+    debug_flag                                      (-) = False
 
 example runtime config parameters:
-    output_granule_exent_flag   (-) = 0
     raster_resolution           (-) = 100
     output_sampling_grid_type   (-) = utm
     utm_zone_adjust             (-) = 0
-    latitude_band_adjust        (-) = 0
+    mgrs_band_adjust            (-) = 0
 
 """
 
