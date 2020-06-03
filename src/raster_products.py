@@ -89,11 +89,11 @@ COMMON_ATTRIBUTES = odict([
     ['tile_names',
      {'dtype': 'str',
       'docstr': textjoin("""
-          Pixelcloud tile names using format PPP_TTTS, where PPP is a 3 digit
-          pass number with leading zeros, TTT is a 3 digit tile number within
-          the pass, and S is a character 'L' or 'R' for the left and right
-          swath, respectively. The tile order matches that of the tile_numbers
-          attribute.""")}],
+          Pixelcloud tile names in the product granule using format PPP_TTTS,
+          where PPP is a 3 digit pass number with leading zeros, TTT is a
+          3 digit tile number within the pass, and S is a character 'L' or 'R'
+          for the left and right swath, respectively. The tile order matches
+          that of the tile_numbers attribute.""")}],
     ['tile_polarizations',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -264,11 +264,13 @@ COMMON_VARIABLES = odict([
             ['long_name', 'sigma0'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
-            ['valid_min', -999999],
-            ['valid_max', 999999],
+            ['valid_min', -1000],
+            ['valid_max', 10000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Normalized radar cross section, or backscatter brightness.""")],
+                Normalized radar cross section (sigma0) in real, linear units
+                (not decibels). The value may be negative due to noise
+                subtraction.""")],
         ])],
     ['sig0_uncert',
      odict([['dtype', 'f4'],
@@ -279,8 +281,8 @@ COMMON_VARIABLES = odict([
             ['valid_max', 1000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of sigma0. The value is provided in linear units.
-                This value is a one-sigma additive (not multiplicative)
+                1-sigma uncertainty of sigma0. The value is provided in linear
+                units. This value is a one-sigma additive (not multiplicative)
                 uncertainty term, which can be added to or subtracted from
                 sigma0.""")],
         ])],
@@ -353,7 +355,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'number of wse pixels'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
-            ['valid_min', 1],
+            ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
@@ -365,7 +367,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'number of area pixels'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
-            ['valid_min', 1],
+            ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
@@ -392,16 +394,15 @@ COMMON_VARIABLES = odict([
                 no_ice_cover partial_ice_cover full_ice_cover""")],
             ['flag_values', np.array([0, 1, 2]).astype('u1')],
             ['valid_min', 0],
-            ['valid_max', 255],
+            ['valid_max', 2],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Climatological ice cover flag indicating whether the pixel
                 is ice-covered on the day of the observation based on
                 external climatological information (not the SWOT
                 measurement).  Values of 0, 1, and 2 indicate that the
-                pixel is not ice covered, partially ice covered, and fully
-                ice covered, respectively. A value of 255 indicates that
-                this flag is not available.""")],
+                pixel is likely not ice covered, likely partially ice covered,
+                and likely fully ice covered, respectively.""")],
         ])],
     ['ice_dyn_flag',
      odict([['dtype', 'u1'],
@@ -412,15 +413,14 @@ COMMON_VARIABLES = odict([
                 no_ice_cover partial_ice_cover full_ice_cover""")],
             ['flag_values', np.array([0, 1, 2]).astype('u1')],
             ['valid_min', 0],
-            ['valid_max', 255],
+            ['valid_max', 2],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Dynamic ice cover flag indicating whether the surface is
                 ice-covered on the day of the observation based on
                 analysis of external satellite optical data.  Values of
                 0, 1, and 2 indicate that the pixel is not ice covered,
-                partially ice covered, and fully ice covered, respectively.
-                A value of 255 indicates that this flag is not available.""")],
+                partially ice covered, and fully ice covered, respectively.""")],
         ])],
     ['layover_impact',
      odict([['dtype', 'f4'],
@@ -463,9 +463,9 @@ COMMON_VARIABLES = odict([
                 Solid-Earth (body) tide height. The zero-frequency
                 permanent tide component is not included.""")],
         ])],
-    ['load_tide_sol1',
+    ['load_tide_fes',
      odict([['dtype', 'f4'],
-            ['long_name', 'geocentric load tide height from model 1'],
+            ['long_name', 'geocentric load tide height (FES)'],
             ['source', 'FES2014b (Carrere et al., 2016)'],
             ['institution', 'LEGOS/CNES'],
             ['grid_mapping', 'crs'],
@@ -475,12 +475,11 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Geocentric load tide height. The effect of the ocean tide
-                loading of the Earth’s crust. This value is reported for
-                reference but is not applied to the reported height.""")],
+                loading of the Earth’s crust.""")],
         ])],
-    ['load_tide_sol2',
+    ['load_tide_got',
      odict([['dtype', 'f4'],
-            ['long_name', 'geocentric load tide height from model 2'],
+            ['long_name', 'geocentric load tide height (GOT)'],
             ['source', 'GOT4.10c (Ray, 2013)'],
             ['institution', 'GSFC'],
             ['grid_mapping', 'crs'],
@@ -652,7 +651,7 @@ class RasterUTM(Product):
                 ['inverse_flattening', 298.257223563],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
-                ['comment', 'UTM zone coordinate reference system'],
+                ['comment', 'UTM zone coordinate reference system.'],
          ])],
         ['x',
          odict([['dtype', 'f8'],
@@ -662,7 +661,7 @@ class RasterUTM(Product):
                 ['valid_min', -10000000],
                 ['valid_max', 10000000],
                 ['comment', textjoin("""
-                    UTM easting coordinate of the pixel""")],
+                    UTM easting coordinate of the pixel.""")],
          ])],
         ['y',
          odict([['dtype', 'f8'],
@@ -672,7 +671,7 @@ class RasterUTM(Product):
                 ['valid_min', -20000000],
                 ['valid_max', 20000000],
                 ['comment', textjoin("""
-                    UTM northing coordinate of the pixel""")],
+                    UTM northing coordinate of the pixel.""")],
          ])],
         ['longitude',
          odict([['dtype', 'f8'],
@@ -719,8 +718,8 @@ class RasterUTM(Product):
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
-        ['load_tide_sol1', COMMON_VARIABLES['load_tide_sol1'].copy()],
-        ['load_tide_sol2', COMMON_VARIABLES['load_tide_sol2'].copy()],
+        ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
+        ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
@@ -829,7 +828,7 @@ class RasterUTM(Product):
         height = self.wse + (
             self.geoid +
             self.solid_earth_tide +
-            self.load_tide_sol1 +
+            self.load_tide_fes +
             self.pole_tide)
         return height
 
@@ -912,7 +911,7 @@ class RasterGeo(Product):
                 ['inverse_flattening', 298.257223563],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
-                ['comment', 'WGS84 geodetic lat/lon coordinate reference system'],
+                ['comment', 'WGS84 geodetic lat/lon coordinate reference system.'],
         ])],
         ['longitude',
          odict([['dtype', 'f8'],
@@ -957,8 +956,8 @@ class RasterGeo(Product):
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
-        ['load_tide_sol1', COMMON_VARIABLES['load_tide_sol1'].copy()],
-        ['load_tide_sol2', COMMON_VARIABLES['load_tide_sol2'].copy()],
+        ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
+        ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
@@ -1037,7 +1036,7 @@ class RasterGeo(Product):
         height = self.wse + (
             self.geoid +
             self.solid_earth_tide +
-            self.load_tide_sol1 +
+            self.load_tide_fes +
             self.pole_tide)
         return height
 
@@ -1305,8 +1304,8 @@ class RasterPixelCloud(Product):
         ['layover_impact', odict([])],
         ['geoid', odict([])],
         ['solid_earth_tide', odict([])],
-        ['load_tide_sol1', odict([])],
-        ['load_tide_sol2', odict([])],
+        ['load_tide_fes', odict([])],
+        ['load_tide_got', odict([])],
         ['pole_tide', odict([])],
         ['model_dry_tropo_cor', odict([])],
         ['model_wet_tropo_cor', odict([])],
