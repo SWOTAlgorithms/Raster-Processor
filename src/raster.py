@@ -624,8 +624,8 @@ class RasterProcessor(object):
     def aggregate_corrections(self, pixc, mask):
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
-        pixc_load_tide_sol1 = pixc['pixel_cloud']['load_tide_sol1']
-        pixc_load_tide_sol2 = pixc['pixel_cloud']['load_tide_sol2']
+        pixc_load_tide_fes = pixc['pixel_cloud']['load_tide_fes']
+        pixc_load_tide_got = pixc['pixel_cloud']['load_tide_got']
         pixc_pole_tide = pixc['pixel_cloud']['pole_tide']
         pixc_model_dry_tropo_cor = pixc['pixel_cloud']['model_dry_tropo_cor']
         pixc_model_wet_tropo_cor = pixc['pixel_cloud']['model_wet_tropo_cor']
@@ -633,8 +633,8 @@ class RasterProcessor(object):
 
         self.geoid = np.ma.masked_all((self.size_y, self.size_x))
         self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
-        self.load_tide_sol1 = np.ma.masked_all((self.size_y, self.size_x))
-        self.load_tide_sol2 = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_fes = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_got = np.ma.masked_all((self.size_y, self.size_x))
         self.pole_tide = np.ma.masked_all((self.size_y, self.size_x))
         self.model_dry_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
         self.model_wet_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
@@ -648,10 +648,10 @@ class RasterProcessor(object):
                         pixc_geoid[self.proj_mapping[i][j]][good], metric='mean')
                     self.solid_earth_tide[i][j] = ag.simple(
                         pixc_solid_earth_tide[self.proj_mapping[i][j]][good], metric='mean')
-                    self.load_tide_sol1[i][j] = ag.simple(
-                        pixc_load_tide_sol1[self.proj_mapping[i][j]][good], metric='mean')
-                    self.load_tide_sol2[i][j] = ag.simple(
-                        pixc_load_tide_sol2[self.proj_mapping[i][j]][good], metric='mean')
+                    self.load_tide_fes[i][j] = ag.simple(
+                        pixc_load_tide_fes[self.proj_mapping[i][j]][good], metric='mean')
+                    self.load_tide_got[i][j] = ag.simple(
+                        pixc_load_tide_got[self.proj_mapping[i][j]][good], metric='mean')
                     self.pole_tide[i][j] = ag.simple(
                         pixc_pole_tide[self.proj_mapping[i][j]][good], metric='mean')
                     self.model_dry_tropo_cor[i][j] = ag.simple(
@@ -665,7 +665,7 @@ class RasterProcessor(object):
         self.wse -= (
             self.geoid +
             self.solid_earth_tide +
-            self.load_tide_sol1 +
+            self.load_tide_fes +
             self.pole_tide)
 
     def aggregate_lat_lon(self, mask):
@@ -790,8 +790,8 @@ class RasterProcessor(object):
             product['layover_impact'] = self.layover_impact
             product['geoid'] = self.geoid
             product['solid_earth_tide'] = self.solid_earth_tide
-            product['load_tide_sol1'] = self.load_tide_sol1
-            product['load_tide_sol2'] = self.load_tide_sol2
+            product['load_tide_fes'] = self.load_tide_fes
+            product['load_tide_got'] = self.load_tide_got
             product['pole_tide'] = self.pole_tide
             product['model_dry_tropo_cor'] = self.model_dry_tropo_cor
             product['model_wet_tropo_cor'] = self.model_wet_tropo_cor
