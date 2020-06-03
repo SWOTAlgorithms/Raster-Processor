@@ -65,8 +65,8 @@ def main():
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     if args.pixcvec_file is not None:
-        pixcvec_tile = PixelCloudVec("SP").set_from_pixcvec_file(
-            args.pixcvec_file)
+        pixcvec_tile = PixelCloudVec("SP")
+        pixcvec_tile.set_from_pixcvec_file(args.pixcvec_file)
     else:
         pixcvec_tile = None
 
