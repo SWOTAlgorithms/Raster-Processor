@@ -15,6 +15,7 @@ import argparse
 
 from raster_products import RasterPixc
 from SWOTWater.products.product import MutableProduct
+from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
 
 description = """
 description:
@@ -64,7 +65,8 @@ def main():
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     if args.pixcvec_file is not None:
-        pixcvec_tile = MutableProduct.from_ncfile(args.pixcvec_file)
+        pixcvec_tile = PixelCloudVec("SP").set_from_pixcvec_file(
+            args.pixcvec_file)
     else:
         pixcvec_tile = None
 
