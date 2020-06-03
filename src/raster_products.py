@@ -197,7 +197,9 @@ COMMON_VARIABLES = odict([
             ['valid_max', 15000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                'Water surface elevation of the pixel above the geoid.""")],
+                Water surface elevation of the pixel above the geoid and after
+                using models to subtract the effects of tides
+                (solid_earth_tide, load_tide_fes, pole_tide).""")],
         ])],
     ['wse_uncert',
      odict([['dtype', 'f4'],
