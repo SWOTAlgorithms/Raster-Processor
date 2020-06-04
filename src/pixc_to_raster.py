@@ -72,7 +72,8 @@ def main():
 
     pixc_data = RasterPixc.from_tile(pixc_tile, pixcvec_tile)
 
-    proc = raster.L2PixcToRaster(pixc_data, alg_cfg, rt_cfg)
+    proc = raster.L2PixcToRaster(pixc=pixc_data, algorithmic_config=alg_cfg,
+                                 runtime_config=rt_cfg)
     product = proc.process()
     product.to_ncfile(args.out_file)
 

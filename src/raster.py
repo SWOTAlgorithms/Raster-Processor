@@ -29,10 +29,12 @@ LAND_EDGE_KLASS = 3
 
 class L2PixcToRaster(object):
     '''Turns PixelClouds into Rasters'''
-    def __init__( self, pixc=None, algorithmic_config=None, runtime_config=None):
+    def __init__(self, pixc=None, polygon_points=None,
+                 algorithmic_config=None, runtime_config=None):
+        self.pixc = pixc
+        self.polygon_points = polygon_points
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
-        self.pixc = pixc
 
     def process(self):
         # Get height-constrained geolocation as specified in config:
@@ -83,7 +85,7 @@ class L2PixcToRaster(object):
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, use_improved_geoloc=False)
+                self.pixc, self.polygon_points, use_improved_geoloc=False)
 
         # if the height-constrained geoloc raster is empty, return fully masked
         # output
@@ -114,7 +116,7 @@ class L2PixcToRaster(object):
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, use_improved_geoloc=False)
+                self.pixc, self.polygon_points, use_improved_geoloc=False)
 
         # if the height-constrained geoloc raster is empty, return fully masked
         # output
@@ -143,7 +145,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(
-            self.pixc, use_improved_geoloc=self.use_improved_geoloc)
+            self.pixc, self.polygon_points,
+            use_improved_geoloc=self.use_improved_geoloc)
         return out_raster
 
 
@@ -176,7 +179,7 @@ class RasterProcessor(object):
         self.dark_water_classes = dark_water_classes
         self.debug_flag = debug_flag
 
-    def rasterize(self, pixc, use_improved_geoloc=True):
+    def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
         '''Rasterize'''
         # Note: use_improved_geoloc indicates whether improved geolocations
         # are used for pixel binning. Improved heights are still needed for
@@ -203,15 +206,15 @@ class RasterProcessor(object):
         self.right_last_latitude = pixc.right_last_latitude
 
         LOGGER.info('Calculating projection parameters')
-        corners = ((self.left_first_latitude,
-                    raster_crs.lon_360to180(self.left_first_longitude)),
-                   (self.right_first_latitude,
-                    raster_crs.lon_360to180(self.right_first_longitude)),
-                   (self.left_last_latitude,
-                    raster_crs.lon_360to180(self.left_last_longitude)),
-                   (self.right_last_latitude,
-                    raster_crs.lon_360to180(self.right_last_longitude)))
-        self.create_projection_from_bbox(corners)
+        if polygon_points is None:
+            swath_corners = \
+                [(pixc.left_first_latitude, pixc.left_first_longitude),
+                 (pixc.right_first_latitude, pixc.right_first_longitude),
+                 (pixc.right_last_latitude, pixc.right_last_longitude),
+                 (pixc.left_last_latitude, pixc.left_last_longitude)]
+            self.create_projection_from_polygon(swath_corners)
+        else:
+            self.create_projection_from_polygon(polygon_points)
 
         # Get mask of valid pixc values
         pixc_mask = get_pixc_mask(pixc, use_improved_geoloc)
@@ -253,21 +256,20 @@ class RasterProcessor(object):
         if self.debug_flag:
             self.aggregate_classification(pixc, pixc_mask)
 
-        return self.build_product()
+        return self.build_product(polygon_points=polygon_points)
 
-    def create_projection_from_bbox(self, corners):
-        # catch invalid projection type
-        corners_y = [corner[0] for corner in corners]
-        corners_x = [corner[1] for corner in corners]
 
-        # find the UTM zone number for the middle of the swath-tile
+    def create_projection_from_polygon(self, polygon_points):
+        poly_edge_y = [point[0] for point in polygon_points]
+        poly_edge_x = [point[1] for point in polygon_points]
+
         if self.projection_type=='geo':
             self.output_crs = raster_crs.wgs84_crs()
             proj_center_x = 0
             proj_center_y = 0
         if self.projection_type=='utm':
-            lat_mid = sum(corners_y)/4.0
-            lon_mid = sum(corners_x)/4.0
+            lat_mid = np.mean(poly_edge_y)
+            lon_mid = np.mean(poly_edge_x)
             utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
             mgrs_band = raster_crs.mgrs_band_from_lat(lat_mid)
             # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
@@ -288,19 +290,19 @@ class RasterProcessor(object):
             transf = osr.CoordinateTransformation(self.input_crs,
                                                   self.output_crs)
 
-            corners = [(transf.TransformPoint(corner[0], corner[1])[:2])
-                       for corner in corners]
-            corners_y = [corner[1] for corner in corners]
-            corners_x = [corner[0] for corner in corners]
+            polygon_points = [(transf.TransformPoint(point[0], point[1])[:2])
+                              for point in polygon_points]
+            poly_edge_y = [point[1] for point in polygon_points]
+            poly_edge_x = [point[0] for point in polygon_points]
 
             proj_center_x = self.output_crs.GetProjParm('false_easting')
             proj_center_y = self.output_crs.GetProjParm('false_northing')
 
         # get the coordinate limits
-        x_min = np.min(corners_x)
-        x_max = np.max(corners_x)
-        y_min = np.min(corners_y)
-        y_max = np.max(corners_y)
+        x_min = np.min(poly_edge_x)
+        x_max = np.max(poly_edge_x)
+        y_min = np.min(poly_edge_y)
+        y_max = np.max(poly_edge_y)
 
         # round limits to the nearest bin (centered at proj_center_x and add buffer
         x_min = int(round((x_min - proj_center_x) / self.resolution)) * self.resolution \
@@ -689,7 +691,7 @@ class RasterProcessor(object):
                         self.longitude[i][j] = lat
 
 
-    def build_product(self, populate_values=True):
+    def build_product(self, populate_values=True, polygon_points=None):
         # Assemble the product
         LOGGER.info('Assembling Raster Product - populated?: {}'.format(populate_values))
 
@@ -799,6 +801,10 @@ class RasterProcessor(object):
 
             if self.debug_flag:
                 product['classification'] = self.classification
+
+        # Crop the product to the desired bounds
+        if polygon_points is not None:
+            product.crop_to_bounds(polygon_points)
 
         return product
 
