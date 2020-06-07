@@ -190,6 +190,7 @@ class RasterProcessor(object):
         self.tile_numbers = pixc.tile_numbers
         self.tile_names = pixc.tile_names
         self.tile_polarizations = pixc.tile_polarizations
+        self.scene_number = pixc.scene_number
         self.time_coverage_start = pixc.time_coverage_start
         self.time_coverage_end = pixc.time_coverage_end
         self.geospatial_lon_min = pixc.geospatial_lon_min
@@ -715,6 +716,7 @@ class RasterProcessor(object):
         product.tile_numbers = self.tile_numbers
         product.tile_names = self.tile_names
         product.tile_polarizations = self.tile_polarizations
+        product.scene_number = self.scene_number
         product.resolution = self.resolution
         product.time_coverage_start = self.time_coverage_start
         product.time_coverage_end = self.time_coverage_end

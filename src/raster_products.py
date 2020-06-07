@@ -1098,6 +1098,7 @@ class RasterPixc(Product):
         ['pass_number', odict([])],
         ['tile_numbers', odict([])],
         ['tile_names', odict([])],
+        ['scene_number', odict([])],
         ['tile_polarizations', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
@@ -1133,6 +1134,7 @@ class RasterPixc(Product):
         raster_pixc.tile_numbers = [pixc_tile.tile_number]
         raster_pixc.tile_names = [pixc_tile.tile_name]
         raster_pixc.tile_polarizations = [pixc_tile.polarization]
+        raster_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('int')
         raster_pixc.time_coverage_start = pixc_tile.time_coverage_start
         raster_pixc.time_coverage_end = pixc_tile.time_coverage_end
         raster_pixc.wavelength = pixc_tile.wavelength
@@ -1187,7 +1189,7 @@ class RasterPixc(Product):
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   pixcvec_tiles=None):
+                   scene_number, pixcvec_tiles=None):
         """Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None."""
@@ -1225,6 +1227,7 @@ class RasterPixc(Product):
                                   for tile_name in tile_objs[i].tile_names]
         raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
                                           for tile_pol in tile_objs[i].tile_polarizations]
+        raster_pixc.scene_number = scene_number
         raster_pixc.time_coverage_start = tile_objs[np.argmin(start_times)].time_coverage_start
         raster_pixc.time_coverage_end = tile_objs[np.argmax(end_times)].time_coverage_end
         raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
