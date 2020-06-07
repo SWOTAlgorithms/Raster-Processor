@@ -630,8 +630,6 @@ class RasterUTM(Product):
                    'docstr': 'Projected minimum y (northing) coordinate.'}],
         ['y_max', {'dtype': 'f8',
                    'docstr': 'Projected maximum y (northing) coordinate.'}],
-        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
-        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
     ])
     VARIABLES = odict([
         ['crs',
@@ -895,8 +893,6 @@ class RasterGeo(Product):
                           'docstr': 'Minimum latitude coordinate.'}],
         ['latitude_max', {'dtype': 'f8',
                           'docstr': 'Maximum latitude coordinate.'}],
-        ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
-        ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
     ])
 
     VARIABLES = odict([
