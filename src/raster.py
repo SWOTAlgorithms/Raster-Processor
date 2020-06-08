@@ -68,6 +68,15 @@ class L2PixcToRaster(object):
 
     def do_height_constrained_geolocation(self):
         LOGGER.info('Rasterizing for height-constrained geolocation')
+        # TODO: Handle land edges better in improved geolocation
+        # Normally land edges wouldn't get raster heights, but we are forcing
+        # the land edges to be processed as water edges here. Only side effect
+        # is in water_area aggregation, which improved geolocation does not use.
+        tmp_water_edge_classes = np.concatenate(
+            (self.algorithmic_config['water_edge_classes'],
+             self.algorithmic_config['land_edge_classes']))
+        tmp_land_edge_classes = []
+
         height_constrained_geoloc_raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'] \
@@ -78,8 +87,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
             self.algorithmic_config['interior_water_classes'],
-            self.algorithmic_config['water_edge_classes'],
-            self.algorithmic_config['land_edge_classes'],
+            tmp_water_edge_classes,
+            tmp_land_edge_classes,
             self.algorithmic_config['dark_water_classes'],
             self.algorithmic_config['debug_flag'])
 

@@ -54,8 +54,9 @@ class GeolocRaster(object):
 
         for i in range(0, len(proj_mapping)):
             for j in range(0, len(proj_mapping[0])):
-                for k in proj_mapping[i][j]:
-                    self.new_height[k] = raster_uncorrected_height[i][j]
+                if not np.ma.is_masked(raster_uncorrected_height[i][j]):
+                    for k in proj_mapping[i][j]:
+                        self.new_height[k] = raster_uncorrected_height[i][j]
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
