@@ -1092,9 +1092,9 @@ class RasterPixc(Product):
     ATTRIBUTES = odict([
         ['cycle_number', odict([])],
         ['pass_number', odict([])],
+        ['scene_number', odict([])],
         ['tile_numbers', odict([])],
         ['tile_names', odict([])],
-        ['scene_number', odict([])],
         ['tile_polarizations', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
@@ -1130,7 +1130,7 @@ class RasterPixc(Product):
         raster_pixc.tile_numbers = [pixc_tile.tile_number]
         raster_pixc.tile_names = [pixc_tile.tile_name]
         raster_pixc.tile_polarizations = [pixc_tile.polarization]
-        raster_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('int')
+        raster_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('i2')
         raster_pixc.time_coverage_start = pixc_tile.time_coverage_start
         raster_pixc.time_coverage_end = pixc_tile.time_coverage_end
         raster_pixc.wavelength = pixc_tile.wavelength
@@ -1185,7 +1185,7 @@ class RasterPixc(Product):
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   scene_number, pixcvec_tiles=None):
+                   cycle_number, pass_number, scene_number, pixcvec_tiles=None):
         """Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None."""
@@ -1200,16 +1200,13 @@ class RasterPixc(Product):
 
         # Add all of the pixel_cloud/tvp data
         raster_pixc = np.array(tile_objs).sum()
-        # Copy most attributes from one of the central tiles
-        # Central tile is one with the median time
         start_times = [datetime.strptime(
             tile.time_coverage_start, '%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
         end_times = [datetime.strptime(
             tile.time_coverage_end,'%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
-        central_tile_index = start_times.index(
-            np.percentile(start_times, 50, interpolation='nearest'))
-        raster_pixc.cycle_number = tile_objs[central_tile_index].cycle_number
-        raster_pixc.pass_number = tile_objs[central_tile_index].pass_number
+        raster_pixc.cycle_number = cycle_number
+        raster_pixc.pass_number = pass_number
+        raster_pixc.scene_number = scene_number
 
         swath_sides = [tile_name[-1] for tile in tile_objs
                        for tile_name in tile.tile_names]
@@ -1223,9 +1220,13 @@ class RasterPixc(Product):
                                   for tile_name in tile_objs[i].tile_names]
         raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
                                           for tile_pol in tile_objs[i].tile_polarizations]
-        raster_pixc.scene_number = scene_number
         raster_pixc.time_coverage_start = tile_objs[np.argmin(start_times)].time_coverage_start
         raster_pixc.time_coverage_end = tile_objs[np.argmax(end_times)].time_coverage_end
+
+        # Copy most attributes from one of the central tiles
+        # Central tile is one with the median time
+        central_tile_index = start_times.index(
+            np.percentile(start_times, 50, interpolation='nearest'))
         raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
         raster_pixc.near_range = tile_objs[central_tile_index].near_range
         raster_pixc.nominal_slant_range_spacing = \
