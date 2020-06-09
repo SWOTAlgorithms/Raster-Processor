@@ -26,68 +26,120 @@ import warnings
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('pixc_raster', help='raster made from pixel cloud', type=str)
-    parser.add_argument('gdem_raster', help='raster made from truth gdem', type=str)
-    parser.add_argument('--basedir', help='base directory to look for raster files to analyze', type=str, default=None)
-    parser.add_argument('-df', '--dark_frac_thresh', help='Dark water fraction threshold for extra metric', type=float, default=None)
-    parser.add_argument('-wf', '--water_frac_thresh', help='Water fraction threshold for extra metric', type=float, default=None)
-    parser.add_argument('-hu', '--wse_uncert_thresh', help='WSE uncertainty threshold for extra metric', type=float, default=None)
-    parser.add_argument('-ct', '--cross_track_bounds', help='Crosstrack bounds for extra metric', type=float, default=None, nargs=2)
-    parser.add_argument('-mp', '--min_pixels', help='Minimum number of pixels to use as valid data', type=int, default=None)
-    parser.add_argument('-s', '--sort_key', help='Sort key for tables: wse or area', type=str, default=None)
-    parser.add_argument('-w', '--weighted', help='Flag to enable weighting of wse and area metrics by uncertainties', action='store_true')
-    parser.add_argument('--scatter_plot',help='Flag for plotting old scatterplots',action='store_true')
-
+    parser.add_argument('proc_raster', type=str, default=None,
+                        help='processed raster file (or basename)')
+    parser.add_argument('truth_raster', type=str, default=None,
+                        help='truth raster file (or basename)')
+    parser.add_argument('--basedir', type=str, default=None,
+                        help='base directory of processing')
+    parser.add_argument('--slc_basename', type=str, default='*',
+                        help='slc directory basename')
+    parser.add_argument('--pixc_basename', type=str, default='*',
+                        help='pixc directory basename')
+    parser.add_argument('-df', '--dark_frac_thresh', type=float, default=None,
+                        help='Dark water fraction threshold for extra metric')
+    parser.add_argument('-wf', '--water_frac_thresh', type=float, default=None,
+                        help='Water fraction threshold to use as valid data')
+    parser.add_argument('-hu', '--wse_uncert_thresh', type=float, default=None,
+                        help='WSE uncertainty threshold to use as valid data')
+    parser.add_argument('-au', '--area_uncert_thresh', type=float, default=None,
+                        help='Area uncertainty threshold to use as valid data')
+    parser.add_argument('-ct', '--cross_track_bounds', type=float, default=None,
+                        help='Crosstrack bounds to use as valid data', nargs=2)
+    parser.add_argument('-mhp', '--min_wse_pixels', type=int, default=None,
+                        help='Minimum number of wse pixels to use as valid data')
+    parser.add_argument('-map', '--min_area_pixels', type=int, default=None,
+                        help='Minimum number of area pixels to use as valid data')
+    parser.add_argument('-s', '--sort_key', type=str, default=None,
+                        help='Sort key for tables: wse or area')
+    parser.add_argument('-w', '--weighted', action='store_true',
+                        help='Flag to enable weighting of wse and area ' \
+                        'metrics by uncertainties')
+    parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
+                        help='List of sim scenes to exclude')
+    parser.add_argument('--scatter_plot', action='store_true',
+                        help='Flag for plotting old scatterplots')
     args = vars(parser.parse_args())
 
-    basedir = args['basedir']
     metrics = []
-    if basedir is not None:
-        # log all plots in subdirectory of wherever the data is
-        raster_list = glob.glob(os.path.join(basedir, '**', args['pixc_raster']), recursive=True)
-        for pixc_name in raster_list:
-            # check that it has a corresponding gdem_raster
-            p = Path(pixc_name)
-            basepath = p.parents[1]
-            scene = p.parts[-4]
+    if args['basedir'] is not None:
+        # TODO: Right now it's hardcoded that the truth data lives under the slc
+        # base directory, and the proc data lives under the pixc base directory
+        proc_raster_list = glob.glob(os.path.join(
+            args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
+            args['proc_raster']))
+        # If proc_raster input is a basename, get the actual raster
+        proc_raster_list = [os.path.join(proc_raster, 'raster_data', 'raster.nc')
+                            if os.path.isdir(proc_raster) else proc_raster
+                            for proc_raster in proc_raster_list]
+        truth_raster_list = \
+            [os.path.join(*Path(proc_raster).parts[:-4], args['truth_raster'])
+             for proc_raster in proc_raster_list]
+        # If truth_raster input is a basename, get the actual raster
+        truth_raster_list = [os.path.join(truth_raster, 'raster_data', 'raster.nc')
+                             if os.path.isdir(truth_raster) else truth_raster
+                             for truth_raster in truth_raster_list]
+        for proc_raster, truth_raster in zip(proc_raster_list, truth_raster_list):
+            if os.path.isfile(proc_raster) and os.path.isfile(truth_raster):
+                sim_scene = Path(proc_raster).parts[-7]
+                if sim_scene in args['exclude_scenes']:
+                    print('Not analyzing sim scene: {}'.format(sim_scene))
+                    continue
 
-            # Debug option, specify list of bad scenes that we don't want to include
-            bad_scenes = []
-            if int(scene) in bad_scenes:
-                print('Not analyzing scene: {}'.format(scene))
-                continue
-
-            gdem_name = os.path.join(basepath, args['gdem_raster'])
-
-            if os.path.isfile(gdem_name):
                 # call the function to do the work
-                tile_metrics = load_data(pixc_name, gdem_name, scene=scene,
-                                         dark_frac_thresh=args['dark_frac_thresh'],
-                                         water_frac_thresh=args['water_frac_thresh'],
-                                         wse_uncert_thresh=args['wse_uncert_thresh'],
-                                         cross_track_bounds=args['cross_track_bounds'],
-                                         min_pixels=args['min_pixels'])
+                tile_metrics = load_data(
+                    proc_raster, truth_raster, sim_scene=sim_scene,
+                    dark_frac_thresh=args['dark_frac_thresh'],
+                    water_frac_thresh=args['water_frac_thresh'],
+                    wse_uncert_thresh=args['wse_uncert_thresh'],
+                    area_uncert_thresh=args['area_uncert_thresh'],
+                    cross_track_bounds=args['cross_track_bounds'],
+                    min_wse_pixels=args['min_wse_pixels'],
+                    min_area_pixels=args['min_area_pixels'])
                 metrics.append(tile_metrics)
     else:
-        tile_metrics = load_data(args['pixc_raster'], args['gdem_raster'],
-                                 dark_frac_thresh=args['dark_frac_thresh'],
-                                 water_frac_thresh=args['water_frac_thresh'],
-                                 wse_uncert_thresh=args['wse_uncert_thresh'],
-                                 cross_track_bounds=args['cross_track_bounds'],
-                                 min_pixels=args['min_pixels'])
+        # Inputs can be either raster files, or basenames
+        proc_raster = args['proc_raster']
+        truth_raster = args['truth_raster']
+        if os.path.isdir(proc_raster):
+            proc_raster = os.path.join(proc_raster, 'raster_data', 'raster.nc')
+        if os.path.isdir(truth_raster):
+            truth_raster = os.path.join(truth_raster, 'raster_data', 'raster.nc')
+
+        # call the function to do the work
+        tile_metrics = load_data(
+            proc_raster, truth_raster,
+            dark_frac_thresh=args['dark_frac_thresh'],
+            water_frac_thresh=args['water_frac_thresh'],
+            wse_uncert_thresh=args['wse_uncert_thresh'],
+            area_uncert_thresh=args['area_uncert_thresh'],
+            cross_track_bounds=args['cross_track_bounds'],
+            min_wse_pixels=args['min_wse_pixels'],
+            min_area_pixels=args['min_area_pixels'])
         metrics.append(tile_metrics)
 
     print('\033[93m' + 'Accumulating Metrics:' + '\033[00m')
     if args['dark_frac_thresh'] is not None:
-        print('\033[93m' + 'Dark frac <= {}'.format(args['dark_frac_thresh']) + '\033[00m')
+        print('\033[93m' + 'Dark frac <= {}'.format(
+            args['dark_frac_thresh']) + '\033[00m')
     if args['water_frac_thresh'] is not None:
-        print('\033[93m' + 'Water frac >= {}'.format(args['water_frac_thresh']) + '\033[00m')
+        print('\033[93m' + 'Water frac >= {}'.format(
+            args['water_frac_thresh']) + '\033[00m')
     if args['wse_uncert_thresh'] is not None:
-        print('\033[93m' + 'WSE uncert <= {}'.format(args['wse_uncert_thresh']) + '\033[00m')
+        print('\033[93m' + 'WSE uncert <= {}'.format(
+            args['wse_uncert_thresh']) + '\033[00m')
+    if args['area_uncert_thresh'] is not None:
+        print('\033[93m' + 'Water area uncert <= {}'.format(
+            args['area_uncert_thresh']) + '\033[00m')
     if args['cross_track_bounds'] is not None:
-        print('\033[93m' + 'Cross track bounds = {}'.format(args['cross_track_bounds']) + '\033[00m')
-    if args['min_pixels'] is not None:
-        print('\033[93m' + 'Min pixels = {}'.format(args['min_pixels']) + '\033[00m')
+        print('\033[93m' + 'Cross track bounds = {}'.format(
+            args['cross_track_bounds']) + '\033[00m')
+    if args['min_wse_pixels'] is not None:
+        print('\033[93m' + 'Min WSE pixels = {}'.format(
+            args['min_wse_pixels']) + '\033[00m')
+    if args['min_area_pixels'] is not None:
+        print('\033[93m' + 'Min water area pixels = {}'.format(
+            args['min_area_pixels']) + '\033[00m')
 
     print_metrics(metrics,
                   sort_key=args['sort_key'],
@@ -95,23 +147,23 @@ def main():
                   scatter_plot=args['scatter_plot'])
 
 def load_data(
-        pixc_file, gdem_file, scene='', dark_frac_thresh=None,
-        water_frac_thresh=None, wse_uncert_thresh=None,
-        cross_track_bounds=None, min_pixels=None):
+        proc_raster_file, truth_raster_file, sim_scene='', dark_frac_thresh=None,
+        water_frac_thresh=None, wse_uncert_thresh=None, area_uncert_thresh=None,
+        cross_track_bounds=None, min_wse_pixels=None, min_area_pixels=None):
     '''
     load reaches from a particular tile, compute metrics,
     and accumulate the data, truth and metrics (if input)
     '''
 
-    truth_tmp = MutableProduct.from_ncfile(gdem_file)
-    data_tmp = MutableProduct.from_ncfile(pixc_file)
+    truth_tmp = MutableProduct.from_ncfile(truth_raster_file)
+    data_tmp = MutableProduct.from_ncfile(proc_raster_file)
 
     tile_metrics = {}
-    tile_metrics['scene'] = str(scene)
+    tile_metrics['sim_scene'] = str(sim_scene)
     tile_metrics['cycle'] = str(data_tmp.cycle_number)
     tile_metrics['tile_names'] = data_tmp.tile_names
-    print('Loading data for scene: {}, cycle: {}, tiles: {}'.format(
-        tile_metrics['scene'],
+    print('Loading data for sim_scene: {}, cycle: {}, tiles: {}'.format(
+        tile_metrics['sim_scene'],
         tile_metrics['cycle'],
         tile_metrics['tile_names']))
 
@@ -126,11 +178,16 @@ def load_data(
         tile_metrics['dark_frac_err'] = np.array([np.nan])
         tile_metrics['water_frac'] = np.array([np.nan])
         tile_metrics['water_frac_err'] = np.array([np.nan])
-        tile_metrics['num_pixc_px'] = np.array([np.nan])
-        tile_metrics['total_px'] = truth_tmp['wse'].count() + data_tmp['wse'].count()
-        tile_metrics['common_px'] = 0
-        tile_metrics['uncommon_px_truth'] = truth_tmp['wse'].count()
-        tile_metrics['uncommon_px_data'] = data_tmp['wse'].count()
+        tile_metrics['n_wse_pix'] = np.array([np.nan])
+        tile_metrics['n_area_pix'] = np.array([np.nan])
+        tile_metrics['total_wse_pix'] = truth_tmp['wse'].count() + data_tmp['wse'].count()
+        tile_metrics['common_wse_pix'] = 0
+        tile_metrics['uncommon_wse_pix_truth'] = truth_tmp['wse'].count()
+        tile_metrics['uncommon_wse_pix_data'] = data_tmp['wse'].count()
+        tile_metrics['total_area_pix'] = truth_tmp['water_area'].count() + data_tmp['water_area'].count()
+        tile_metrics['common_area_pix'] = 0
+        tile_metrics['uncommon_area_pix_truth'] = truth_tmp['water_area'].count()
+        tile_metrics['uncommon_area_pix_data'] = data_tmp['water_area'].count()
     else:
         wse_err = data_tmp['wse'] - truth_tmp['wse']
         area_err = data_tmp['water_area'] - truth_tmp['water_area']
@@ -138,13 +195,23 @@ def load_data(
         area_perc_unc = data_tmp['water_area_uncert'] / truth_tmp['water_area'] * 100
         water_frac_err = data_tmp['water_frac'] - truth_tmp['water_frac']
         dark_frac_err = data_tmp['dark_frac'] - truth_tmp['dark_frac']
-        total_mask = np.logical_or(~truth_tmp['wse'].mask, ~data_tmp['wse'].mask)
-        common_mask = np.logical_and(~truth_tmp['wse'].mask, ~data_tmp['wse'].mask)
-        truth_not_in_data_mask = np.logical_and(~truth_tmp['wse'].mask, data_tmp['wse'].mask)
-        data_not_in_truth_mask = np.logical_and(~data_tmp['wse'].mask, truth_tmp['wse'].mask)
+        wse_total_mask = np.logical_or(~truth_tmp['wse'].mask, ~data_tmp['wse'].mask)
+        wse_common_mask = np.logical_and(~truth_tmp['wse'].mask, ~data_tmp['wse'].mask)
+        wse_truth_not_in_data_mask = np.logical_and(
+            ~truth_tmp['wse'].mask, data_tmp['wse'].mask)
+        wse_data_not_in_truth_mask = np.logical_and(
+            ~data_tmp['wse'].mask, truth_tmp['wse'].mask)
+        area_total_mask = np.logical_or(
+            ~truth_tmp['water_area'].mask, ~data_tmp['water_area'].mask)
+        area_common_mask = np.logical_and(
+            ~truth_tmp['water_area'].mask, ~data_tmp['water_area'].mask)
+        area_truth_not_in_data_mask = np.logical_and(
+            ~truth_tmp['water_area'].mask, data_tmp['water_area'].mask)
+        area_data_not_in_truth_mask = np.logical_and(
+            ~data_tmp['water_area'].mask, truth_tmp['water_area'].mask)
 
         # Use additional filters to update masks
-        tmp_mask = np.ones_like(common_mask)
+        tmp_mask = np.ones_like(wse_common_mask)
         if dark_frac_thresh is not None:
             tmp_mask = np.logical_and(
                 tmp_mask, truth_tmp['dark_frac'] <= dark_frac_thresh)
@@ -157,23 +224,39 @@ def load_data(
             tmp_mask = np.logical_and(
                 tmp_mask, data_tmp['wse_uncert'] <= wse_uncert_thresh)
 
+        if area_uncert_thresh is not None:
+            tmp_mask = np.logical_and(
+                tmp_mask, data_tmp['area_uncert'] <= area_uncert_thresh)
+
         if cross_track_bounds is not None:
             tmp_mask = np.logical_and.reduce(
                 (tmp_mask,
                  np.abs(truth_tmp['cross_track']) >= min(cross_track_bounds),
                  np.abs(truth_tmp['cross_track']) <= max(cross_track_bounds)))
 
-        if min_pixels is not None:
+        if min_wse_pixels is not None:
             tmp_mask = np.logical_and(
-                tmp_mask, data_tmp['num_pixels'] >= min_pixels)
+                tmp_mask, data_tmp['n_wse_pix'] >= min_wse_pixels)
 
-        total_mask = np.logical_and(total_mask, tmp_mask)
-        common_mask = np.logical_and(common_mask, tmp_mask)
-        truth_not_in_data_mask = np.logical_and(truth_not_in_data_mask,
-                                                tmp_mask)
-        data_not_in_truth_mask = np.logical_and(data_not_in_truth_mask,
-                                                tmp_mask)
+        if min_area_pixels is not None:
+            tmp_mask = np.logical_and(
+                tmp_mask, data_tmp['n_area_pix'] >= min_area_pixels)
 
+        wse_total_mask = np.logical_and(wse_total_mask, tmp_mask)
+        wse_common_mask = np.logical_and(wse_common_mask, tmp_mask)
+        wse_truth_not_in_data_mask = np.logical_and(wse_truth_not_in_data_mask,
+                                                    tmp_mask)
+        wse_data_not_in_truth_mask = np.logical_and(wse_data_not_in_truth_mask,
+                                                    tmp_mask)
+
+        area_total_mask = np.logical_and(area_total_mask, tmp_mask)
+        area_common_mask = np.logical_and(area_common_mask, tmp_mask)
+        area_truth_not_in_data_mask = np.logical_and(area_truth_not_in_data_mask,
+                                                     tmp_mask)
+        area_data_not_in_truth_mask = np.logical_and(area_data_not_in_truth_mask,
+                                                     tmp_mask)
+
+        common_mask = np.logical_or(wse_common_mask, area_common_mask)
         tile_metrics['wse_err'] = wse_err[common_mask]
         tile_metrics['wse_uncert'] = data_tmp['wse_uncert'][common_mask]
         tile_metrics['area_perc_err'] = area_perc_err[common_mask]
@@ -183,11 +266,20 @@ def load_data(
         tile_metrics['dark_frac_err'] = dark_frac_err[common_mask]
         tile_metrics['water_frac'] = truth_tmp['water_frac'][common_mask]
         tile_metrics['water_frac_err'] = water_frac_err[common_mask]
-        tile_metrics['num_pixc_px'] = data_tmp['num_pixels'][common_mask]
-        tile_metrics['total_px'] = np.count_nonzero(total_mask)
-        tile_metrics['common_px'] = np.count_nonzero(common_mask)
-        tile_metrics['uncommon_px_truth'] = np.count_nonzero(truth_not_in_data_mask)
-        tile_metrics['uncommon_px_data'] = np.count_nonzero(data_not_in_truth_mask)
+        tile_metrics['n_wse_pix'] = data_tmp['n_wse_pix'][common_mask]
+        tile_metrics['n_area_pix'] = data_tmp['n_area_pix'][common_mask]
+        tile_metrics['total_wse_pix'] = np.count_nonzero(wse_total_mask)
+        tile_metrics['common_wse_pix'] = np.count_nonzero(wse_common_mask)
+        tile_metrics['uncommon_wse_pix_truth'] = np.count_nonzero(
+            wse_truth_not_in_data_mask)
+        tile_metrics['uncommon_wse_pix_data'] = np.count_nonzero(
+            wse_data_not_in_truth_mask)
+        tile_metrics['total_area_pix'] = np.count_nonzero(area_total_mask)
+        tile_metrics['common_area_pix'] = np.count_nonzero(area_common_mask)
+        tile_metrics['uncommon_area_pix_truth'] = np.count_nonzero(
+            area_truth_not_in_data_mask)
+        tile_metrics['uncommon_area_pix_data'] = np.count_nonzero(
+            area_data_not_in_truth_mask)
 
     return tile_metrics
 
@@ -229,12 +321,37 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
         weight_desc = 'inverse variance weight'
     else:
         weight_desc = 'unweighted'
+
     print('Tile metrics (' + weight_desc + ', wse in m):')
-    SWOTRiver.analysis.tabley.print_table(tile_table, precision=5,
+    wse_keys = ['wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct',
+                'total_wse_pix', 'common_wse_pix_%',
+                'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%',
+                'sim_scene', 'cycle', 'tile_names']
+    area_keys = ['a_%e_mean', 'a_%e_std', '|a_%e_68_pct|', 'a_%e_50_pct',
+                 'total_area_pix', 'common_area_pix_%',
+                 'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%',
+                 'sim_scene', 'cycle', 'tile_names']
+    tile_table_wse = {key:tile_table[key] for key in wse_keys}
+    tile_table_area = {key:tile_table[key] for key in area_keys}
+    SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
+                                          passfail=passfail)
+    SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
                                           passfail=passfail)
 
     print('Tile metrics (normalized by uncertainties):')
-    SWOTRiver.analysis.tabley.print_table(tile_table_normalized, precision=5,
+    wse_keys = ['wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
+                'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix_%',
+                'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%',
+                'sim_scene', 'cycle', 'tile_names']
+    area_keys = ['a_%e/a_%u_mean', 'a_%e/a_%u_std', '|a_%e/a_%u_68_pct|',
+                 'a_%e/a_%u_50_pct', 'total_area_pix', 'common_area_pix_%',
+                 'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%',
+                 'sim_scene', 'cycle', 'tile_names']
+    tile_table_wse = {key:tile_table_normalized[key] for key in wse_keys}
+    tile_table_area = {key:tile_table_normalized[key] for key in area_keys}
+    SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
+                                          passfail=passfail)
+    SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
                                           passfail=passfail)
 
     # Concatenate tiles for global metrics
@@ -247,19 +364,27 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     all_area_perc_err = np.ma.concatenate(tuple(tile_metrics['area_perc_err'] for tile_metrics in metrics))
     all_area_perc_uncert = np.ma.concatenate(tuple(tile_metrics['area_perc_uncert'] for tile_metrics in metrics))
     all_cross_track = np.ma.concatenate(tuple(tile_metrics['cross_track'] for tile_metrics in metrics))
-    all_pixc_px = np.ma.concatenate(tuple(tile_metrics['num_pixc_px'] for tile_metrics in metrics))
-    total_px = [tile_metrics['total_px'] for tile_metrics in metrics]
-    common_px = [tile_metrics['common_px'] for tile_metrics in metrics]
-    uncommon_px_truth = [tile_metrics['uncommon_px_truth'] for tile_metrics in metrics]
-    uncommon_px_data = [tile_metrics['uncommon_px_data'] for tile_metrics in metrics]
-    all_scenes = np.array([tile_metrics['scene'] + '_' + tile_metrics['tile_names']
+    all_n_wse_pix = np.ma.concatenate(tuple(tile_metrics['n_wse_pix'] for tile_metrics in metrics))
+    total_wse_pix = [tile_metrics['total_wse_pix'] for tile_metrics in metrics]
+    common_wse_pix = [tile_metrics['common_wse_pix'] for tile_metrics in metrics]
+    uncommon_wse_pix_truth = [tile_metrics['uncommon_wse_pix_truth'] for tile_metrics in metrics]
+    uncommon_wse_pix_data = [tile_metrics['uncommon_wse_pix_data'] for tile_metrics in metrics]
+    total_area_pix = [tile_metrics['total_area_pix'] for tile_metrics in metrics]
+    common_area_pix = [tile_metrics['common_area_pix'] for tile_metrics in metrics]
+    uncommon_area_pix_truth = [tile_metrics['uncommon_area_pix_truth'] for tile_metrics in metrics]
+    uncommon_area_pix_data = [tile_metrics['uncommon_area_pix_data'] for tile_metrics in metrics]
+    all_sim_scenes = np.array([tile_metrics['sim_scene'] + '_' + tile_metrics['tile_names']
                            for tile_metrics in metrics
                            for i in range(len(tile_metrics['cross_track']))])
     # Global metrics
-    total_px_count = np.sum(total_px)
-    common_px_pct = np.sum(common_px)/total_px_count * 100
-    uncommon_px_truth_pct = np.sum(uncommon_px_truth)/total_px_count * 100
-    uncommon_px_data_pct = np.sum(uncommon_px_data)/total_px_count * 100
+    total_wse_pix_count = np.sum(total_wse_pix)
+    common_wse_pix_pct = np.sum(common_wse_pix)/total_wse_pix_count * 100
+    uncommon_wse_pix_truth_pct = np.sum(uncommon_wse_pix_truth)/total_wse_pix_count * 100
+    uncommon_wse_pix_data_pct = np.sum(uncommon_wse_pix_data)/total_wse_pix_count * 100
+    total_area_pix_count = np.sum(total_area_pix)
+    common_area_pix_pct = np.sum(common_area_pix)/total_area_pix_count * 100
+    uncommon_area_pix_truth_pct = np.sum(uncommon_area_pix_truth)/total_area_pix_count * 100
+    uncommon_area_pix_data_pct = np.sum(uncommon_area_pix_data)/total_area_pix_count * 100
 
     if weighted:
         global_table = make_global_table(all_wse_err, all_area_perc_err,
@@ -268,22 +393,56 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     else:
         global_table = make_global_table(all_wse_err, all_area_perc_err)
 
-    global_table['total_px'] = [total_px_count]
-    global_table['common_px_%'] = [common_px_pct]
-    global_table['uncommon_px_truth_%'] = [uncommon_px_truth_pct]
-    global_table['uncommon_px_data_%'] = [uncommon_px_data_pct]
+    global_table['total_wse_pix'] = [total_wse_pix_count]
+    global_table['common_wse_pix_%'] = [common_wse_pix_pct]
+    global_table['uncommon_wse_pix_truth_%'] = [uncommon_wse_pix_truth_pct]
+    global_table['uncommon_wse_pix_data_%'] = [uncommon_wse_pix_data_pct]
+    global_table['total_area_pix'] = [total_area_pix_count]
+    global_table['common_area_pix_%'] = [common_area_pix_pct]
+    global_table['uncommon_area_pix_truth_%'] = [uncommon_area_pix_truth_pct]
+    global_table['uncommon_area_pix_data_%'] = [uncommon_area_pix_data_pct]
+
     print('Global metrics (' + weight_desc + ', wse in m):')
-    SWOTRiver.analysis.tabley.print_table(global_table, precision=5,
+    wse_keys = ['wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct',
+                'total_wse_pix', 'common_wse_pix_%',
+                'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%']
+    area_keys = ['a_%e_mean', 'a_%e_std', '|a_%e_68_pct|', 'a_%e_50_pct',
+                 'total_area_pix', 'common_area_pix_%',
+                 'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%']
+    global_table_wse = {key:global_table[key] for key in wse_keys}
+    global_table_area = {key:global_table[key] for key in area_keys}
+    SWOTRiver.analysis.tabley.print_table(global_table_wse, precision=5,
+                                          passfail=passfail)
+    SWOTRiver.analysis.tabley.print_table(global_table_area, precision=5,
                                           passfail=passfail)
 
     global_table_weighted = make_global_table(all_wse_err/all_wse_uncert,
                                               all_area_perc_err/all_area_perc_uncert,
                                               wse_prefix='wse_e/wse_u_',
                                               area_prefix='a_%e/a_%u_')
-    print('Global metrics (normalized by uncertainties):')
-    SWOTRiver.analysis.tabley.print_table(global_table_weighted, precision=5,
-                                          passfail=passfail)
 
+    global_table_weighted['total_wse_pix'] = [total_wse_pix_count]
+    global_table_weighted['common_wse_pix_%'] = [common_wse_pix_pct]
+    global_table_weighted['uncommon_wse_pix_truth_%'] = [uncommon_wse_pix_truth_pct]
+    global_table_weighted['uncommon_wse_pix_data_%'] = [uncommon_wse_pix_data_pct]
+    global_table_weighted['total_area_pix'] = [total_area_pix_count]
+    global_table_weighted['common_area_pix_%'] = [common_area_pix_pct]
+    global_table_weighted['uncommon_area_pix_truth_%'] = [uncommon_area_pix_truth_pct]
+    global_table_weighted['uncommon_area_pix_data_%'] = [uncommon_area_pix_data_pct]
+
+    print('Global metrics (normalized by uncertainties):')
+    wse_keys = ['wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
+                'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix_%',
+                'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%']
+    area_keys = ['a_%e/a_%u_mean', 'a_%e/a_%u_std', '|a_%e/a_%u_68_pct|',
+                 'a_%e/a_%u_50_pct', 'total_area_pix', 'common_area_pix_%',
+                 'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%']
+    global_table_wse_weighted = {key:global_table_weighted[key] for key in wse_keys}
+    global_table_area_weighted = {key:global_table_weighted[key] for key in area_keys}
+    SWOTRiver.analysis.tabley.print_table(global_table_wse_weighted, precision=5,
+                                          passfail=passfail)
+    SWOTRiver.analysis.tabley.print_table(global_table_area_weighted, precision=5,
+                                          passfail=passfail)
 
     metrics_to_plot = {'WSE Error (m)':all_wse_err,
                        'Area Percent Error (%)':all_area_perc_err,
@@ -296,12 +455,12 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                        'Dark Fraction Error (%)':None}
 
     metrics_to_plot_against = {'Cross Track (m)':all_cross_track,
-                               'Num Pixels':all_pixc_px,
+                               'Num WSE Pixels':all_n_wse_pix,
                                'Dark Fraction (%)':all_dark_frac*100,
                                'Water Fraction (%)':all_water_frac*100}
 
     plot_metrics(metrics_to_plot, metrics_to_plot_against,
-        uncert_to_plot=uncert_to_plot, sources=all_scenes, scatter_plot=scatter_plot)
+        uncert_to_plot=uncert_to_plot, sources=all_sim_scenes, scatter_plot=scatter_plot)
 
 def append_tile_table(tile_metrics, tile_table={},
                       wse_prefix='wse_e_', area_prefix='a_%e_',
@@ -316,11 +475,15 @@ def append_tile_table(tile_metrics, tile_table={},
                       area_prefix + 'std':[],
                       '|' + area_prefix + '68_pct|':[],
                       area_prefix + '50_pct':[],
-                      'total_px':[],
-                      'common_px_%':[],
-                      'uncommon_px_truth_%':[],
-                      'uncommon_px_data_%':[],
-                      'scene':[],
+                      'total_wse_pix':[],
+                      'common_wse_pix_%':[],
+                      'uncommon_wse_pix_truth_%':[],
+                      'uncommon_wse_pix_data_%':[],
+                      'total_area_pix':[],
+                      'common_area_pix_%':[],
+                      'uncommon_area_pix_truth_%':[],
+                      'uncommon_area_pix_data_%':[],
+                      'sim_scene':[],
                       'cycle':[],
                       'tile_names':[],}
 
@@ -350,19 +513,34 @@ def append_tile_table(tile_metrics, tile_table={},
     tile_table[area_prefix + 'std'].append(area_err_metrics['std'])
     tile_table['|' + area_prefix + '68_pct|'].append(area_err_metrics['|68_pct|'])
     tile_table[area_prefix + '50_pct'].append(area_err_metrics['50_pct'])
-    tile_table['total_px'].append(tile_metrics['total_px'])
-    if tile_metrics['total_px'] > 0:
-        tile_table['common_px_%'].append(
-            tile_metrics['common_px']/tile_metrics['total_px'] * 100)
-        tile_table['uncommon_px_truth_%'].append(
-            tile_metrics['uncommon_px_truth']/tile_metrics['total_px'] * 100)
-        tile_table['uncommon_px_data_%'].append(
-            tile_metrics['uncommon_px_data']/tile_metrics['total_px'] * 100)
+    tile_table['total_wse_pix'].append(tile_metrics['total_wse_pix'])
+    tile_table['total_area_pix'].append(tile_metrics['total_area_pix'])
+
+    if tile_metrics['total_wse_pix'] > 0:
+        tile_table['common_wse_pix_%'].append(
+            tile_metrics['common_wse_pix']/tile_metrics['total_wse_pix'] * 100)
+        tile_table['uncommon_wse_pix_truth_%'].append(
+            tile_metrics['uncommon_wse_pix_truth']/tile_metrics['total_wse_pix'] * 100)
+        tile_table['uncommon_wse_pix_data_%'].append(
+            tile_metrics['uncommon_wse_pix_data']/tile_metrics['total_wse_pix'] * 100)
     else:
-        tile_table['common_px_%'].append(0)
-        tile_table['uncommon_px_truth_%'].append(0)
-        tile_table['uncommon_px_data_%'].append(0)
-    tile_table['scene'].append(tile_metrics['scene'])
+        tile_table['common_wse_pix_%'].append(0)
+        tile_table['uncommon_wse_pix_truth_%'].append(0)
+        tile_table['uncommon_wse_pix_data_%'].append(0)
+
+    if tile_metrics['total_area_pix'] > 0:
+        tile_table['common_area_pix_%'].append(
+            tile_metrics['common_area_pix']/tile_metrics['total_area_pix'] * 100)
+        tile_table['uncommon_area_pix_truth_%'].append(
+            tile_metrics['uncommon_area_pix_truth']/tile_metrics['total_area_pix'] * 100)
+        tile_table['uncommon_area_pix_data_%'].append(
+            tile_metrics['uncommon_area_pix_data']/tile_metrics['total_area_pix'] * 100)
+    else:
+        tile_table['common_area_pix_%'].append(0)
+        tile_table['uncommon_area_pix_truth_%'].append(0)
+        tile_table['uncommon_area_pix_data_%'].append(0)
+
+    tile_table['sim_scene'].append(tile_metrics['sim_scene'])
     tile_table['cycle'].append(tile_metrics['cycle'])
     tile_table['tile_names'].append(tile_metrics['tile_names'])
     return tile_table
