@@ -1209,8 +1209,8 @@ class RasterPixc(Product):
                                   for tile_name in tile_objs[i].tile_names]
         raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
                                           for tile_pol in tile_objs[i].tile_polarizations]
-        raster_pixc.time_coverage_start = start_time
-        raster_pixc.time_coverage_end = end_time
+        raster_pixc.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+        raster_pixc.time_coverage_end = end_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
