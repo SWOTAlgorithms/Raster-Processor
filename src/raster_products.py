@@ -812,18 +812,6 @@ class RasterUTM(Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
-        # Set the time coverage start and end
-        start_time = datetime.fromtimestamp(
-            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + np.min(self.illumination_time))
-        stop_time = datetime.fromtimestamp(
-            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + np.max(self.illumination_time))
-
-        self.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
-        self.time_coverage_end = stop_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
-
-
     def get_uncorrected_height(self):
         height = self.wse + (
             self.geoid +
@@ -1185,7 +1173,8 @@ class RasterPixc(Product):
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   cycle_number, pass_number, scene_number, pixcvec_tiles=None):
+                   start_time, end_time, cycle_number, pass_number,
+                   scene_number, pixcvec_tiles=None):
         """Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None."""
@@ -1220,8 +1209,8 @@ class RasterPixc(Product):
                                   for tile_name in tile_objs[i].tile_names]
         raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
                                           for tile_pol in tile_objs[i].tile_polarizations]
-        raster_pixc.time_coverage_start = tile_objs[np.argmin(start_times)].time_coverage_start
-        raster_pixc.time_coverage_end = tile_objs[np.argmax(end_times)].time_coverage_end
+        raster_pixc.time_coverage_start = start_time
+        raster_pixc.time_coverage_end = end_time
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
