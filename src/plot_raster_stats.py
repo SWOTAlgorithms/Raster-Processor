@@ -50,8 +50,6 @@ def main():
                         help='Minimum number of wse pixels to use as valid data')
     parser.add_argument('-map', '--min_area_pixels', type=int, default=None,
                         help='Minimum number of area pixels to use as valid data')
-    parser.add_argument('-s', '--sort_key', type=str, default=None,
-                        help='Sort key for tables: wse or area')
     parser.add_argument('-w', '--weighted', action='store_true',
                         help='Flag to enable weighting of wse and area ' \
                         'metrics by uncertainties')
@@ -142,7 +140,6 @@ def main():
             args['min_area_pixels']) + '\033[00m')
 
     print_metrics(metrics,
-                  sort_key=args['sort_key'],
                   weighted=args['weighted'],
                   scatter_plot=args['scatter_plot'])
 
@@ -285,7 +282,7 @@ def load_data(
 
 def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                   wse_uncert_thresh=None, cross_track_bounds=None,
-                  sort_key=None, weighted=False, scatter_plot=False):
+                  weighted=False, scatter_plot=False):
     # Get pass/fail bounds
     passfail = get_passfail()
 
@@ -299,23 +296,6 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                                                   wse_prefix='wse_e/wse_u_',
                                                   area_prefix='a_%e/a_%u_',
                                                   normalize_by_uncert=True)
-
-    # Sort the metrics by key
-    if sort_key is not None:
-        if sort_key == 'wse':
-            err_sort = '|wse_e_68_pct|'
-            norm_sort = '|wse_e/wse_u_68_pct|'
-        elif sort_key == 'area':
-            err_sort = '|a_%e_68_pct|'
-            norm_sort = '|a_%e/a_%u_68_pct|'
-
-        sort_idx = np.argsort(tile_table[err_sort])
-        for key in tile_table:
-            tile_table[key] = np.array(tile_table[key])[sort_idx]
-
-        sort_idx = np.argsort(tile_table_normalized[norm_sort])
-        for key in tile_table_normalized:
-            tile_table_normalized[key] = np.array(tile_table_normalized[key])[sort_idx]
 
     if weighted:
         weight_desc = 'inverse variance weight'
@@ -333,6 +313,8 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                  'sim_scene', 'cycle', 'tile_names']
     tile_table_wse = {key:tile_table[key] for key in wse_keys}
     tile_table_area = {key:tile_table[key] for key in area_keys}
+    sort_table(tile_table_wse, '|wse_e_68_pct|')
+    sort_table(tile_table_area, '|a_%e_68_pct|')
     SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
                                           passfail=passfail)
     SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
@@ -347,8 +329,11 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                  'a_%e/a_%u_50_pct', 'total_area_pix', 'common_area_pix_%',
                  'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%',
                  'sim_scene', 'cycle', 'tile_names']
+
     tile_table_wse = {key:tile_table_normalized[key] for key in wse_keys}
     tile_table_area = {key:tile_table_normalized[key] for key in area_keys}
+    sort_table(tile_table_wse, '|wse_e/wse_u_68_pct|')
+    sort_table(tile_table_area, '|a_%e/a_%u_68_pct|')
     SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
                                           passfail=passfail)
     SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
@@ -411,6 +396,8 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                  'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%']
     global_table_wse = {key:global_table[key] for key in wse_keys}
     global_table_area = {key:global_table[key] for key in area_keys}
+    sort_table(global_table_wse, '|wse_e_68_pct|')
+    sort_table(global_table_area, '|a_%e_68_pct|')
     SWOTRiver.analysis.tabley.print_table(global_table_wse, precision=5,
                                           passfail=passfail)
     SWOTRiver.analysis.tabley.print_table(global_table_area, precision=5,
@@ -439,6 +426,8 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                  'uncommon_area_pix_truth_%', 'uncommon_area_pix_data_%']
     global_table_wse_weighted = {key:global_table_weighted[key] for key in wse_keys}
     global_table_area_weighted = {key:global_table_weighted[key] for key in area_keys}
+    sort_table(global_table_wse_weighted, '|wse_e/wse_u_68_pct|')
+    sort_table(global_table_area_weighted, '|a_%e/a_%u_68_pct|')
     SWOTRiver.analysis.tabley.print_table(global_table_wse_weighted, precision=5,
                                           passfail=passfail)
     SWOTRiver.analysis.tabley.print_table(global_table_area_weighted, precision=5,
@@ -621,6 +610,10 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
     plt.show()
     warnings.resetwarnings()
 
+def sort_table(table, sort_key):
+    sort_idx = np.argsort(table[sort_key])
+    for key in table:
+        table[key] = np.array(table[key])[sort_idx]
 
 
 if __name__ == "__main__":
