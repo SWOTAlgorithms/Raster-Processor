@@ -1161,12 +1161,8 @@ class RasterPixc(Product):
         raster_pixc.geospatial_lon_max = max(lons)
 
         # Copy over groups
-        if pixcvec_tile is not None:
-            raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
-                pixc_tile['pixel_cloud'], pixcvec_tile)
-        else:
-            raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
-                pixc_tile['pixel_cloud'])
+        raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
+            pixc_tile['pixel_cloud'], pixcvec_tile)
         raster_pixc['tvp'] = RasterTVP.from_tile(pixc_tile['tvp'])
 
         return raster_pixc
