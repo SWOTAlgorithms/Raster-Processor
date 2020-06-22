@@ -393,18 +393,18 @@ COMMON_VARIABLES = odict([
             ['source', 'UNC'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
-                no_ice_cover partial_ice_cover full_ice_cover""")],
+                no_ice_cover uncertain_ice_cover full_ice_cover""")],
             ['flag_values', np.array([0, 1, 2]).astype('u1')],
             ['valid_min', 0],
             ['valid_max', 2],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Climatological ice cover flag indicating whether the pixel
-                is ice-covered on the day of the observation based on
-                external climatological information (not the SWOT
-                measurement).  Values of 0, 1, and 2 indicate that the
-                pixel is likely not ice covered, likely partially ice covered,
-                and likely fully ice covered, respectively.""")],
+                Climatological ice cover flag indicating whether the pixel is
+                ice-covered on the day of the observation based on external
+                climatological information (not the SWOT measurement). Values of
+                0, 1, and 2 indicate that the pixel is likely not ice covered,
+                may or may not be partially or fully ice covered, and likely
+                fully ice covered, respectively.""")],
         ])],
     ['ice_dyn_flag',
      odict([['dtype', 'u1'],
