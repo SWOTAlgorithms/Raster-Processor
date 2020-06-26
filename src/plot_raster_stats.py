@@ -32,10 +32,12 @@ def main():
                         help='truth raster file (or basename)')
     parser.add_argument('--basedir', type=str, default=None,
                         help='base directory of processing')
-    parser.add_argument('--slc_basename', type=str, default='*',
+    parser.add_argument('-sb', '--slc_basename', type=str, default=None,
                         help='slc directory basename')
-    parser.add_argument('--pixc_basename', type=str, default='*',
+    parser.add_argument('-pb', '--pixc_basename', type=str, default=None,
                         help='pixc directory basename')
+    parser.add_argument('-eb','--pixc_errors_basename', type=str, default=None,
+                        help = "pixc systematic errors basename")
     parser.add_argument('-df', '--dark_frac_thresh', type=float, default=None,
                         help='Dark water fraction threshold for extra metric')
     parser.add_argument('-wf', '--water_frac_thresh', type=float, default=None,
@@ -46,7 +48,7 @@ def main():
                         help='Area uncertainty threshold to use as valid data')
     parser.add_argument('-ct', '--cross_track_bounds', type=float, default=None,
                         help='Crosstrack bounds to use as valid data', nargs=2)
-    parser.add_argument('-mhp', '--min_wse_pixels', type=int, default=None,
+    parser.add_argument('-mwp', '--min_wse_pixels', type=int, default=None,
                         help='Minimum number of wse pixels to use as valid data')
     parser.add_argument('-map', '--min_area_pixels', type=int, default=None,
                         help='Minimum number of area pixels to use as valid data')
@@ -61,25 +63,47 @@ def main():
 
     metrics = []
     if args['basedir'] is not None:
+        if args['slc_basename'] is None or args['pixc_basename'] is None:
+            print('Must specify at least slc_basename and pixc_basename '
+                  + 'if aggregating stats')
+            return
+
         # TODO: Right now it's hardcoded that the truth data lives under the slc
         # base directory, and the proc data lives under the pixc base directory
-        proc_raster_list = glob.glob(os.path.join(
-            args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
-            args['proc_raster']))
+        if args['pixc_errors_basename'] is not None:
+            proc_raster_list = glob.glob(os.path.join(
+                args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
+                args['pixc_errors_basename'], args['proc_raster']))
+        else:
+            proc_raster_list = glob.glob(os.path.join(
+                args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
+                args['proc_raster']))
+
         # If proc_raster input is a basename, get the actual raster
         proc_raster_list = [os.path.join(proc_raster, 'raster_data', 'raster.nc')
                             if os.path.isdir(proc_raster) else proc_raster
                             for proc_raster in proc_raster_list]
-        truth_raster_list = \
-            [os.path.join(*Path(proc_raster).parts[:-4], args['truth_raster'])
-             for proc_raster in proc_raster_list]
+
+        if args['pixc_errors_basename'] is not None:
+            truth_raster_list = \
+                [os.path.join(*Path(proc_raster).parts[:-5], args['truth_raster'])
+                 for proc_raster in proc_raster_list]
+        else:
+            truth_raster_list = \
+                [os.path.join(*Path(proc_raster).parts[:-4], args['truth_raster'])
+                 for proc_raster in proc_raster_list]
+
         # If truth_raster input is a basename, get the actual raster
         truth_raster_list = [os.path.join(truth_raster, 'raster_data', 'raster.nc')
                              if os.path.isdir(truth_raster) else truth_raster
                              for truth_raster in truth_raster_list]
         for proc_raster, truth_raster in zip(proc_raster_list, truth_raster_list):
             if os.path.isfile(proc_raster) and os.path.isfile(truth_raster):
-                sim_scene = Path(proc_raster).parts[-7]
+                if args['pixc_errors_basename'] is not None:
+                    sim_scene = Path(proc_raster).parts[-8]
+                else:
+                    sim_scene = Path(proc_raster).parts[-7]
+
                 if sim_scene in args['exclude_scenes']:
                     print('Not analyzing sim scene: {}'.format(sim_scene))
                     continue
