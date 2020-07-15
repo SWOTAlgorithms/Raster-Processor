@@ -682,7 +682,7 @@ class RasterUTM(Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                    Geodetic longitude [-180,180] (east of the Greenwich meridian)
+                    Geodetic longitude [-180,180) (east of the Greenwich meridian)
                     of the pixel.""")],
             ])],
         ['latitude',
@@ -907,7 +907,7 @@ class RasterGeo(Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                    Geodetic longitude [-180,180] (east of the Greenwich meridian)
+                    Geodetic longitude [-180,180) (east of the Greenwich meridian)
                     of the pixel.""")],
         ])],
         ['latitude',
