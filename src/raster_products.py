@@ -62,7 +62,7 @@ COMMON_ATTRIBUTES = odict([
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str',
+     {'dtype': 'str', 'value':'JPL D-56416 - Initial release - July 16, 2020',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -323,7 +323,7 @@ COMMON_VARIABLES = odict([
                 in the UTC time scale since 1 Jan 2000 00:00:00 UTC.
                 [tai_utc_difference] is the difference between TAI
                 and UTC reference time (seconds) for the first
-                measurement of the data set.If a leap second occurs
+                measurement of the data set. If a leap second occurs
                 within the data set, the attribute leap_second is set
                 to the UTC time at which the leap second occurs.""")],
         ])],
@@ -336,7 +336,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Time of measurement in seconds
                 in the TAI time scale since 1 Jan 2000 00:00:00 TAI.
-                This time scale contains no leap seconds.The
+                This time scale contains no leap seconds. The
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
@@ -703,16 +703,16 @@ class RasterUTM(Product):
         ['water_area_uncert', COMMON_VARIABLES['water_area_uncert'].copy()],
         ['water_frac', COMMON_VARIABLES['water_frac'].copy()],
         ['water_frac_uncert', COMMON_VARIABLES['water_frac_uncert'].copy()],
-        ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['sig0', COMMON_VARIABLES['sig0'].copy()],
         ['sig0_uncert', COMMON_VARIABLES['sig0_uncert'].copy()],
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
-        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
+        ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -721,9 +721,9 @@ class RasterUTM(Product):
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
         ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
-        ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
         ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
+        ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
     for key in COMMON_VARIABLES:
@@ -927,16 +927,16 @@ class RasterGeo(Product):
         ['water_area_uncert', COMMON_VARIABLES['water_area_uncert'].copy()],
         ['water_frac', COMMON_VARIABLES['water_frac'].copy()],
         ['water_frac_uncert', COMMON_VARIABLES['water_frac_uncert'].copy()],
-        ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['sig0', COMMON_VARIABLES['sig0'].copy()],
         ['sig0_uncert', COMMON_VARIABLES['sig0_uncert'].copy()],
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
-        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
+        ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -945,9 +945,9 @@ class RasterGeo(Product):
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
         ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
-        ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
         ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
         ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
+        ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
     for key in COMMON_VARIABLES:
