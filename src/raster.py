@@ -787,7 +787,7 @@ class RasterProcessor(object):
 
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
-            product['illumination_time'].tai_utc_difference = \
+            product.VARIABLES['illumination_time']['tai_utc_difference'] = \
                 self.tai_utc_difference
             product['wse'] = self.wse
             product['wse_uncert'] = self.wse_u
