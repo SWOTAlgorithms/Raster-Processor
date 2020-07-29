@@ -590,8 +590,11 @@ class RasterProcessor(object):
                         pixc_illumination_time_tai[self.proj_mapping[i][j]][good],
                         metric='mean')
 
+        min_illumination_time_index = np.unravel_index(
+            np.argmin(self.illumination_time), self.illumination_time.shape)
         self.tai_utc_difference = \
-            self.illumination_time_tai[0] - self.illumination_time[0]
+            self.illumination_time_tai[min_illumination_time_index] \
+            - self.illumination_time[min_illumination_time_index]
 
     def aggregate_ice_flags(self, pixc, mask):
         # TODO: names likely to change to ice_clim_flag and ice_dyn_flag
@@ -733,9 +736,10 @@ class RasterProcessor(object):
                 product = raster_products.RasterGeo()
 
         current_datetime = datetime.utcnow()
-        product.history = "{:04d}-{:02d}-{:02d}".format(current_datetime.year,
-                                                        current_datetime.month,
-                                                        current_datetime.day)
+        product.history = \
+            "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d} : Creation".format(
+                current_datetime.year, current_datetime.month, current_datetime.day,
+                current_datetime.hour, current_datetime.minute, current_datetime.second)
         product.cycle_number = self.cycle_number
         product.pass_number = self.pass_number
         product.tile_numbers = self.tile_numbers
@@ -799,7 +803,7 @@ class RasterProcessor(object):
 
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
-            product['illumination_time'].tai_utc_difference = \
+            product.VARIABLES['illumination_time']['tai_utc_difference'] = \
                 self.tai_utc_difference
             product['wse'] = self.wse
             product['wse_uncert'] = self.wse_u
