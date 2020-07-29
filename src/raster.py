@@ -638,6 +638,13 @@ class RasterProcessor(object):
         pixc_height_std[np.isinf(pixc_height_std)] = bad_num
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
 
+        # Only aggregate heights for interior water and water edges
+        pixc_klass = pixc['pixel_cloud']['classification']
+        mask = np.logical_and(mask,
+                              np.isin(pixc_klass, np.concatenate((
+                                  self.interior_water_classes,
+                                  self.water_edge_classes))))
+
         self.layover_impact = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
