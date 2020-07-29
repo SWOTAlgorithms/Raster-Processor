@@ -624,14 +624,30 @@ class RasterProcessor(object):
 
     def aggregate_layover_impact(self, pixc, mask):
         pixc_layover_impact = pixc['pixel_cloud']['layover_impact']
+
+        pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
+        pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
+        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
+        # set bad pix height std to high number to deweight
+        # instead of giving infs/nans
+        bad_num = 1.0e5
+        pixc_height_std[pixc_height_std<=0] = bad_num
+        pixc_height_std[np.isinf(pixc_height_std)] = bad_num
+        pixc_height_std[np.isnan(pixc_height_std)] = bad_num
+
         self.layover_impact = np.ma.masked_all((self.size_y, self.size_x))
+
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
-                    self.layover_impact[i][j] = ag.simple(
-                        pixc_layover_impact[self.proj_mapping[i][j]][good],
-                        metric='mean')
+                    grid_height = ag.height_only(
+                        pixc_layover_impact[self.proj_mapping[i][j]],
+                        good,
+                        pixc_height_std[self.proj_mapping[i][j]],
+                        method=self.height_agg_method)
+
+                    self.layover_impact[i][j] = grid_height[0]
 
     def aggregate_corrections(self, pixc, mask):
         pixc_geoid = pixc['pixel_cloud']['geoid']
