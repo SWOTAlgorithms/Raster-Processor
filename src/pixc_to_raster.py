@@ -8,7 +8,8 @@ Author(s): Alexander Corben
 '''
 
 import os
-import rdf
+import ast
+import RDF
 import raster
 import logging
 import argparse
@@ -60,8 +61,8 @@ def main():
                         help='pixcvec input file', default=None)
     args = parser.parse_args()
 
-    alg_cfg = rdf.parse(os.path.abspath(args.alg_config_file), comment='!')
-    rt_cfg = rdf.parse(os.path.abspath(args.runtime_config_file), comment='!')
+    alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
+                                          args.runtime_config_file)
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     if args.pixcvec_file is not None:
@@ -76,6 +77,31 @@ def main():
                                  runtime_config=rt_cfg)
     product = proc.process()
     product.to_ncfile(args.out_file)
+
+def load_raster_configs(alg_config_file, runtime_config_file):
+    alg_cfg = RDF.RDF()
+    alg_cfg.rdfParse(os.path.abspath(alg_config_file))
+    alg_cfg = dict(alg_cfg)
+
+    # Typecast most config values with eval (except strings)
+    for key in alg_cfg.keys():
+        if key in ['height_agg_method', 'area_agg_method',
+                   'height_constrained_geoloc_source',
+                   'lowres_raster_height_constrained_geoloc_method']:
+            continue
+        alg_cfg[key] = ast.literal_eval(alg_cfg[key])
+
+    rt_cfg = RDF.RDF()
+    rt_cfg.rdfParse(os.path.abspath(runtime_config_file))
+    rt_cfg = dict(rt_cfg)
+
+    # Typecast most config values with eval (except strings)
+    for key in rt_cfg.keys():
+        if key in ['output_sampling_grid_type']:
+            continue
+        rt_cfg[key] = ast.literal_eval(rt_cfg[key])
+
+    return alg_cfg, rt_cfg
 
 if __name__ == '__main__':
     main()

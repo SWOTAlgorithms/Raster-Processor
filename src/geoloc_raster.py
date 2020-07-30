@@ -9,15 +9,16 @@ Author(s): Alexander Corben (adapted from geoloc_river)
 '''
 
 import os
-import rdf
 import raster
 import logging
 import argparse
 import numpy as np
+import raster_products
 import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
+from pixc_to_raster import load_raster_configs
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
@@ -150,21 +151,41 @@ def geoloc_raster(pixc_prod, raster_prod, algorithmic_config):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('pixc_file')
     parser.add_argument('raster_file')
-    parser.add_argument('algorithmic_config')
+    parser.add_argument('alg_config_file')
+    parser.add_argument('runtime_config_file')
     parser.add_argument('out_pixc_file')
     args = parser.parse_args()
 
+    alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
+                                          args.runtime_config_file)
+
     pixc_prod = MutableProduct.from_ncfile(args.pixc_file)
-    raster_prod = MutableProduct.from_ncfile(args.raster_file)
-    algorithmic_config = rdf.parse(os.path.abspath(args.algorithmic_config), comment='!')
+
+    if rt_cfg['output_sampling_grid_type'] == 'utm':
+        if alg_cfg['debug_flag']:
+            raster_prod = \
+                raster_products.RasterUTMDebug.from_ncfile(args.raster_file)
+        else:
+            raster_prod = \
+                raster_products.RasterUTM.from_ncfile(args.raster_file)
+    elif rt_cfg['output_sampling_grid_type'] == 'geo':
+        if alg_cfg['debug_flag']:
+            raster_prod = \
+                raster_products.RasterGeoDebug.from_ncfile(args.raster_file)
+        else:
+            raster_prod = \
+                raster_products.RasterGeo.from_ncfile(args.raster_file)
+
     out_lat, out_lon, out_height = geoloc_raster(pixc_prod,
                                                  raster_prod,
-                                                 algorithmic_config)
+                                                 alg_cfg)
+
     pixc_prod['pixel_cloud']['height'][:] = out_height
     pixc_prod['pixel_cloud']['latitude'][:] = out_lat
     pixc_prod['pixel_cloud']['longitude'][:] = out_lon

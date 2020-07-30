@@ -776,8 +776,8 @@ class RasterUTM(Product):
 
         for x in range(0,len(pixc_lats)):
             if mask[x]:
-                i = round((y_tmp[x] - self.y_min) / self.resolution)
-                j = round((x_tmp[x] - self.x_min) / self.resolution)
+                i = int(round((y_tmp[x] - self.y_min) / self.resolution))
+                j = int(round((x_tmp[x] - self.x_min) / self.resolution))
                 # check bounds
                 if (i >= 0 and i < self.dimensions['y'] and
                     j >= 0 and j < self.dimensions['x']):
@@ -978,10 +978,10 @@ class RasterGeo(Product):
 
         for x in range(0, len(pixc_lats)):
             if mask[x]:
-                i = round((pixc_lats[x] - self.latitude_min)
-                          / self.resolution).astype(int)
-                j = round((pixc_lons[x] - self.longitude_min)
-                          / self.resolution).astype(int)
+                i = int(round((pixc_lats[x] - self.latitude_min)
+                              / self.resolution).astype(int))
+                j = int(round((pixc_lons[x] - self.longitude_min)
+                              / self.resolution).astype(int))
                 # check bounds
                 if (i >= 0 and i < self.dimensions['latitude'] and
                     j >= 0 and j < self.dimensions['longitude']):
