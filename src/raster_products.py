@@ -107,7 +107,7 @@ COMMON_ATTRIBUTES = odict([
     ['resolution',
      {'dtype': 'f4',
       'docstr': textjoin("""
-          Raster sampling grid resolution. Units depend on thecoordinate
+          Raster posting grid resolution. Units depend on the coordinate
           reference system.""")}],
     ['time_coverage_start',
      {'dtype': 'str',
