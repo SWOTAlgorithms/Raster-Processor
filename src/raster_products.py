@@ -204,39 +204,37 @@ COMMON_VARIABLES = odict([
     ['wse_uncert',
      odict([['dtype', 'f4'],
             ['long_name',
-             'total uncertainty in the water surface elevation'],
+             'uncertainty estimate of the water surface elevation'],
             ['grid_mapping', 'crs'],
             ['units', 'm'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty in the water surface elevation.""")],
+                1-sigma uncertainty of the water surface elevation.""")],
         ])],
     ['water_area',
      odict([['dtype', 'f4'],
-            ['long_name', 'surface area of detected water'],
+            ['long_name', 'surface area of water'],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
             ['valid_min', -2000000],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Surface area of the detected water pixels.""")],
+                Surface area of the water pixels.""")],
         ])],
     ['water_area_uncert',
      odict([['dtype', 'f4'],
             ['long_name', textjoin("""
-                uncertainty estimate of the surface area of
-                detected water""")],
+                uncertainty estimate of the water surface area""")],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
             ['valid_min', 0],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty in the surface area of the
-                detected water pixels.""")],
+                1-sigma uncertainty of the water surface area.""")],
         ])],
     ['water_frac',
      odict([['dtype', 'f4'],
@@ -247,19 +245,18 @@ COMMON_VARIABLES = odict([
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Estimate of the fraction of the pixel that is
-                water.""")],
+                Fraction of the pixel that is water.""")],
         ])],
     ['water_frac_uncert',
      odict([['dtype', 'f4'],
-            ['long_name', 'water fraction uncertainty'],
+            ['long_name', 'uncertainty estimate of the water fraction'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty estimate of the water fraction estimate.""")],
+                1-sigma uncertainty of the water fraction.""")],
         ])],
     ['sig0',
      odict([['dtype', 'f4'],
@@ -276,17 +273,17 @@ COMMON_VARIABLES = odict([
         ])],
     ['sig0_uncert',
      odict([['dtype', 'f4'],
-            ['long_name', 'uncertainty in sigma0'],
+            ['long_name', 'uncertainty estimate of the sigma0'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 1000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of sigma0. The value is provided in linear
-                units. This value is a one-sigma additive (not multiplicative)
-                uncertainty term, which can be added to or subtracted from
-                sigma0.""")],
+                1-sigma uncertainty of the sigma0. The value is provided in
+                linear units. This value is a one-sigma additive
+                (not multiplicative) uncertainty term, which can be added to or
+                subtracted from sigma0.""")],
         ])],
     ['inc',
      odict([['dtype', 'f4'],
