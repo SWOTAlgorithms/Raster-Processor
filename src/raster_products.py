@@ -430,7 +430,7 @@ COMMON_VARIABLES = odict([
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Estimate of the height error caused by layover.""")],
+                Estimate of the water surface elevation error caused by layover.""")],
         ])],
     ['geoid',
      odict([['dtype', 'f4'],
@@ -518,14 +518,14 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to dry troposphere delay.
-                The reported pixel height, latitude and longitude are
+                The reported water surface elevation, latitude and longitude are
                 computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
-                reported correction to the reported pixel height results
-                in the uncorrected pixel height.""")],
+                reported correction to the reported water surface elevation
+                results in the uncorrected pixel height.""")],
         ])],
     ['model_wet_tropo_cor',
      odict([['dtype', 'f4'],
@@ -539,14 +539,14 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to wet troposphere delay.
-                The reported pixel height, latitude and longitude are
+                The reported water surface elevation, latitude and longitude are
                 computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
-                reported correction to the reported pixel height results
-                in the uncorrected pixel height.""")],
+                reported correction to the reported water surface elevation
+                results in the uncorrected pixel height.""")],
         ])],
     ['iono_cor_gim_ka',
      odict([['dtype', 'f4'],
@@ -560,14 +560,14 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to ionosphere delay.
-                The reported pixel height, latitude and longitude are
+                The reported water surface elevation, latitude and longitude are
                 computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
-                reported correction to the reported pixel height results
-                in the uncorrected pixel height.""")],
+                reported correction to the reported water surface elevation
+                results in the uncorrected pixel height.""")],
         ])],
 ])
 
@@ -894,7 +894,7 @@ class RasterGeo(Product):
                 ['inverse_flattening', 298.257223563],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
-                ['comment', 'WGS84 geodetic lat/lon coordinate reference system.'],
+                ['comment', 'Geodetic lat/lon coordinate reference system.'],
         ])],
         ['longitude',
          odict([['dtype', 'f8'],
