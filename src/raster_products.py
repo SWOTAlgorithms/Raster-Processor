@@ -107,7 +107,7 @@ COMMON_ATTRIBUTES = odict([
     ['resolution',
      {'dtype': 'f4',
       'docstr': textjoin("""
-          Raster posting grid resolution. Units depend on the coordinate
+          Raster sampling grid resolution. Units depend on the coordinate
           reference system.""")}],
     ['time_coverage_start',
      {'dtype': 'str',
@@ -122,19 +122,19 @@ COMMON_ATTRIBUTES = odict([
     ['geospatial_lon_min',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Westernmost longitude (deg) of raster posting grid.""")}],
+          Westernmost longitude (deg) of raster sampling grid.""")}],
     ['geospatial_lon_max',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Easternmost longitude (deg) of raster posting grid.""")}],
+          Easternmost longitude (deg) of raster sampling grid.""")}],
     ['geospatial_lat_min',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Southernmost longitude (deg) of raster posting grid.""")}],
+          Southernmost longitude (deg) of raster sampling grid.""")}],
     ['geospatial_lat_max',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Northernmost longitude (deg) of raster posting grid.""")}],
+          Northernmost longitude (deg) of raster sampling grid.""")}],
     ['left_first_longitude',
      {'dtype': 'f8',
       'docstr': textjoin("""
@@ -203,15 +203,14 @@ COMMON_VARIABLES = odict([
         ])],
     ['wse_uncert',
      odict([['dtype', 'f4'],
-            ['long_name',
-             'uncertainty estimate of the water surface elevation'],
+            ['long_name', 'uncertainty in the water surface elevation'],
             ['grid_mapping', 'crs'],
             ['units', 'm'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of the water surface elevation.""")],
+                1-sigma uncertainty in the water surface elevation.""")],
         ])],
     ['water_area',
      odict([['dtype', 'f4'],
@@ -226,15 +225,14 @@ COMMON_VARIABLES = odict([
         ])],
     ['water_area_uncert',
      odict([['dtype', 'f4'],
-            ['long_name', textjoin("""
-                uncertainty estimate of the water surface area""")],
+            ['long_name', 'uncertainty in the water surface area'],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
             ['valid_min', 0],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of the water surface area.""")],
+                1-sigma uncertainty in the water surface area.""")],
         ])],
     ['water_frac',
      odict([['dtype', 'f4'],
@@ -249,14 +247,14 @@ COMMON_VARIABLES = odict([
         ])],
     ['water_frac_uncert',
      odict([['dtype', 'f4'],
-            ['long_name', 'uncertainty estimate of the water fraction'],
+            ['long_name', 'uncertainty in the water fraction'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of the water fraction.""")],
+                1-sigma uncertainty in the water fraction.""")],
         ])],
     ['sig0',
      odict([['dtype', 'f4'],
@@ -273,14 +271,14 @@ COMMON_VARIABLES = odict([
         ])],
     ['sig0_uncert',
      odict([['dtype', 'f4'],
-            ['long_name', 'uncertainty estimate of the sigma0'],
+            ['long_name', 'uncertainty in sigma0'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 1000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                1-sigma uncertainty of the sigma0. The value is provided in
+                1-sigma uncertainty in sigma0. The value is provided in
                 linear units. This value is a one-sigma additive
                 (not multiplicative) uncertainty term, which can be added to or
                 subtracted from sigma0.""")],
