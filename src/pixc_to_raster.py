@@ -59,6 +59,9 @@ def main():
                         help='output raster file')
     parser.add_argument("-pv", "--pixcvec_file", type=str,
                         help='pixcvec input file', default=None)
+    parser.add_argument("-id", "--intermediate_files_dir", type=str,
+                        help='directory to write out intermediate files',
+                        default=None)
     args = parser.parse_args()
 
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
@@ -76,6 +79,11 @@ def main():
     proc = raster.L2PixcToRaster(pixc=pixc_data, algorithmic_config=alg_cfg,
                                  runtime_config=rt_cfg)
     product = proc.process()
+
+    if args.intermediate_files_dir is not None:
+        proc.pixc.to_ncfile(os.path.join(args.intermediate_files_dir,
+                                         'intermediate_raster_pixc.nc'))
+
     product.to_ncfile(args.out_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
