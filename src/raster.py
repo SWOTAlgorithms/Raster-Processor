@@ -744,7 +744,7 @@ class RasterProcessor(object):
 
         current_datetime = datetime.utcnow()
         product.history = \
-            "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d} : Creation".format(
+            "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z : Creation".format(
                 current_datetime.year, current_datetime.month, current_datetime.day,
                 current_datetime.hour, current_datetime.minute, current_datetime.second)
         product.cycle_number = self.cycle_number
