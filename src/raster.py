@@ -503,8 +503,7 @@ class RasterProcessor(object):
 
     def aggregate_sig0(self, pixc, mask):
         pixc_sig0 = pixc['pixel_cloud']['sig0']
-        pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
-        pixc_num_med_looks = pixc['pixel_cloud']['eff_num_medium_looks']
+        pixc_sig0_uncert = pixc['pixel_cloud']['sig0_uncert']
 
         self.sig0 = np.ma.masked_all((self.size_y, self.size_x))
         self.sig0_u = np.ma.masked_all((self.size_y, self.size_x))
@@ -513,13 +512,12 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
-                    self.sig0[i][j] = ag.simple(
-                        pixc_sig0[self.proj_mapping[i][j]][good], metric='mean')
-                    self.sig0_u[i][j] = ag.height_uncert_std(
-                        pixc_sig0[self.proj_mapping[i][j]],
-                        good,
-                        pixc_num_rare_looks[self.proj_mapping[i][j]],
-                        pixc_num_med_looks[self.proj_mapping[i][j]])
+                    grid_sig0 = ag.sig0_with_uncerts(
+                        pixc_sig0[self.proj_mapping[i][j]], good,
+                        pixc_sig0_uncert[self.proj_mapping[i][j]],
+                        method='rare')
+                    self.sig0[i][j] = grid_sig0[0]
+                    self.sig0_u[i][j] = grid_sig0[2]
 
     def aggregate_inc(self, pixc, mask):
         pixc_inc = pixc['pixel_cloud']['inc']

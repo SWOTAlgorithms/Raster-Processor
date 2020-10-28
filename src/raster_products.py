@@ -1278,6 +1278,7 @@ class RasterPixelCloud(Product):
         ['missed_detection_rate', odict([])],
         ['cross_track', odict([])],
         ['sig0', odict([])],
+        ['sig0_uncert', odict([])],
         ['inc', odict([])],
         ['illumination_time', odict([])],
         ['illumination_time_tai', odict([])],
