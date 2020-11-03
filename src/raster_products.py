@@ -53,7 +53,7 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str',
       'docstr': textjoin("""
           UTC time when file generated. Format is:
-          'YYYY-MM-DD hh:mm:ss : Creation'""")}],
+          'YYYY-MM-DDThh:mm:ssZ : Creation'""")}],
     ['mission_name', {'dtype': 'str' ,'value':'SWOT','docstr': 'SWOT'}],
     ['references',
      {'dtype': 'str',
@@ -109,16 +109,38 @@ COMMON_ATTRIBUTES = odict([
       'docstr': textjoin("""
           Raster sampling grid resolution. Units depend on the coordinate
           reference system.""")}],
+    ['short_name',
+     {'dtype': 'str',
+      'value': 'L2_HR_Raster',
+      'docstr': 'L2_HR_Raster'}],
+    ['crid',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Composite release identifier (CRID) of the data system used to
+          generate this file""")}],
+    ['product_version',
+     {'dtype': 'str',
+      'docstr': 'Version identifier of this data file'}],
+    ['pge_name',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Name of the product generation executable (PGE) that created this
+          file""")}],
+    ['pge_version',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Version identifier of the product generation executable (PGE) that
+          created this file""")}],
     ['time_coverage_start',
      {'dtype': 'str',
       'docstr': textjoin("""
           UTC time of first measurement.
-          Format is: YYYY-MM-DD hh:mm:ss.ssssssZ""")}],
+          Format is: YYYY-MM-DDThh:mm:ss.ssssssZ""")}],
     ['time_coverage_end',
      {'dtype': 'str',
       'docstr': textjoin("""
           UTC time of last measurement.
-          Format is: YYYY-MM-DD hh:mm:ss.ssssssZ""")}],
+          Format is: YYYY-MM-DDThh:mm:ss.ssssssZ""")}],
     ['geospatial_lon_min',
      {'dtype': 'f8',
       'docstr': textjoin("""
@@ -311,7 +333,7 @@ COMMON_VARIABLES = odict([
             ['standard_name','time'],
             ['calendar','gregorian'],
             ['tai_utc_difference', '[Value of TAI-UTC at time of first record]'],
-            ['leap_second','YYYY-MM-DD hh:mm:ss'],
+            ['leap_second','YYYY-MM-DDThh:mm:ssZ'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
                 Time of measurement in seconds
