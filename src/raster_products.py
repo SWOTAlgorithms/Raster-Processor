@@ -623,6 +623,12 @@ class RasterUTM(Product):
           'value':'Universal Transverse Mercator',
           'docstr': COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
+        ['short_name', COMMON_ATTRIBUTES['short_name']],
+        ['descriptor_string', COMMON_ATTRIBUTES['descriptor_string']],
+        ['crid', COMMON_ATTRIBUTES['crid']],
+        ['product_version', COMMON_ATTRIBUTES['product_version']],
+        ['pge_name', COMMON_ATTRIBUTES['pge_name']],
+        ['pge_version', COMMON_ATTRIBUTES['pge_version']],
         ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
         ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
         ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
@@ -851,12 +857,10 @@ class RasterUTM(Product):
 
 class RasterGeo(Product):
     UID = "raster"
-
     DIMENSIONS = odict([
         ['longitude', 0],
         ['latitude', 0]
     ])
-
     ATTRIBUTES = odict([
         ['Conventions', COMMON_ATTRIBUTES['Conventions']],
         ['title', COMMON_ATTRIBUTES['title']],
@@ -878,6 +882,12 @@ class RasterGeo(Product):
           'value':'Geodetic Latitude/Longitude',
           'docstr': COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
+        ['short_name', COMMON_ATTRIBUTES['short_name']],
+        ['descriptor_string', COMMON_ATTRIBUTES['descriptor_string']],
+        ['crid', COMMON_ATTRIBUTES['crid']],
+        ['product_version', COMMON_ATTRIBUTES['product_version']],
+        ['pge_name', COMMON_ATTRIBUTES['pge_name']],
+        ['pge_version', COMMON_ATTRIBUTES['pge_version']],
         ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
         ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
         ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
