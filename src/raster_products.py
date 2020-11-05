@@ -113,6 +113,10 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str',
       'value': 'L2_HR_Raster',
       'docstr': 'L2_HR_Raster'}],
+    ['descriptor_string',
+     {'dtype': 'str',
+      'docstr': '<GridResolution><GridUnits>_<CoordinateSystem>_'
+          + '<GranuleOverlapFlag>_x_x_x'}],
     ['crid',
      {'dtype': 'str',
       'docstr': textjoin("""
