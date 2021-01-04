@@ -57,6 +57,8 @@ def main():
                         'metrics by uncertainties')
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='List of sim scenes to exclude')
+    parser.add_argument('-o', '--outdir', type=str, default=None,
+                        help='List of sim scenes to exclude')
     parser.add_argument('--scatter_plot', action='store_true',
                         help='Flag for plotting old scatterplots')
     args = vars(parser.parse_args())
@@ -140,32 +142,38 @@ def main():
             min_area_pixels=args['min_area_pixels'])
         metrics.append(tile_metrics)
 
-    print('\033[93m' + 'Accumulating Metrics:' + '\033[00m')
+    preamble = '\033[93m' + 'Accumulating Metrics:' + '\033[00m'
     if args['dark_frac_thresh'] is not None:
-        print('\033[93m' + 'Dark frac <= {}'.format(
-            args['dark_frac_thresh']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Dark frac <= {}'.format(
+            args['dark_frac_thresh']) + '\033[00m'
     if args['water_frac_thresh'] is not None:
-        print('\033[93m' + 'Water frac >= {}'.format(
-            args['water_frac_thresh']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Water frac >= {}'.format(
+            args['water_frac_thresh']) + '\033[00m'
     if args['wse_uncert_thresh'] is not None:
-        print('\033[93m' + 'WSE uncert <= {}'.format(
-            args['wse_uncert_thresh']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'WSE uncert <= {}'.format(
+            args['wse_uncert_thresh']) + '\033[00m'
     if args['area_uncert_thresh'] is not None:
-        print('\033[93m' + 'Water area uncert <= {}'.format(
-            args['area_uncert_thresh']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Water area uncert <= {}'.format(
+            args['area_uncert_thresh']) + '\033[00m'
     if args['cross_track_bounds'] is not None:
-        print('\033[93m' + 'Cross track bounds = {}'.format(
-            args['cross_track_bounds']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Cross track bounds = {}'.format(
+            args['cross_track_bounds']) + '\033[00m'
     if args['min_wse_pixels'] is not None:
-        print('\033[93m' + 'Min WSE pixels = {}'.format(
-            args['min_wse_pixels']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Min WSE pixels = {}'.format(
+            args['min_wse_pixels']) + '\033[00m'
     if args['min_area_pixels'] is not None:
-        print('\033[93m' + 'Min water area pixels = {}'.format(
-            args['min_area_pixels']) + '\033[00m')
+        preamble += '\n  \033[93m' + 'Min water area pixels = {}'.format(
+            args['min_area_pixels']) + '\033[00m'
 
+    print(preamble)
+    # check if outdir exists, if not create it
+    if args['outdir'] is not None:
+        if not os.path.exists(args['outdir']):
+            os.makedirs(args['outdir'])
     print_metrics(metrics,
                   weighted=args['weighted'],
-                  scatter_plot=args['scatter_plot'])
+                  scatter_plot=args['scatter_plot'],
+                  outdir=args['outdir'], preamble=preamble)
 
 def load_data(
         proc_raster_file, truth_raster_file, sim_scene='', dark_frac_thresh=None,
@@ -306,7 +314,27 @@ def load_data(
 
 def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                   wse_uncert_thresh=None, cross_track_bounds=None,
-                  weighted=False, scatter_plot=False):
+                  weighted=False, scatter_plot=False,
+                  outdir=None, preamble=None):
+    # setup output fnames
+    table_wse_fname = None
+    table_area_fname = None
+    table_wse_norm_fname = None
+    table_area_norm_fname = None
+    table_wse_g_fname = None
+    table_area_g_fname = None
+    table_wse_g_norm_fname = None
+    table_area_g_norm_fname = None
+    if outdir is not None:
+        # create the outdir if it doesnt exist
+        table_wse_fname = os.path.join(outdir,'table_wse.txt')
+        table_area_fname = os.path.join(outdir,'table_area.txt')
+        table_wse_norm_fname = os.path.join(outdir,'table_wse_norm.txt')
+        table_area_norm_fname = os.path.join(outdir,'table_area_norm.txt')
+        table_wse_g_fname = os.path.join(outdir,'table_wse_global.txt')
+        table_area_g_fname = os.path.join(outdir,'table_area_global.txt')
+        table_wse_g_norm_fname = os.path.join(outdir,'table_wse_global_norm.txt')
+        table_area_g_norm_fname = os.path.join(outdir,'table_area_global_norm.txt')
     # Get pass/fail bounds
     passfail = get_passfail()
 
@@ -326,7 +354,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     else:
         weight_desc = 'unweighted'
 
-    print('Tile metrics (' + weight_desc + ', wse in m):')
+    ttl = 'Tile metrics (' + weight_desc + ', wse in m):'
     wse_keys = ['wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct',
                 'total_wse_pix', 'common_wse_pix_%',
                 'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%',
@@ -339,12 +367,15 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     tile_table_area = {key:tile_table[key] for key in area_keys}
     sort_table(tile_table_wse, '|wse_e_68_pct|')
     sort_table(tile_table_area, '|a_%e_68_pct|')
+    
     SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_wse_fname,
+                                          preamble=preamble+'\n'+ttl)
     SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_area_fname,
+                                          preamble=preamble+'\n'+ttl)
 
-    print('Tile metrics (normalized by uncertainties):')
+    ttl = 'Tile metrics (normalized by uncertainties):'
     wse_keys = ['wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
                 'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix_%',
                 'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%',
@@ -359,9 +390,11 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     sort_table(tile_table_wse, '|wse_e/wse_u_68_pct|')
     sort_table(tile_table_area, '|a_%e/a_%u_68_pct|')
     SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_wse_norm_fname,
+                                          preamble=preamble+'\n'+ttl)
     SWOTRiver.analysis.tabley.print_table(tile_table_area, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_area_norm_fname,
+                                          preamble=preamble+'\n'+ttl)
 
     # Concatenate tiles for global metrics
     all_dark_frac = np.ma.concatenate(tuple(tile_metrics['dark_frac'] for tile_metrics in metrics))
@@ -411,7 +444,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     global_table['uncommon_area_pix_truth_%'] = [uncommon_area_pix_truth_pct]
     global_table['uncommon_area_pix_data_%'] = [uncommon_area_pix_data_pct]
 
-    print('Global metrics (' + weight_desc + ', wse in m):')
+    ttl = 'Global metrics (' + weight_desc + ', wse in m):'
     wse_keys = ['wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct',
                 'total_wse_pix', 'common_wse_pix_%',
                 'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%']
@@ -423,9 +456,11 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     sort_table(global_table_wse, '|wse_e_68_pct|')
     sort_table(global_table_area, '|a_%e_68_pct|')
     SWOTRiver.analysis.tabley.print_table(global_table_wse, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_wse_g_fname,
+                                          preamble=preamble+'\n'+ttl)
     SWOTRiver.analysis.tabley.print_table(global_table_area, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_area_g_fname,
+                                          preamble=preamble+'\n'+ttl)
 
     global_table_weighted = make_global_table(all_wse_err/all_wse_uncert,
                                               all_area_perc_err/all_area_perc_uncert,
@@ -441,7 +476,7 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     global_table_weighted['uncommon_area_pix_truth_%'] = [uncommon_area_pix_truth_pct]
     global_table_weighted['uncommon_area_pix_data_%'] = [uncommon_area_pix_data_pct]
 
-    print('Global metrics (normalized by uncertainties):')
+    ttl = 'Global metrics (normalized by uncertainties):'
     wse_keys = ['wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
                 'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix_%',
                 'uncommon_wse_pix_truth_%', 'uncommon_wse_pix_data_%']
@@ -453,9 +488,11 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
     sort_table(global_table_wse_weighted, '|wse_e/wse_u_68_pct|')
     sort_table(global_table_area_weighted, '|a_%e/a_%u_68_pct|')
     SWOTRiver.analysis.tabley.print_table(global_table_wse_weighted, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_wse_g_norm_fname,
+                                          preamble=preamble+'\n'+ttl)
     SWOTRiver.analysis.tabley.print_table(global_table_area_weighted, precision=5,
-                                          passfail=passfail)
+                                          passfail=passfail, fname=table_area_g_norm_fname,
+                                          preamble=preamble+'\n'+ttl)
 
     metrics_to_plot = {'WSE Error (m)':all_wse_err,
                        'Area Percent Error (%)':all_area_perc_err,
@@ -473,7 +510,8 @@ def print_metrics(metrics, dark_thresh=None, water_thresh=None,
                                'Water Fraction (%)':all_water_frac*100}
 
     plot_metrics(metrics_to_plot, metrics_to_plot_against,
-        uncert_to_plot=uncert_to_plot, sources=all_sim_scenes, scatter_plot=scatter_plot)
+        uncert_to_plot=uncert_to_plot, sources=all_sim_scenes, scatter_plot=scatter_plot,
+        outdir=outdir)
 
 def append_tile_table(tile_metrics, tile_table={},
                       wse_prefix='wse_e_', area_prefix='a_%e_',
@@ -581,10 +619,17 @@ def make_global_table(all_wse_err, all_area_perc_err,
     return global_table
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against,
-                 uncert_to_plot=None, poly=2, sources=None, scatter_plot=False):
+                 uncert_to_plot=None, poly=2, sources=None, scatter_plot=False,
+                 outdir=None):
     warnings.simplefilter("ignore")
     for y_key in metrics_to_plot:
         for x_key in metrics_to_plot_against:
+            # create output names
+            outname = None
+            if outdir is not None:
+                y_str = y_key.split('(')[0].strip().replace(' ','_')
+                x_str = x_key.split('(')[0].strip().replace(' ','_')
+                outname = os.path.join(outdir, '{}_vs_{}.png'.format(y_str, x_str))
             if x_key != y_key:
                 mask = np.logical_and(~np.isnan(metrics_to_plot[y_key]),
                                       ~np.isnan(metrics_to_plot_against[x_key]))
@@ -612,6 +657,8 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                                                    poly=poly, pts=25)
                         plt.plot(x_new, y_new, 'g--')
                         plt.legend(['fit', '68pct fit', 'data'])
+                        if outname is not None:
+                            plt.savefig(outname, dpi=300)
                     except Exception as E:
                         print('Plotting Exception: {}'.format(E))
                 else:
@@ -630,8 +677,11 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                     plt.title('{} vs. {}'.format(y_key, x_key))
                     plt.xlabel(x_key)
                     plt.ylabel(y_key)
+                    if outname is not None:
+                        plt.savefig(outname, dpi=300)
 
-    plt.show()
+    if outdir is None:
+        plt.show()
     warnings.resetwarnings()
 
 def sort_table(table, sort_key):
