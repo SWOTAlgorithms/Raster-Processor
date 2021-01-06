@@ -449,6 +449,9 @@ class RasterProcessor(object):
             WATER_EDGE_KLASS
         tmp_klass[np.isin(pixc_klass, self.land_edge_classes)] = \
             LAND_EDGE_KLASS
+        # Treat dark water as interior water for area calc
+        tmp_klass[np.isin(pixc_klass, self.dark_water_classes)] = \
+            INTERIOR_WATER_KLASS
 
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
@@ -536,27 +539,44 @@ class RasterProcessor(object):
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
 
+        # Aggregate areas using interior water and edges
+        tmp_klass = np.zeros_like(pixc_klass)
+        tmp_klass[np.isin(pixc_klass, self.interior_water_classes)] = \
+            INTERIOR_WATER_KLASS
+        tmp_klass[np.isin(pixc_klass, self.water_edge_classes)] = \
+            WATER_EDGE_KLASS
+        tmp_klass[np.isin(pixc_klass, self.land_edge_classes)] = \
+            LAND_EDGE_KLASS
+        # Treat dark water as interior water for area calc
+        dark_mask = np.isin(pixc_klass, self.dark_water_classes)
+        tmp_klass[dark_mask] = INTERIOR_WATER_KLASS
+
         self.dark_frac = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
-                    self.dark_frac[i][j] = self.calc_dark_frac(
-                        pixc_pixel_area[self.proj_mapping[i][j]][good],
-                        pixc_klass[self.proj_mapping[i][j]][good],
-                        pixc_water_fraction[self.proj_mapping[i][j]][good])
+                    good_dark = np.logical_and(
+                        dark_mask[self.proj_mapping[i][j]], good)
+                    dark_area = ag.simple(
+                        pixc_pixel_area[self.proj_mapping[i][j]][good_dark],
+                        metric='sum')
+                    total_area, _ = ag.area_only(
+                        pixc_pixel_area[self.proj_mapping[i][j]],
+                        pixc_water_fraction[self.proj_mapping[i][j]],
+                        tmp_klass[self.proj_mapping[i][j]],
+                        good,
+                        method=self.area_agg_method,
+                        interior_water_klass=INTERIOR_WATER_KLASS,
+                        water_edge_klass=WATER_EDGE_KLASS,
+                        land_edge_klass=LAND_EDGE_KLASS)
 
-    def calc_dark_frac(self, pixel_area, klass, water_frac):
-        klass_dark = np.isin(klass, self.dark_water_classes)
-        dark_area = np.sum(pixel_area[klass_dark]*water_frac[klass_dark])
-        total_area = np.sum(pixel_area*water_frac)
-
-        # If we don't have any water at all, we have no dark water...
-        if np.sum(total_area)==0:
-            return 0
-
-        return dark_area/total_area
+                    # If we don't have any water at all, we have no dark water...
+                    if total_area==0:
+                        self.dark_frac[i][j] = 0
+                    else:
+                        self.dark_frac[i][j] = dark_area/total_area
 
     def aggregate_classification(self, pixc, mask):
         pixc_klass = pixc['pixel_cloud']['classification']
@@ -595,7 +615,6 @@ class RasterProcessor(object):
             - self.illumination_time[min_illumination_time_index]
 
     def aggregate_ice_flags(self, pixc, mask):
-        # TODO: names likely to change to ice_clim_flag and ice_dyn_flag
         pixc_ice_clim_flag = pixc['pixel_cloud']['ice_clim_flag']
         pixc_ice_dyn_flag = pixc['pixel_cloud']['ice_dyn_flag']
 

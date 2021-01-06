@@ -12,6 +12,15 @@ import mpl_scatter_density
 from metrics import compute_metrics_from_error
 from collections import Counter
 
+def nanmean_masked(value):
+    # TODO: this is a hack to fix a bug in nanmean with fully masked arrays...
+    unmasked_value = value[~value.mask]
+    if len(unmasked_value)!=0:
+        out = np.nanmean(unmasked_value)
+    else:
+        out = np.nan
+    return out
+
 def get_top_sources(x_in, y_in, sources_in, bins_x, bins_y, n=3):
     """
     gets the n top sources for data in each bin
@@ -120,7 +129,7 @@ def scatter_density(x_in, y_in,
         if uncert is not None:
             if len(uncert[msk])>0:
                 unc_med.append(np.nanmedian(uncert[msk]))
-                unc.append(np.nanmean(uncert[msk]))
+                unc.append(nanmean_masked(uncert[msk]))
             else:
                 unc_med.append(np.nan)
                 unc.append(np.nan)
