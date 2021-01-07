@@ -398,12 +398,14 @@ class RasterProcessor(object):
                                                pixc_tvp_index,
                                                pixc_wavelength)
 
-        # Only aggregate heights for interior water and water edges
+        # Only aggregate heights for interior water, water edges,
+        # and dark water
         pixc_klass = pixc['pixel_cloud']['classification']
         mask = np.logical_and(mask,
                               np.isin(pixc_klass, np.concatenate((
                                   self.interior_water_classes,
-                                  self.water_edge_classes))))
+                                  self.water_edge_classes,
+                                  self.dark_water_classes))))
 
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
