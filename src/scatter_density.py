@@ -9,17 +9,8 @@ Author(s): Brent Williams
 import numpy as np
 import matplotlib.pyplot as plt
 import mpl_scatter_density
-from metrics import compute_metrics_from_error
+from metrics import compute_metrics_from_error, nanmean_masked
 from collections import Counter
-
-def nanmean_masked(value):
-    # TODO: this is a hack to fix a bug in nanmean with fully masked arrays...
-    unmasked_value = value[~value.mask]
-    if len(unmasked_value)!=0:
-        out = np.nanmean(unmasked_value)
-    else:
-        out = np.nan
-    return out
 
 def get_top_sources(x_in, y_in, sources_in, bins_x, bins_y, n=3):
     """

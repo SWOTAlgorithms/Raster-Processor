@@ -312,9 +312,7 @@ def load_data(
 
     return tile_metrics
 
-def print_metrics(metrics, dark_thresh=None, water_thresh=None,
-                  wse_uncert_thresh=None, cross_track_bounds=None,
-                  weighted=False, scatter_plot=False,
+def print_metrics(metrics, weighted=False, scatter_plot=False,
                   outdir=None, preamble=None):
     # setup output fnames
     table_wse_fname = None

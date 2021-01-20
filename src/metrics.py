@@ -79,3 +79,12 @@ def compute_metrics_from_error(err_array, weights=None, mask=None):
                                                       weights=weights)
 
     return error_metrics
+
+def nanmean_masked(value):
+    # TODO: this is a hack to fix a bug in nanmean with fully masked arrays...
+    unmasked_value = value[~value.mask]
+    if len(unmasked_value)!=0:
+        out = np.nanmean(unmasked_value)
+    else:
+        out = np.nan
+    return out
