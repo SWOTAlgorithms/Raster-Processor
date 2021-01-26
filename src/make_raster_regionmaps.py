@@ -236,6 +236,7 @@ def proc_catcher(proc_raster, truth_raster, proc_raster_regionmaps,
     except Exception as e:
         print('Unable to create region maps for {} {}'.format(
             sim_scene, sim_tile))
+        print(e)
         raise e
 
 def single_tile_regionmaps(proc_raster, truth_raster,
@@ -250,7 +251,6 @@ def single_tile_regionmaps(proc_raster, truth_raster,
         print('Proc raster regionmaps file exists for {}/{}, skipping...'.format(
             sim_scene, sim_tile))
     else:
-        print(dummy_var)
         print('Making proc raster regionmaps for {}/{}'.format(
             sim_scene, sim_tile))
         proc_alg_cfg, rt_cfg = load_raster_configs(proc_alg_config,
