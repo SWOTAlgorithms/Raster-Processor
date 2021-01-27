@@ -201,16 +201,24 @@ COMMON_ATTRIBUTES = odict([
       'docstr': textjoin("""
           Nominal swath corner longitude for the last range line and right edge
           of the swath (degrees_north).""")}],
-    ['xref_input_l2_hr_pixc_files',
+    ['xref_l2_hr_pixc_files',
      {'dtype': 'str',
       'docstr': textjoin("""
-          List of input Level 2 KaRIn high rate water mask pixel cloud product
-          files.""")}],
-    ['xref_input_l2_hr_pixcvec_files',
+          Names of input Level 2 high rate water mask pixel cloud files.""")}],
+    ['xref_l2_hr_pixcvec_files',
      {'dtype': 'str',
       'docstr': textjoin("""
-          List of input Level 2 KaRIn high rate pixel cloud vector attribute
+          Names of input Level 2 high rate pixel cloud vector attribute
           files.""")}],
+    ['xref_param_l2_hr_raster_file',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Name of input Level 2 high rate raster processor configuration
+          parameters file.""")}],
+    ['xref_reforbittrack_files',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Names of input reference orbit track files.""")}],
 ])
 
 COMMON_VARIABLES = odict([
