@@ -54,7 +54,7 @@ COMMON_ATTRIBUTES = odict([
       'docstr': textjoin("""
           UTC time when file generated. Format is:
           'YYYY-MM-DDThh:mm:ssZ : Creation'""")}],
-    ['mission_name', {'dtype': 'str' ,'value':'SWOT','docstr': 'SWOT'}],
+    ['platform', {'dtype': 'str' ,'value':'SWOT','docstr': 'SWOT'}],
     ['references',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -62,7 +62,7 @@ COMMON_ATTRIBUTES = odict([
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'JPL D-56416 - Initial release - July 16, 2020',
+     {'dtype': 'str', 'value':'JPL D-56416 - Revision A (DRAFT) - January 27, 2021',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -616,7 +616,7 @@ class RasterUTM(Product):
         ['institution', COMMON_ATTRIBUTES['institution']],
         ['source', COMMON_ATTRIBUTES['source']],
         ['history', COMMON_ATTRIBUTES['history']],
-        ['mission_name', COMMON_ATTRIBUTES['mission_name']],
+        ['platform', COMMON_ATTRIBUTES['platform']],
         ['references', COMMON_ATTRIBUTES['references']],
         ['reference_document', COMMON_ATTRIBUTES['reference_document']],
         ['contact', COMMON_ATTRIBUTES['contact']],
@@ -651,8 +651,10 @@ class RasterUTM(Product):
         ['right_first_latitude', COMMON_ATTRIBUTES['right_first_latitude']],
         ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
         ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
-        ['xref_input_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixc_files']],
-        ['xref_input_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixcvec_files']],
+        ['xref_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_l2_hr_pixc_files']],
+        ['xref_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
+        ['xref_param_l2_hr_raster_file', COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
+        ['xref_reforbittrack_files', COMMON_ATTRIBUTES['xref_reforbittrack_files']],
         ['utm_zone_num', {'dtype': 'i2',
                           'docstr': 'UTM zone number.'}],
         ['mgrs_latitude_band', {'dtype': 'str',
@@ -666,6 +668,7 @@ class RasterUTM(Product):
         ['y_max', {'dtype': 'f8',
                    'docstr': 'Projected maximum y (northing) coordinate.'}],
     ])
+
     VARIABLES = odict([
         ['crs',
          odict([['dtype', 'S1'],
@@ -875,7 +878,7 @@ class RasterGeo(Product):
         ['institution', COMMON_ATTRIBUTES['institution']],
         ['source', COMMON_ATTRIBUTES['source']],
         ['history', COMMON_ATTRIBUTES['history']],
-        ['mission_name', COMMON_ATTRIBUTES['mission_name']],
+        ['platform', COMMON_ATTRIBUTES['platform']],
         ['references', COMMON_ATTRIBUTES['references']],
         ['reference_document', COMMON_ATTRIBUTES['reference_document']],
         ['contact', COMMON_ATTRIBUTES['contact']],
@@ -910,8 +913,10 @@ class RasterGeo(Product):
         ['right_first_latitude', COMMON_ATTRIBUTES['right_first_latitude']],
         ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
         ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
-        ['xref_input_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixc_files']],
-        ['xref_input_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_input_l2_hr_pixcvec_files']],
+        ['xref_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_l2_hr_pixc_files']],
+        ['xref_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
+        ['xref_param_l2_hr_raster_file', COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
+        ['xref_reforbittrack_files', COMMON_ATTRIBUTES['xref_reforbittrack_files']],
         ['longitude_min', {'dtype': 'f8',
                            'docstr': 'Minimum longitude coordinate.'}],
         ['longitude_max', {'dtype': 'f8',
@@ -1228,9 +1233,9 @@ class RasterPixc(Product):
             tile.time_coverage_start, '%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
         end_times = [datetime.strptime(
             tile.time_coverage_end,'%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
-        raster_pixc.cycle_number = cycle_number.astype('i2')
-        raster_pixc.pass_number = pass_number.astype('i2')
-        raster_pixc.scene_number = scene_number.astype('i2')
+        raster_pixc.cycle_number = np.short(cycle_number)
+        raster_pixc.pass_number = np.short(pass_number)
+        raster_pixc.scene_number = np.short(scene_number)
 
         swath_sides = [tile_name[-1] for tile in tile_objs
                        for tile_name in tile.tile_names]

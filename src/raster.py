@@ -171,9 +171,9 @@ class RasterProcessor(object):
 
         if projection_type=='geo':
             # Geodetic resolution is given in arcsec
-            self.resolution = resolution/(60*60)
+            self.resolution = np.float(resolution/(60*60))
         elif projection_type=='utm':
-            self.resolution = resolution
+            self.resolution = np.float(resolution)
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
         else:
@@ -332,7 +332,7 @@ class RasterProcessor(object):
         self.size_x = int(round((x_max - x_min) / self.resolution)) + 1
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
         if self.projection_type=='utm':
-            self.utm_zone = utm_zone
+            self.utm_zone = np.short(utm_zone)
             self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
             self.mgrs_band = mgrs_band
 
