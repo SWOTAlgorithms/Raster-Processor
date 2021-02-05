@@ -370,7 +370,7 @@ COMMON_VARIABLES = odict([
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
     ['raster_qual',
-     odict([['dtype', 'i1'],
+     odict([['dtype', 'u1'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good bad'],
