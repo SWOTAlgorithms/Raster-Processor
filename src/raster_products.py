@@ -1228,9 +1228,9 @@ class RasterPixc(Product):
             tile.time_coverage_start, '%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
         end_times = [datetime.strptime(
             tile.time_coverage_end,'%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
-        raster_pixc.cycle_number = cycle_number
-        raster_pixc.pass_number = pass_number
-        raster_pixc.scene_number = scene_number
+        raster_pixc.cycle_number = cycle_number.astype('i2')
+        raster_pixc.pass_number = pass_number.astype('i2')
+        raster_pixc.scene_number = scene_number.astype('i2')
 
         swath_sides = [tile_name[-1] for tile in tile_objs
                        for tile_name in tile.tile_names]
@@ -1240,10 +1240,12 @@ class RasterPixc(Product):
 
         raster_pixc.tile_numbers = [tile_num for i in sort_indices
                                     for tile_num in tile_objs[i].tile_numbers]
-        raster_pixc.tile_names = [tile_name for i in sort_indices
-                                  for tile_name in tile_objs[i].tile_names]
-        raster_pixc.tile_polarizations = [tile_pol for i in sort_indices
-                                          for tile_pol in tile_objs[i].tile_polarizations]
+        raster_pixc.tile_names = ', '.join(
+            [tile_name for i in sort_indices
+             for tile_name in tile_objs[i].tile_names])
+        raster_pixc.tile_polarizations =', '.join(
+            [tile_pol for i in sort_indices
+             for tile_pol in tile_objs[i].tile_polarizations])
         raster_pixc.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
         raster_pixc.time_coverage_end = end_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
 
