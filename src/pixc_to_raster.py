@@ -24,17 +24,20 @@ description:
     parameters in algorithmic and runtime config files
 
 example algorithmic config parameters:
+    max_cross_track_distance                        (-) = 64e3
     padding                                         (-) = 0
-    interior_water_classes                          (-) = [4, 24]
-    water_edge_classes                              (-) = [3, 23]
-    land_edge_classes                               (-) = [2, 22]
-    dark_water_classes                              (-) = [22, 23, 24]
+    interior_water_classes                          (-) = [4]
+    water_edge_classes                              (-) = [3]
+    land_edge_classes                               (-) = [2]
+    dark_water_classes                              (-) = [5, 23, 24]
     height_agg_method                               (-) = weight
     area_agg_method                                 (-) = composite
     height_constrained_geoloc_source                (-) = lowres_raster
     lowres_raster_height_constrained_geoloc_method  (-) = taylor
     lowres_raster_scale_factor                      (-) = 0.2
     debug_flag                                      (-) = False
+    allow_arbitrary_resolution                      (-) = False
+    write_intermediate_files                        (-) = False
 
 example runtime config parameters:
     raster_resolution           (-) = 100

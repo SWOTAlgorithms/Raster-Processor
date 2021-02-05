@@ -56,7 +56,7 @@ COMMON_ATTRIBUTES = odict([
           'YYYY-MM-DDThh:mm:ssZ : Creation'""")}],
     ['platform', {'dtype': 'str' ,'value':'SWOT','docstr': 'SWOT'}],
     ['references',
-     {'dtype': 'str',
+     {'dtype': 'str', 'value': 'https://github.com/SWOTAlgorithms/Raster-Processor',
       'docstr': textjoin("""
           Published or web-based references that describe
           the data or methods used to product it. Provides version number of

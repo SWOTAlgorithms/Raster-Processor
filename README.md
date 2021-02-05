@@ -6,15 +6,22 @@ This document describes the conversion of variables from SWOT pixel-cloud data p
 
 _2. How to setup and run the software_
 
-The software consists of three files (pixc_to_raster.py, raster.py and raster_products.py). To run the processor, use the 'pixc_to_raster.py’ command. All parameters for running the software should configured with an .rdf file used as input to pixc_to_raster.py. Example configuration parameters are listed below: 
+The software consists of three files (pixc_to_raster.py, raster.py and raster_products.py). To run the processor, use the 'pixc_to_raster.py’ command. All parameters for running the software should configured with an .rdf file used as input to pixc_to_raster.py. Example configuration parameters are listed below:
 
- - projection_type           (-) = utm
- - resolution                (-) = 100
- - interior_water_classes    (-) = [4, 24]
- - water_edge_classes        (-) = [3, 23]
- - land_edge_classes         (-) = [2, 22]
- - height_agg_method         (-) = weight
- - area_agg_method           (-) = composite
+ - max_cross_track_distance                        (-) = 64e3
+ - padding                                         (-) = 0
+ - interior_water_classes                          (-) = [4]
+ - water_edge_classes                              (-) = [3]
+ - land_edge_classes                               (-) = [2]
+ - dark_water_classes                              (-) = [5, 23, 24]
+ - height_agg_method                               (-) = weight
+ - area_agg_method                                 (-) = composite
+ - height_constrained_geoloc_source                (-) = lowres_raster
+ - lowres_raster_height_constrained_geoloc_method  (-) = taylor
+ - lowres_raster_scale_factor                      (-) = 0.2
+ - debug_flag                                      (-) = False
+ - allow_arbitrary_resolution                      (-) = False
+ - write_intermediate_files                        (-) = False
 
 The software is dependent on the open source RiverObs code at: https://github.com/SWOTAlgorithms/RiverObs
 
@@ -51,7 +58,7 @@ _3.3 Cross-track distances_
 
 The aggregation of cross crack distances is similar with water height in 3.1. A simple average is chosen to aggregate the cross-track distances from pixel-cloud pixels to raster grids.
 
-Appendix  
+Appendix
 
 Output in raster product	Input from pixel-cloud product
 height 	height, pixel classification
