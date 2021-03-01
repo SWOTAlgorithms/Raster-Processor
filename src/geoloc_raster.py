@@ -18,29 +18,39 @@ import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
+from raster_products import RasterPixc
 from pixc_to_raster import load_raster_configs
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
+LOGGER = logging.getLogger(__name__)
+
 class GeolocRaster(object):
-    """
-        class GeolocRaster
-    """
     def __init__(self, pixc, raster, algorithmic_config):
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.info("GeolocRaster initialization")
+        LOGGER.info("GeolocRaster::init")
 
         self.pixc = pixc
         self.raster = raster
         self.algorithmic_config = algorithmic_config
 
+    def process(self):
+        """ Do improved raster geolocation """
+        LOGGER.info("GeolocRaster::process")
+
+        self.update_heights_from_raster()
+        self.apply_improved_geoloc()
+
+        return (self.out_lat_corr,
+                self.out_lon_corr,
+                self.out_height_corr)
+
     def update_heights_from_raster(self):
-        """
-        Update pixelcloud heights from raster
-        """
+        """ Update pixelcloud heights from raster """
+        LOGGER.info("GeolocRaster::update_heights_from_raster")
+
         self.new_height = self.pixc['pixel_cloud']['height'].copy()
 
-        pixc_mask = raster.get_pixc_mask(self.pixc)
+        pixc_mask = self.pixc.get_valid_mask(use_improved_geoloc=False)
         pixc_mask = np.logical_and(
             pixc_mask,
             np.isin(self.pixc['pixel_cloud']['classification'],
@@ -61,6 +71,8 @@ class GeolocRaster(object):
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
+        LOGGER.info("GeolocRaster::apply_improved_geoloc")
+
         method = self.algorithmic_config[ \
             'lowres_raster_height_constrained_geoloc_method']
         if method == 'taylor':
@@ -70,9 +82,9 @@ class GeolocRaster(object):
             raise service_error.ParameterError("apply_improved_geoloc", message)
 
     def taylor_improved_geoloc(self):
-        """
-        Improve the height of noisy point (in object sensor)
-        """
+        """ Improve the height of noisy point (in object sensor) """
+        LOGGER.info("GeolocRaster::taylor_improved_geoloc")
+
         nb_pix = self.pixc['pixel_cloud']['height'].size
         # Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
         x, y, z = geoloc.convert_llh2ecef(self.pixc['pixel_cloud']['latitude'],
@@ -138,18 +150,6 @@ class GeolocRaster(object):
         self.out_lat_corr, self.out_lon_corr, self.out_height_corr = np.transpose(p_final_llh)
 
 
-def geoloc_raster(pixc_prod, raster_prod, algorithmic_config):
-    """ Improved raster geolocation """
-    geoloc_raster = GeolocRaster(pixc_prod, raster_prod, algorithmic_config)
-    # Do the improved raster geolocation
-    logger = logging.getLogger()
-    logger.info("Improved geolocation")
-    geoloc_raster.update_heights_from_raster()
-    geoloc_raster.apply_improved_geoloc()
-
-    return geoloc_raster.out_lat_corr, geoloc_raster.out_lon_corr, geoloc_raster.out_height_corr
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
@@ -165,7 +165,8 @@ if __name__ == "__main__":
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
                                           args.runtime_config_file)
 
-    pixc_prod = MutableProduct.from_ncfile(args.pixc_file)
+    pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
+    pixc_prod = RasterPixc.from_tile(pixc_tile, None)
 
     if rt_cfg['output_sampling_grid_type'] == 'utm':
         if alg_cfg['debug_flag']:
@@ -182,9 +183,8 @@ if __name__ == "__main__":
             raster_prod = \
                 raster_products.RasterGeo.from_ncfile(args.raster_file)
 
-    out_lat, out_lon, out_height = geoloc_raster(pixc_prod,
-                                                 raster_prod,
-                                                 alg_cfg)
+    geolocator = Geoloc_raster(pixc_prod, raster_prod, alg_cfg)
+    out_lat, out_lon, out_height = geolocator.process()
 
     pixc_prod['pixel_cloud']['height'][:] = out_height
     pixc_prod['pixel_cloud']['latitude'][:] = out_lat

@@ -23,7 +23,7 @@ SWOT_EPOCH = datetime(2000, 1, 1)
 LOGGER = logging.getLogger(__name__)
 
 def textjoin(text):
-    """Dedent join and strip text"""
+    """ Dedent join and strip text """
     text = textwrap.dedent(text)
     text = text.replace('\n', ' ')
     text = text.strip()
@@ -779,7 +779,9 @@ class RasterUTM(Product):
     VARIABLES['crs']['dimensions'] = odict([])
 
     def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
-        LOGGER.info('Getting raster mapping')
+        """ Get the mapping of pixc points to raster bins """
+        LOGGER.info('RasterUTM::get_raster_mapping')
+
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
             lon_keyword = 'improved_longitude'
@@ -824,7 +826,9 @@ class RasterUTM(Product):
         return mapping_tmp
 
     def crop_to_bounds(self, swath_polygon_points):
-        """Crops a raster to the given swath polygon"""
+        """ Crop raster to the given swath polygon """
+        LOGGER.info('RasterUTM::crop_to_bounds')
+
         # Convert polygon points to UTM
         input_crs = raster_crs.wgs84_crs()
         output_crs = raster_crs.utm_crs(self.utm_zone_num,
@@ -851,6 +855,9 @@ class RasterUTM(Product):
                     self.variables[var].mask, np.logical_not(mask))
 
     def get_uncorrected_height(self):
+        """ Get the height with wse geophysical corrections removed """
+        LOGGER.info('RasterUTM::get_uncorrected_height')
+
         height = self.wse + (
             self.geoid +
             self.solid_earth_tide +
@@ -859,6 +866,8 @@ class RasterUTM(Product):
         return height
 
     def is_empty(self):
+        """ Check if the raster is empty """
+
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
             if np.logical_not(var_data.mask.all()):
@@ -1003,7 +1012,9 @@ class RasterGeo(Product):
     VARIABLES['crs']['dimensions'] = odict([])
 
     def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
-        LOGGER.info('Getting raster mapping')
+        """ Get the mapping of pixc points to raster bins """
+        LOGGER.info('RasterGeo::get_raster_mapping')
+
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
             lon_keyword = 'improved_longitude'
@@ -1034,7 +1045,9 @@ class RasterGeo(Product):
         return mapping_tmp
 
     def crop_to_bounds(self, swath_polygon_points):
-        """Crops a raster to the given swath polygon"""
+        """ Crop raster to the given swath polygon """
+        LOGGER.info('RasterGeo::crop_to_bounds')
+
         poly = Polygon(swath_polygon_points)
 
         # Check whether each pixel center is within the polygon
@@ -1063,6 +1076,9 @@ class RasterGeo(Product):
         self.time_coverage_end = stop_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
 
     def get_uncorrected_height(self):
+        """ Get the height with wse geophysical corrections removed """
+        LOGGER.info('RasterGeo::get_uncorrected_height')
+
         height = self.wse + (
             self.geoid +
             self.solid_earth_tide +
@@ -1071,6 +1087,8 @@ class RasterGeo(Product):
         return height
 
     def is_empty(self):
+        """ Check if the raster is empty """
+
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
             if np.logical_not(var_data.mask.all()):
@@ -1153,7 +1171,9 @@ class RasterPixc(Product):
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
-        """Constructs self from a single pixc tile (and associated pixcvec tile)"""
+        """ Construct self from a single pixc tile (and associated pixcvec tile) """
+        LOGGER.info('RasterPixc::from_tile')
+
         raster_pixc = cls()
 
         # Copy over attributes
@@ -1215,9 +1235,11 @@ class RasterPixc(Product):
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
                    start_time, end_time, cycle_number, pass_number,
                    scene_number, pixcvec_tiles=None):
-        """Constructs self from a list of pixc tiles (and associated pixcvec
+        """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
-           with pixc_tiles or be None."""
+           with pixc_tiles or be None. """
+        LOGGER.info('RasterPixc::from_tiles')
+
         num_tiles = len(pixc_tiles)
         if pixcvec_tiles is None:
             pixcvec_tiles = [None]*num_tiles
@@ -1285,8 +1307,43 @@ class RasterPixc(Product):
         raster_pixc.geospatial_lon_max = max(lons)
         return raster_pixc
 
+    def get_valid_mask(self, use_improved_geoloc=True):
+        """ Get a mask of valid pixc points """
+        LOGGER.info('RasterPixc::get_valid_mask')
+
+        #TODO: Update this for pixc qual flagging.
+        if use_improved_geoloc:
+            lat_keyword = 'improved_latitude'
+            lon_keyword = 'improved_longitude'
+        else:
+            lat_keyword = 'latitude'
+            lon_keyword = 'longitude'
+
+        lats = self.pixel_cloud[lat_keyword]
+        lons = self.pixel_cloud[lon_keyword]
+        klass = self.pixel_cloud['classification']
+        pixc_qual = self.pixel_cloud['pixc_qual']
+        mask = np.ones(np.shape(lats))
+
+        if np.ma.is_masked(lats):
+            mask[lats.mask] = 0
+        if np.ma.is_masked(lons):
+            mask[lons.mask] = 0
+
+        mask[np.isnan(lats)] = 0
+        mask[np.isnan(lons)] = 0
+        mask[np.isnan(klass)] = 0
+        mask[pixc_qual] = 0
+
+        # bounds for valid utm TODO: PROBABLY CAN REMOVE THIS NOW
+        mask[lats >= 84.0] = 0
+        mask[lats <= -80.0] = 0
+
+        return mask==1
+
     def __add__(self, other):
-        """Adds other to self"""
+        """ Add other to self """
+
         klass = RasterPixc()
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
@@ -1344,15 +1401,16 @@ class RasterPixelCloud(Product):
         ['model_dry_tropo_cor', odict([])],
         ['model_wet_tropo_cor', odict([])],
         ['iono_cor_gim_ka', odict([])],
-        ['pixc_qual', odict([])], # TODO: implement qual checks in raster proc
+        ['pixc_qual', odict([])],
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = DIMENSIONS
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
-        """Constructs self from a single pixc pixelcloud tile,
-           (and matching pixcvec tile)"""
+        """ Construct self from a single pixc tile (and associated pixcvec tile) """
+        LOGGER.info('RasterPixelCloud::from_tile')
+
         raster_pixel_cloud = cls()
 
         # Copy common pixc variables
@@ -1382,7 +1440,7 @@ class RasterPixelCloud(Product):
         return raster_pixel_cloud
 
     def __add__(self, other):
-        """adds other to self"""
+        """ Add other to self """
         klass = RasterPixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
@@ -1420,7 +1478,9 @@ class RasterTVP(Product):
 
     @classmethod
     def from_tile(cls, pixc_tile):
-        """Constructs self from a single pixc tvp tile"""
+        """ Construct self from a single pixc tile """
+        LOGGER.info('RasterTVP::from_tile')
+
         raster_tvp = cls()
 
         # Copy common variables
@@ -1439,7 +1499,8 @@ class RasterTVP(Product):
         return raster_tvp
 
     def __add__(self, other):
-        """Adds other to self"""
+        """ Add other to self """
+
         # discard overlapping TVP records
         time = np.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)

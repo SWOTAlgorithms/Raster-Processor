@@ -12,12 +12,10 @@ import argparse
 import numpy as np
 from osgeo import osr
 
-LOGGER = logging.getLogger(__name__)
-
 EARTH_RAD = 6378137 # As defined in granule/sampling doc
 WGS84_ID = 4326
 UTM_NUM_ZONES = 60
-MGRS_VALID_BANDS = "CDEFGHJKLMNPQRSTUVWXX"
+MGRS_VALID_BANDS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 def wgs84_px_area(center_lat, px_size):
     # Calculates the area of a pixel by getting the total area between
@@ -66,12 +64,39 @@ def utm_zone_from_latlon(latitude, longitude):
     return int((longitude + 180) / 6) + 1
 
 
-def mgrs_band_from_lat(latitude):
-    # Gets the MGRS band for a given lat (Doesn't handle polar bands)
+def mgrs_band_from_latlon(latitude, longitude):
+    # Gets the MGRS band for a given lat/lon
     if -80 <= latitude <= 84:
-        return MGRS_VALID_BANDS[int(latitude + 80) >> 3]
+        return MGRS_VALID_BANDS[2 + (int(latitude + 80) >> 3)]
+    elif latitude < -80:
+        if longitude < 0:
+            return 'A'
+        else:
+            return 'B'
+    elif longitude > 84:
+        if longitude < 0:
+            return 'Y'
+        else:
+            return 'Z'
     else:
         return None
+
+
+def mgrs_band_shift(mgrs_band, shift, longitude):
+    # Shifts an mgrs band by a given number of steps
+    band_num = MGRS_VALID_BANDS.find(mgrs_band) + shift
+    if band_num < MGRS_VALID_BANDS.find('C'):
+        if longitude < 0:
+            return 'A'
+        else:
+            return 'B'
+    elif band_num > MGRS_VALID_BANDS.find('X'):
+        if longitude < 0:
+            return 'Y'
+        else:
+            return 'Z'
+    else:
+        return MGRS_VALID_BANDS[band_num]
 
 
 def hemisphere_from_mgrs_band(mgrs_band):

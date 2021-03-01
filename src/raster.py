@@ -20,24 +20,28 @@ from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
-LOGGER = logging.getLogger(__name__)
-
 # Internal class values used in area aggregation
 TMP_INTERIOR_WATER_KLASS = 1
 TMP_WATER_EDGE_KLASS = 2
 TMP_LAND_EDGE_KLASS = 3
 TMP_DARK_WATER_KLASS = 4
 
+LOGGER = logging.getLogger(__name__)
+
 class L2PixcToRaster(object):
-    '''Turns PixelClouds into Rasters'''
     def __init__(self, pixc=None, polygon_points=None,
                  algorithmic_config=None, runtime_config=None):
+        LOGGER.info("L2PixcToRaster::init")
+
         self.pixc = pixc
         self.polygon_points = polygon_points
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
 
     def process(self):
+        """ Process L2Pixc to Raster """
+        LOGGER.info("L2PixcToRaster::process")
+
         # Get height-constrained geolocation as specified in config:
         # "none" - we want to use non-improved geoloc
         # "lowres_raster" - we want to get height constrained geolocation using
@@ -68,7 +72,9 @@ class L2PixcToRaster(object):
         return product
 
     def do_height_constrained_geolocation(self):
-        LOGGER.info('Rasterizing for height-constrained geolocation')
+        """ Do raster height constrained geolocation """
+        LOGGER.info("L2PixcToRaster::do_height_constrained_geolocation")
+
         # TODO: Handle land edges better in improved geolocation
         # Normally land edges wouldn't get raster heights, but we are forcing
         # the land edges to be processed as water edges here. Only side effect
@@ -104,11 +110,16 @@ class L2PixcToRaster(object):
                     np.ma.masked_all_like(self.pixc['pixel_cloud']['longitude']),
                     np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
 
-        return geoloc_raster.geoloc_raster(
+        geolocator = geoloc_raster.GeolocRaster(
             self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
+        out_lat, out_lon, out_height = geolocator.process()
+
+        return out_lat, out_lon, out_height
 
     def get_smoothed_height(self):
-        LOGGER.info('Getting smoothed heights')
+        """ Get smoothed raster height for ifgram flattening """
+        LOGGER.info("L2PixcToRaster::get_smoothed_height")
+
         height_constrained_geoloc_raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'] \
@@ -133,13 +144,16 @@ class L2PixcToRaster(object):
         if height_constrained_geoloc_raster.is_empty():
             return np.ma.masked_all_like(self.pixc['pixel_cloud']['height'])
 
-        this_geoloc_raster = geoloc_raster.GeolocRaster(
+        geolocator = geoloc_raster.GeolocRaster(
             self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
-        this_geoloc_raster.update_heights_from_raster()
-        return this_geoloc_raster.new_height
+        geolocator.update_heights_from_raster()
+
+        return geolocator.new_height
 
     def do_raster_processing(self):
-        LOGGER.info('Rasterizing')
+        """ Do raster processing """
+        LOGGER.info("L2PixcToRaster::do_raster_processing")
+
         raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'],
@@ -166,7 +180,8 @@ class RasterProcessor(object):
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  debug_flag=False):
-        '''Initialize'''
+        LOGGER.info("RasterProcessor::init")
+
         self.projection_type = projection_type
 
         if projection_type=='geo':
@@ -190,7 +205,9 @@ class RasterProcessor(object):
         self.debug_flag = debug_flag
 
     def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
-        '''Rasterize'''
+        """ Rasterize pixc to raster """
+        LOGGER.info("RasterProcessor::rasterize")
+
         # Note: use_improved_geoloc indicates whether improved geolocations
         # are used for pixel binning. Improved heights are still needed for
         # interferogram flattening.
@@ -216,7 +233,6 @@ class RasterProcessor(object):
         self.right_last_longitude = pixc.right_last_longitude
         self.right_last_latitude = pixc.right_last_latitude
 
-        LOGGER.info('Calculating projection parameters')
         if polygon_points is None:
             swath_corners = \
                 [(pixc.left_first_latitude, pixc.left_first_longitude),
@@ -228,7 +244,7 @@ class RasterProcessor(object):
             self.create_projection_from_polygon(polygon_points)
 
         # Get mask of valid pixc values
-        pixc_mask = get_pixc_mask(pixc, use_improved_geoloc)
+        pixc_mask = pixc.get_valid_mask(use_improved_geoloc)
         # Exclude classes not defined in the processor
         pixc_mask = np.logical_and(
             pixc_mask,
@@ -245,11 +261,9 @@ class RasterProcessor(object):
             LOGGER.warn('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
-        LOGGER.info('Mapping pixc pixels to raster bins')
         self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask,
                                                              use_improved_geoloc)
 
-        LOGGER.info('Rasterizing data')
         self.aggregate_wse(pixc, pixc_mask, use_improved_geoloc)
         self.aggregate_water_area(pixc, pixc_mask)
         self.aggregate_cross_track(pixc, pixc_mask)
@@ -271,6 +285,9 @@ class RasterProcessor(object):
 
 
     def create_projection_from_polygon(self, polygon_points):
+        """ Create the output projection given a bounding polygon """
+        LOGGER.info("RasterProcessor::create_projection_from_polygon")
+
         poly_edge_y = [point[0] for point in polygon_points]
         poly_edge_x = [point[1] for point in polygon_points]
 
@@ -282,20 +299,16 @@ class RasterProcessor(object):
             lat_mid = np.mean(poly_edge_y)
             lon_mid = np.mean(poly_edge_x)
             utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
-            mgrs_band = raster_crs.mgrs_band_from_lat(lat_mid)
+            mgrs_band = raster_crs.mgrs_band_from_latlon(lat_mid, lon_mid)
             # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
             utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
                               raster_crs.UTM_NUM_ZONES) + 1
 
-            # adjust the mgrs band
-            band_num = raster_crs.MGRS_VALID_BANDS.find(mgrs_band) \
-                       + self.mgrs_band_adjust
-            if band_num < 0:
-                band_num = 0
-            elif band_num >= len(raster_crs.MGRS_VALID_BANDS):
-                band_num = len(raster_crs.MGRS_VALID_BANDS)-1
+            # adjust/shift the mgrs band
+            mgrs_band = raster_crs.mgrs_band_shift(mgrs_band,
+                                                   self.mgrs_band_adjust,
+                                                   lon_mid)
 
-            mgrs_band = raster_crs.MGRS_VALID_BANDS[band_num]
             self.output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
 
             transf = osr.CoordinateTransformation(self.input_crs,
@@ -346,6 +359,9 @@ class RasterProcessor(object):
                      'size_y': self.size_y})
 
     def aggregate_wse(self, pixc, mask, use_improved_geoloc=True):
+        """ Aggregate water surface elevation and associated uncertainties """
+        LOGGER.info("RasterProcessor::aggregate_wse")
+
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
         pixc_num_med_looks = pixc['pixel_cloud']['eff_num_medium_looks']
@@ -432,9 +448,15 @@ class RasterProcessor(object):
 
                     self.wse[i][j] = grid_height[0]
                     self.wse_u[i][j] = grid_height[2]
-                    self.n_wse_pix[i][j] = ag.simple(good, metric='sum')
+
+                    n_wse_px = ag.simple(good, metric='sum')
+                    if n_wse_px > 0:
+                        self.n_wse_pix[i][j] = n_wse_px
 
     def aggregate_water_area(self, pixc, mask):
+        """ Aggregate water area, water fraction and associated uncertainties """
+        LOGGER.info("RasterProcessor::aggregate_water_area")
+
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
         pixc_water_fraction_uncert = pixc['pixel_cloud']['water_frac_uncert']
@@ -490,9 +512,15 @@ class RasterProcessor(object):
 
                     self.water_frac[i][j] = grid_area[0]/pixel_area
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
-                    self.n_area_pix[i][j] = ag.simple(good, metric='sum')
+
+                    n_area_px = ag.simple(good, metric='sum')
+                    if n_area_px > 0:
+                        self.n_area_pix[i][j] = n_area_px
 
     def aggregate_cross_track(self, pixc, mask):
+        """ Aggregate cross track """
+        LOGGER.info("RasterProcessor::aggregate_cross_track")
+
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
         self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
@@ -506,6 +534,9 @@ class RasterProcessor(object):
                         metric='mean')
 
     def aggregate_sig0(self, pixc, mask):
+        """ Aggregate sigma0 """
+        LOGGER.info("RasterProcessor::aggregate_sig0")
+
         pixc_sig0 = pixc['pixel_cloud']['sig0']
         pixc_sig0_uncert = pixc['pixel_cloud']['sig0_uncert']
 
@@ -524,6 +555,9 @@ class RasterProcessor(object):
                     self.sig0_u[i][j] = grid_sig0[2]
 
     def aggregate_inc(self, pixc, mask):
+        """ Aggregate incidence angle """
+        LOGGER.info("RasterProcessor::aggregate_inc")
+
         pixc_inc = pixc['pixel_cloud']['inc']
 
         self.inc = np.ma.masked_all((self.size_y, self.size_x))
@@ -536,6 +570,9 @@ class RasterProcessor(object):
                         pixc_inc[self.proj_mapping[i][j]][good], metric='mean')
 
     def aggregate_dark_frac(self, pixc, mask):
+        """ Aggregate dark water fraction """
+        LOGGER.info("RasterProcessor::aggregate_dark_frac")
+
         pixc_klass = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
@@ -579,6 +616,9 @@ class RasterProcessor(object):
                         self.dark_frac[i][j] = dark_area/total_area
 
     def aggregate_classification(self, pixc, mask):
+        """ Aggregate binary classification """
+        LOGGER.info("RasterProcessor::aggregate_classification")
+
         pixc_klass = pixc['pixel_cloud']['classification']
 
         self.classification = np.ma.masked_all((self.size_y, self.size_x))
@@ -591,6 +631,9 @@ class RasterProcessor(object):
                         pixc_klass[self.proj_mapping[i][j]][good], metric='mode')
 
     def aggregate_illumination_time(self, pixc, mask):
+        """ Aggregate illumination time """
+        LOGGER.info("RasterProcessor::aggregate_illumination_time")
+
         pixc_illumination_time = pixc['pixel_cloud']['illumination_time']
         pixc_illumination_time_tai = pixc['pixel_cloud']['illumination_time_tai']
 
@@ -615,6 +658,9 @@ class RasterProcessor(object):
             - self.illumination_time[min_illumination_time_index]
 
     def aggregate_ice_flags(self, pixc, mask):
+        """ Aggregate ice flags """
+        LOGGER.info("RasterProcessor::aggregate_ice_flags")
+
         pixc_ice_clim_flag = pixc['pixel_cloud']['ice_clim_flag']
         pixc_ice_dyn_flag = pixc['pixel_cloud']['ice_dyn_flag']
 
@@ -643,6 +689,9 @@ class RasterProcessor(object):
                         self.ice_dyn_flag[i][j] = 1
 
     def aggregate_layover_impact(self, pixc, mask):
+        """ Aggregate layover impact """
+        LOGGER.info("RasterProcessor::aggregate_layover_impact")
+
         pixc_layover_impact = pixc['pixel_cloud']['layover_impact']
 
         pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
@@ -678,6 +727,9 @@ class RasterProcessor(object):
                     self.layover_impact[i][j] = grid_height[0]
 
     def aggregate_corrections(self, pixc, mask):
+        """ Aggregate geophysical corrections """
+        LOGGER.info("RasterProcessor::aggregate_corrections")
+
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
         pixc_load_tide_fes = pixc['pixel_cloud']['load_tide_fes']
@@ -726,6 +778,9 @@ class RasterProcessor(object):
                         metric='mean')
 
     def apply_wse_corrections(self):
+        """ Apply geophysical corrections to wse """
+        LOGGER.info("RasterProcessor::apply_wse_corrections")
+
         self.wse -= (
             self.geoid +
             self.solid_earth_tide +
@@ -733,6 +788,9 @@ class RasterProcessor(object):
             self.pole_tide)
 
     def aggregate_lat_lon(self, mask):
+        """ Aggregate latitude and longitude """
+        LOGGER.info("RasterProcessor::aggregate_lat_lon")
+
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
 
@@ -754,9 +812,8 @@ class RasterProcessor(object):
 
 
     def build_product(self, populate_values=True, polygon_points=None):
-        # Assemble the product
-        LOGGER.info('Assembling Raster Product - populated?: {}'.format(
-            populate_values))
+        """ Assemble the product """
+        LOGGER.info("RasterProcessor::build_product")
 
         if self.projection_type == 'utm':
             if self.debug_flag:
@@ -873,38 +930,3 @@ class RasterProcessor(object):
             product.crop_to_bounds(polygon_points)
 
         return product
-
-
-def get_pixc_mask(pixc, use_improved_geoloc=False):
-    if use_improved_geoloc:
-        lat_keyword = 'improved_latitude'
-        lon_keyword = 'improved_longitude'
-    else:
-        lat_keyword = 'latitude'
-        lon_keyword = 'longitude'
-
-    lats = pixc['pixel_cloud'][lat_keyword]
-    lons = pixc['pixel_cloud'][lon_keyword]
-    height = pixc['pixel_cloud']['height']
-    area = pixc['pixel_cloud']['pixel_area']
-    klass = pixc['pixel_cloud']['classification']
-    mask = np.ones(np.shape(pixc['pixel_cloud']['height']))
-
-    if np.ma.is_masked(lats):
-        mask[lats.mask] = 0
-    if np.ma.is_masked(lons):
-        mask[lons.mask] = 0
-    if np.ma.is_masked(height):
-        mask[height.mask] = 0
-    if np.ma.is_masked(area):
-        mask[area.mask] = 0
-
-    mask[np.isnan(lats)] = 0
-    mask[np.isnan(lons)] = 0
-    mask[np.isnan(klass)] = 0
-
-    # bounds for valid utc
-    mask[lats >= 84.0] = 0
-    mask[lats <= -80.0] = 0
-
-    return mask==1

@@ -329,8 +329,7 @@ def rasterize_region_maps(raster_filename, int_pixc_filename,
        alg_cfg['height_constrained_geoloc_source'].lower() == 'pixcvec':
         use_improved_geoloc=True
 
-    pixc_mask = raster.get_pixc_mask(
-        pixc, use_improved_geoloc=use_improved_geoloc)
+    pixc_mask = pixc.get_valid_mask(use_improved_geoloc=use_improved_geoloc)
     pixc_mask = np.logical_and(
         pixc_mask,
         np.isin(pixc['pixel_cloud']['classification'],
