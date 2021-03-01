@@ -1335,10 +1335,6 @@ class RasterPixc(Product):
         mask[np.isnan(klass)] = 0
         mask[pixc_qual] = 0
 
-        # bounds for valid utm TODO: PROBABLY CAN REMOVE THIS NOW
-        mask[lats >= 84.0] = 0
-        mask[lats <= -80.0] = 0
-
         return mask==1
 
     def __add__(self, other):
