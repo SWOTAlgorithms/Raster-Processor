@@ -81,6 +81,7 @@ def mgrs_band_from_latlon(latitude, longitude):
         else:
             return 'Z'
 
+
 def mgrs_band_shift(mgrs_band, shift, longitude):
     # Shifts an mgrs band by a given number of steps
     band_num = MGRS_VALID_BANDS.find(mgrs_band) + shift

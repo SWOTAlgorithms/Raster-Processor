@@ -38,6 +38,12 @@ class L2PixcToRaster(object):
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
 
+        # Add default zone adjusts to config
+        if 'utm_zone_adjust' not in self.runtime_config:
+            self.runtime_config['utm_zone_adjust'] = 0
+        if 'mgrs_band_adjust' not in self.runtime_config:
+            self.runtime_config['mgrs_band_adjust'] = 0
+
     def process(self):
         """ Process L2Pixc to Raster """
         LOGGER.info("L2PixcToRaster::process")
@@ -88,8 +94,6 @@ class L2PixcToRaster(object):
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'] \
             / self.algorithmic_config['lowres_raster_scale_factor'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
@@ -97,6 +101,8 @@ class L2PixcToRaster(object):
             tmp_water_edge_classes,
             tmp_land_edge_classes,
             self.algorithmic_config['dark_water_classes'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -124,8 +130,6 @@ class L2PixcToRaster(object):
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'] \
             / self.algorithmic_config['lowres_raster_scale_factor'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
@@ -133,6 +137,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['water_edge_classes'],
             self.algorithmic_config['land_edge_classes'],
             self.algorithmic_config['dark_water_classes'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -157,8 +163,6 @@ class L2PixcToRaster(object):
         raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
             self.runtime_config['raster_resolution'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
@@ -166,6 +170,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['water_edge_classes'],
             self.algorithmic_config['land_edge_classes'],
             self.algorithmic_config['dark_water_classes'],
+            self.runtime_config['utm_zone_adjust'],
+            self.runtime_config['mgrs_band_adjust'],
             self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(
@@ -175,11 +181,10 @@ class L2PixcToRaster(object):
 
 
 class RasterProcessor(object):
-    def __init__(self, projection_type, resolution, utm_zone_adjust,
-                 mgrs_band_adjust, padding,
+    def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
-                 debug_flag=False):
+                 utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
         LOGGER.info("RasterProcessor::init")
 
         self.projection_type = projection_type
