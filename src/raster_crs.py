@@ -66,21 +66,20 @@ def utm_zone_from_latlon(latitude, longitude):
 
 def mgrs_band_from_latlon(latitude, longitude):
     # Gets the MGRS band for a given lat/lon
-    if -80 <= latitude <= 84:
-        return MGRS_VALID_BANDS[2 + (int(latitude + 80) >> 3)]
-    elif latitude < -80:
+    if latitude < -80:
         if longitude < 0:
             return 'A'
         else:
             return 'B'
-    elif longitude > 84:
+    elif latitude < 80:
+        return MGRS_VALID_BANDS[2 + (int(latitude + 80) >> 3)]
+    elif latitude < 84:
+        return 'X'
+    else:
         if longitude < 0:
             return 'Y'
         else:
             return 'Z'
-    else:
-        return None
-
 
 def mgrs_band_shift(mgrs_band, shift, longitude):
     # Shifts an mgrs band by a given number of steps
