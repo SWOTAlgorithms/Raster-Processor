@@ -159,12 +159,12 @@ def main():
     else:
         # Inputs can be either raster files, or basenames
         if os.path.isfile(args.proc_raster):
-            proc_raster_base = Path(*args.proc_raster.parts[:-2])
+            proc_raster_base = Path(*Path(args.proc_raster).parts[:-2])
         else:
             proc_raster_base = args.proc_raster
 
         if os.path.isfile(args.truth_raster):
-            truth_raster_base = Path(*args.truth_raster.parts[:-2])
+            truth_raster_base = Path(*Path(args.truth_raster).parts[:-2])
         else:
             truth_raster_base = args.truth_raster
 

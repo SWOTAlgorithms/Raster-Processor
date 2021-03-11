@@ -135,12 +135,12 @@ def main():
     else:
         # Inputs can be either raster files, or basenames
         if os.path.isfile(args.proc_raster):
-            proc_raster_base = Path(*args.proc_raster.parts[:-2])
+            proc_raster_base = Path(*Path(args.proc_raster).parts[:-2])
         else:
             proc_raster_base = args.proc_raster
 
         if os.path.isfile(args.truth_raster):
-            truth_raster_base = Path(*args.truth_raster.parts[:-2])
+            truth_raster_base = Path(*Path(args.truth_raster).parts[:-2])
         else:
             truth_raster_base = args.truth_raster
 
@@ -199,6 +199,8 @@ def main():
                   preamble=preamble)
     print_metrics(lake_metrics, wb_type='lake', outdir=args.outdir,
                   preamble=preamble)
+    print_global_metrics(river_metrics, lake_metrics, outdir=args.outdir,
+                         preamble=preamble)
 
 def single_tile_stats(proc_raster, truth_raster,
                       proc_raster_regionmaps, truth_raster_regionmaps,
@@ -244,19 +246,18 @@ def load_data(proc_raster_filename, truth_raster_filename,
     truth_raster = raster_products.RasterUTM.from_ncfile(truth_raster_filename)
     with Dataset(proc_raster_regionmaps_filename, 'r') as fin_proc, \
          Dataset(truth_raster_regionmaps_filename, 'r') as fin_truth:
+        # When loading, set unregioned area to -1 and width/area to nan
         if wb_type=='river':
-            region_map_raster_truth = fin_truth['region_map_river'][:]
-            region_map_raster_proc = fin_proc['region_map_river'][:]
-            river_width = fin_truth['river_width'][:]
+            region_map_raster_truth = fin_truth['region_map_river'][:].filled(-1)
+            region_map_raster_proc = fin_proc['region_map_river'][:].filled(-1)
+            river_width = np.ma.append(fin_truth['river_width'][:], np.nan)
         elif wb_type=='lake':
-            region_map_raster_truth = fin_truth['region_map_lake'][:]
-            region_map_raster_proc = fin_proc['region_map_lake'][:]
-            lake_area = fin_truth['lake_area'][:]
+            region_map_raster_truth = fin_truth['region_map_lake'][:].filled(-1)
+            region_map_raster_proc = fin_proc['region_map_lake'][:].filled(-1)
+            lake_area = np.ma.append(fin_truth['lake_area'][:], np.nan)
 
     # 1. get list of unique region ids
-    region_list = np.unique(
-        region_map_raster_proc[~region_map_raster_proc.mask])
-    region_list = region_list[region_list >= 0]
+    region_list = np.unique(region_map_raster_proc)
 
     tile_metrics = []
 
@@ -475,6 +476,88 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
         tile_table['uncommon_area_pix_data'].append(region_data['uncommon_area_pix_data'])
 
     return tile_table
+
+def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None):
+    # setup output fnames
+    global_table_river_fname = None
+    global_table_lake_fname = None
+    if outdir is not None:
+        global_table_river_fname = os.path.join(outdir, 'global_table_river.txt')
+        global_table_lake_fname = os.path.join(outdir, 'global_table_lake.txt')
+
+    river_width_groups = [1, 50, 100, 150, 200, 300, 400, 500, 700, 1000, 1500, \
+                          2000, 3000, 4000, 5000, np.inf]
+    lake_area_groups = [0, 0.25**2, 0.5**2, 1**2, 2**2, 5**2, 10**2, 20**2, \
+                        50**2, np.inf]
+
+    global_table_keys = ['total_wse_pix', 'common_wse_pix',
+                         'uncommon_wse_pix_truth', 'uncommon_wse_pix_data',
+                         'total_area_pix', 'common_area_pix',
+                         'uncommon_area_pix_truth', 'uncommon_area_pix_data']
+
+    global_table_river = {key:[0 for idx in range(len(river_width_groups)+1)] \
+                          for key in ['river_width'] + global_table_keys}
+    global_table_river['river_width'] = ['{}'.format(x) for x in river_width_groups[:-1]] + ['none', 'all']
+
+    global_table_lake = {key:[0 for idx in range(len(lake_area_groups)+1)] \
+                          for key in ['lake_area'] + global_table_keys}
+    global_table_lake['lake_area'] = ['{}'.format(x) for x in lake_area_groups[:-1]] + ['none', 'all']
+
+    for tile_metrics in river_metrics:
+        for region_metrics in tile_metrics:
+            # Aggregate stats for unregioned area
+            if region_metrics['river_idx'] == -1:
+                for field in global_table_river:
+                    if field != 'river_width':
+                        global_table_river[field][-2] += region_metrics[field]
+                continue # Skip unregioned area for now, TODO: something special here
+            # Aggregate stats per width
+            for river_width_idx in range(len(river_width_groups)-1):
+                this_width = river_width_groups[river_width_idx]
+                next_width = river_width_groups[river_width_idx+1]
+                is_valid = region_metrics['river_width'] >= this_width \
+                           and region_metrics['river_width'] < next_width
+                for field in global_table_river:
+                    if field != 'river_width' and is_valid:
+                        global_table_river[field][river_width_idx] += region_metrics[field]
+            # Aggregate stats for all widths
+            for field in global_table_river:
+                if field != 'river_width':
+                    global_table_river[field][-1] += region_metrics[field]
+
+
+    for tile_metrics in lake_metrics:
+        for region_metrics in tile_metrics:
+            # Aggregate stats for unregioned area
+            if region_metrics['lake_idx'] == -1:
+                for field in global_table_lake:
+                    if field != 'lake_area':
+                        global_table_lake[field][-2] += region_metrics[field]
+                continue # Skip unregioned area for now, TODO: something special here
+            # Aggregate stats per area
+            for lake_area_idx in range(len(lake_area_groups)-1):
+                this_area = lake_area_groups[lake_area_idx] * 1000**2
+                next_area = lake_area_groups[lake_area_idx+1] * 1000**2
+                is_valid = region_metrics['lake_area'] >= this_area \
+                           and region_metrics['lake_area'] < next_area
+                for field in global_table_lake:
+                    if field != 'lake_area' and is_valid:
+                        global_table_lake[field][lake_area_idx] += region_metrics[field]
+            # Aggregate stats for all areas
+            for field in global_table_lake:
+                if field != 'lake_area':
+                    global_table_lake[field][-1] += region_metrics[field]
+
+    ttl = 'Global metrics - river (width in meters):'
+    SWOTRiver.analysis.tabley.print_table(global_table_river, precision=5,
+                                          fname=global_table_river_fname,
+                                          preamble=preamble+'\n'+ttl)
+
+    ttl = 'Global metrics - lake (area in km^2):'
+    SWOTRiver.analysis.tabley.print_table(global_table_lake, precision=5,
+                                          fname=global_table_lake_fname,
+                                          preamble=preamble+'\n'+ttl)
+
 
 def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                   preamble=None):
