@@ -13,6 +13,7 @@ import argparse
 import numpy as np
 import raster_products
 import SWOTRiver.analysis.tabley
+import SWOTWater.aggregate as ag
 
 from metrics import *
 from netCDF4 import Dataset
@@ -50,6 +51,8 @@ def main():
                         help='Minimum number of area pixels to use as valid data')
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='list of sim scenes to exclude')
+    parser.add_argument('-rt', '--region_tables', action='store_true',
+                        help='plot region tables along with global tables')
     parser.add_argument('-o', '--outdir', type=str, default=None,
                         help='output directory for tables and plots')
     args = parser.parse_args()
@@ -102,6 +105,13 @@ def main():
                                                   'raster_region_maps.nc')
             truth_raster_regionmaps = os.path.join(truth_raster_path,
                                                    'raster_region_maps.nc')
+
+            if not os.path.exists(proc_raster) \
+               or not os.path.exists(truth_raster) \
+               or not os.path.exists(proc_raster_regionmaps) \
+               or not os.path.exists(truth_raster_regionmaps):
+                print('Inputs missing for sim scene: {} - skipping...'.format(sim_scene))
+                continue
 
             if args.pixc_errors_basename is not None:
                 sim_scene = Path(proc_raster).parts[-8]
@@ -195,10 +205,11 @@ def main():
         if not os.path.exists(args.outdir):
             os.makedirs(args.outdir)
 
-    print_metrics(river_metrics, wb_type='river', outdir=args.outdir,
-                  preamble=preamble)
-    print_metrics(lake_metrics, wb_type='lake', outdir=args.outdir,
-                  preamble=preamble)
+    if args.region_tables:
+        print_metrics(river_metrics, wb_type='river', outdir=args.outdir,
+                      preamble=preamble)
+        print_metrics(lake_metrics, wb_type='lake', outdir=args.outdir,
+                      preamble=preamble)
     print_global_metrics(river_metrics, lake_metrics, outdir=args.outdir,
                          preamble=preamble)
 
@@ -348,14 +359,26 @@ def load_data(proc_raster_filename, truth_raster_filename,
 
         region_metrics['true_ct_mean'] = \
             nanmean_masked(truth_raster['cross_track'][area_truth_mask])
-        region_metrics['meas_wse_mean'] = \
-            nanmean_masked(proc_raster['wse'][wse_proc_mask])
+        #region_metrics['meas_wse_mean'] = \
+        #    nanmean_masked(proc_raster['wse'][wse_proc_mask])
+        proc_wse = proc_raster['wse'][wse_proc_mask].ravel()
+        region_metrics['meas_wse_mean'], _ = \
+            ag.height_only(proc_wse, np.ones(proc_wse.shape, dtype=bool),
+                           height_std=proc_raster['wse_uncert'][wse_proc_mask].ravel())
         region_metrics['meas_area_total'] = \
             np.nansum(proc_raster['water_area'][area_proc_mask])
-        region_metrics['true_wse_mean'] = \
-            nanmean_masked(truth_raster['wse'][wse_truth_mask])
+        #region_metrics['true_wse_mean'] = \
+        #    nanmean_masked(truth_raster['wse'][wse_truth_mask])
+        true_wse = truth_raster['wse'][wse_truth_mask].ravel()
+        region_metrics['true_wse_mean'], _ = \
+            ag.height_only(true_wse, np.ones(true_wse.shape, dtype=bool))
         region_metrics['true_area_total'] = \
             np.nansum(truth_raster['water_area'][area_truth_mask])
+        region_metrics['mean_wse_err'] = \
+            region_metrics['meas_wse_mean']-region_metrics['true_wse_mean']
+        region_metrics['total_area_pct_err'] = \
+            (region_metrics['meas_area_total']-region_metrics['true_area_total']) \
+            /region_metrics['true_area_total'] * 100
 
         wse_err = proc_raster['wse'][wse_common_mask] \
                   - truth_raster['wse'][wse_common_mask]
@@ -404,13 +427,14 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
         elif wb_type=='lake':
             tile_table.update({'lake_idx':[], 'lake_area':[]})
 
-        # TODO: meas/true wse and area info may already basically be captured in the 50_pct
-        # may be able to remove them...
+        # TODO: some of these fields are redundant and could be removed/cleaned up
         tile_table.update({'true_ct_mean':[],
                            'meas_wse_mean':[],
                            'true_wse_mean':[],
                            'meas_area_total':[],
                            'true_area_total':[],
+                           'mean_wse_err':[],
+                           'total_area_pct_err':[],
                            wse_prefix + 'mean':[],
                            wse_prefix + 'std':[],
                            '|' + wse_prefix + '68_pct|':[],
@@ -479,85 +503,199 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
 
 def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None):
     # setup output fnames
-    global_table_river_fname = None
-    global_table_lake_fname = None
+    global_table_river_wse_fname = None
+    global_table_river_area_fname = None
+    global_table_lake_wse_fname = None
+    global_table_lake_area_fname = None
     if outdir is not None:
-        global_table_river_fname = os.path.join(outdir, 'global_table_river.txt')
-        global_table_lake_fname = os.path.join(outdir, 'global_table_lake.txt')
+        global_table_river_wse_fname = os.path.join(outdir, 'table_river_wse_global.txt')
+        global_table_river_area_fname = os.path.join(outdir, 'table_river_area_global.txt')
+        global_table_lake_wse_fname = os.path.join(outdir, 'table_lake_wse_global.txt')
+        global_table_lake_area_fname = os.path.join(outdir, 'table_lake_area_global.txt')
 
     river_width_groups = [1, 50, 100, 150, 200, 300, 400, 500, 700, 1000, 1500, \
                           2000, 3000, 4000, 5000, np.inf]
-    lake_area_groups = [0, 0.25**2, 0.5**2, 1**2, 2**2, 5**2, 10**2, 20**2, \
+    lake_area_groups = [0, 0.1**2, 0.25**2, 0.5**2, 1**2, 2**2, 5**2, 10**2, 20**2, \
                         50**2, np.inf]
+    lake_area_groups = [np.floor(group*10000)/10000 for group in lake_area_groups]
 
-    global_table_keys = ['total_wse_pix', 'common_wse_pix',
-                         'uncommon_wse_pix_truth', 'uncommon_wse_pix_data',
-                         'total_area_pix', 'common_area_pix',
-                         'uncommon_area_pix_truth', 'uncommon_area_pix_data']
+    river_width_keys = ['{}'.format(x) for x in river_width_groups[:-1]] + ['none', 'all', 'goal', 'req']
+    lake_area_keys = ['{}'.format(x) for x in lake_area_groups[:-1]] + ['none', 'all', 'goal', 'req']
 
-    global_table_river = {key:[0 for idx in range(len(river_width_groups)+1)] \
-                          for key in ['river_width'] + global_table_keys}
-    global_table_river['river_width'] = ['{}'.format(x) for x in river_width_groups[:-1]] + ['none', 'all']
+    wse_metrics_keys = ['wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct']
+    wse_pix_keys = ['total_wse_pix', 'common_wse_pix',
+                    'uncommon_wse_pix_truth', 'uncommon_wse_pix_data']
+    area_metrics_keys = ['area_%e_mean', 'area_%e_std', '|area_%e_68_pct|', 'area_%e_50_pct']
+    area_pix_keys = ['total_area_pix', 'common_area_pix',
+                     'uncommon_area_pix_truth', 'uncommon_area_pix_data']
+    global_table_wse_keys = wse_metrics_keys + wse_pix_keys
+    global_table_area_keys = area_metrics_keys + area_pix_keys
 
-    global_table_lake = {key:[0 for idx in range(len(lake_area_groups)+1)] \
-                          for key in ['lake_area'] + global_table_keys}
-    global_table_lake['lake_area'] = ['{}'.format(x) for x in lake_area_groups[:-1]] + ['none', 'all']
 
+    global_table_river_wse = {key:[0 for idx in range(len(river_width_keys))] \
+                              for key in ['river_width'] + global_table_wse_keys}
+    global_table_river_wse['river_width'] = river_width_keys
+    global_table_river_area = {key:[0 for idx in range(len(river_width_keys))] \
+                               for key in ['river_width'] + global_table_area_keys}
+    global_table_river_area['river_width'] = river_width_keys
+
+
+    global_table_lake_wse = {key:[0 for idx in range(len(lake_area_keys))] \
+                             for key in ['lake_area'] + global_table_wse_keys}
+    global_table_lake_wse['lake_area'] = lake_area_keys
+    global_table_lake_area = {key:[0 for idx in range(len(lake_area_keys))] \
+                              for key in ['lake_area'] + global_table_area_keys}
+    global_table_lake_area['lake_area'] = lake_area_keys
+
+    # Aggregate errors for rivers
+    river_err = {'river_width':river_width_keys,
+                 'wse_err':[[]for idx in range(len(river_width_keys))],
+                 'area_pct_err':[[]for idx in range(len(river_width_keys))]}
     for tile_metrics in river_metrics:
         for region_metrics in tile_metrics:
             # Aggregate stats for unregioned area
             if region_metrics['river_idx'] == -1:
-                for field in global_table_river:
-                    if field != 'river_width':
-                        global_table_river[field][-2] += region_metrics[field]
-                continue # Skip unregioned area for now, TODO: something special here
-            # Aggregate stats per width
-            for river_width_idx in range(len(river_width_groups)-1):
-                this_width = river_width_groups[river_width_idx]
-                next_width = river_width_groups[river_width_idx+1]
-                is_valid = region_metrics['river_width'] >= this_width \
-                           and region_metrics['river_width'] < next_width
-                for field in global_table_river:
-                    if field != 'river_width' and is_valid:
-                        global_table_river[field][river_width_idx] += region_metrics[field]
-            # Aggregate stats for all widths
-            for field in global_table_river:
-                if field != 'river_width':
-                    global_table_river[field][-1] += region_metrics[field]
+                river_err['wse_err'][-4].append(region_metrics['mean_wse_err'])
+                river_err['area_pct_err'][-4].append(region_metrics['total_area_pct_err'])
+                for field in wse_pix_keys:
+                    global_table_river_wse[field][-4] += region_metrics[field]
+                for field in area_pix_keys:
+                    global_table_river_area[field][-4] += region_metrics[field]
+                continue
 
+            river_width_idx = np.argmax(np.array(river_width_groups)[np.array(river_width_groups) <= region_metrics['river_width']])
+            river_err['wse_err'][river_width_idx].append(region_metrics['mean_wse_err'])
+            river_err['area_pct_err'][river_width_idx].append(region_metrics['total_area_pct_err'])
 
+            river_err['wse_err'][-3].append(region_metrics['mean_wse_err'])
+            river_err['area_pct_err'][-3].append(region_metrics['total_area_pct_err'])
+
+            in_goal = region_metrics['river_width'] >= 100 \
+                      and region_metrics['true_ct_mean'] >= 10000 \
+                      and region_metrics['true_ct_mean'] <= 60000
+            in_req = region_metrics['river_width'] >= 250 \
+                     and region_metrics['true_ct_mean'] >= 10000 \
+                     and region_metrics['true_ct_mean'] <= 60000
+            if in_goal:
+                river_err['wse_err'][-2].append(region_metrics['mean_wse_err'])
+                river_err['area_pct_err'][-2].append(region_metrics['total_area_pct_err'])
+            if in_req:
+                river_err['wse_err'][-1].append(region_metrics['mean_wse_err'])
+                river_err['area_pct_err'][-1].append(region_metrics['total_area_pct_err'])
+
+            for field in wse_pix_keys:
+                global_table_river_wse[field][river_width_idx] += region_metrics[field]
+                global_table_river_wse[field][-3] += region_metrics[field]
+                if in_goal:
+                    global_table_river_wse[field][-2] += region_metrics[field]
+                if in_req:
+                    global_table_river_wse[field][-1] += region_metrics[field]
+
+            for field in area_pix_keys:
+                global_table_river_area[field][river_width_idx] += region_metrics[field]
+                global_table_river_area[field][-3] += region_metrics[field]
+                if in_goal:
+                    global_table_river_area[field][-2] += region_metrics[field]
+                if in_req:
+                    global_table_river_area[field][-1] += region_metrics[field]
+
+    for river_width_idx in range(len(river_err['river_width'])):
+        wse_err = compute_metrics_from_error(np.array(river_err['wse_err'][river_width_idx]))
+        global_table_river_wse['wse_e_mean'][river_width_idx] = wse_err['mean']
+        global_table_river_wse['wse_e_std'][river_width_idx] = wse_err['std']
+        global_table_river_wse['|wse_e_68_pct|'][river_width_idx] = wse_err['|68_pct|']
+        global_table_river_wse['wse_e_50_pct'][river_width_idx] = wse_err['50_pct']
+
+        area_pct_err = compute_metrics_from_error(np.array(river_err['area_pct_err'][river_width_idx]))
+        global_table_river_area['area_%e_mean'][river_width_idx] = area_pct_err['mean']
+        global_table_river_area['area_%e_std'][river_width_idx] = area_pct_err['std']
+        global_table_river_area['|area_%e_68_pct|'][river_width_idx] = area_pct_err['|68_pct|']
+        global_table_river_area['area_%e_50_pct'][river_width_idx] = area_pct_err['50_pct']
+
+    # Now do that same for lakes (TODO: break this out to reduce code dup)
+    lake_err = {'lake_area':lake_area_keys,
+                 'wse_err':[[]for idx in range(len(lake_area_keys))],
+                 'area_pct_err':[[]for idx in range(len(lake_area_keys))]}
     for tile_metrics in lake_metrics:
         for region_metrics in tile_metrics:
             # Aggregate stats for unregioned area
             if region_metrics['lake_idx'] == -1:
-                for field in global_table_lake:
-                    if field != 'lake_area':
-                        global_table_lake[field][-2] += region_metrics[field]
-                continue # Skip unregioned area for now, TODO: something special here
-            # Aggregate stats per area
-            for lake_area_idx in range(len(lake_area_groups)-1):
-                this_area = lake_area_groups[lake_area_idx] * 1000**2
-                next_area = lake_area_groups[lake_area_idx+1] * 1000**2
-                is_valid = region_metrics['lake_area'] >= this_area \
-                           and region_metrics['lake_area'] < next_area
-                for field in global_table_lake:
-                    if field != 'lake_area' and is_valid:
-                        global_table_lake[field][lake_area_idx] += region_metrics[field]
-            # Aggregate stats for all areas
-            for field in global_table_lake:
-                if field != 'lake_area':
-                    global_table_lake[field][-1] += region_metrics[field]
+                lake_err['wse_err'][-4].append(region_metrics['mean_wse_err'])
+                lake_err['area_pct_err'][-4].append(region_metrics['total_area_pct_err'])
+                for field in wse_pix_keys:
+                    global_table_lake_wse[field][-4] += region_metrics[field]
+                for field in area_pix_keys:
+                    global_table_lake_area[field][-4] += region_metrics[field]
+                continue
 
-    ttl = 'Global metrics - river (width in meters):'
-    SWOTRiver.analysis.tabley.print_table(global_table_river, precision=5,
-                                          fname=global_table_river_fname,
+            lake_area_idx = np.argmax(np.array(lake_area_groups)[np.array(lake_area_groups)*1000**2 <= region_metrics['lake_area']])
+            lake_err['wse_err'][lake_area_idx].append(region_metrics['mean_wse_err'])
+            lake_err['area_pct_err'][lake_area_idx].append(region_metrics['total_area_pct_err'])
+
+            lake_err['wse_err'][-3].append(region_metrics['mean_wse_err'])
+            lake_err['area_pct_err'][-3].append(region_metrics['total_area_pct_err'])
+
+            in_goal = region_metrics['lake_area'] >= 100**2 \
+                      and region_metrics['true_ct_mean'] >= 10000 \
+                      and region_metrics['true_ct_mean'] <= 60000
+            in_req = region_metrics['lake_area'] >= 250**2 \
+                     and region_metrics['true_ct_mean'] >= 10000 \
+                     and region_metrics['true_ct_mean'] <= 60000
+            if in_goal:
+                lake_err['wse_err'][-2].append(region_metrics['mean_wse_err'])
+                lake_err['area_pct_err'][-2].append(region_metrics['total_area_pct_err'])
+            if in_req:
+                lake_err['wse_err'][-1].append(region_metrics['mean_wse_err'])
+                lake_err['area_pct_err'][-1].append(region_metrics['total_area_pct_err'])
+
+            for field in wse_pix_keys:
+                global_table_lake_wse[field][lake_area_idx] += region_metrics[field]
+                global_table_lake_wse[field][-3] += region_metrics[field]
+                if in_goal:
+                    global_table_lake_wse[field][-2] += region_metrics[field]
+                if in_req:
+                    global_table_lake_wse[field][-1] += region_metrics[field]
+
+            for field in area_pix_keys:
+                global_table_lake_area[field][lake_area_idx] += region_metrics[field]
+                global_table_lake_area[field][-3] += region_metrics[field]
+                if in_goal:
+                    global_table_lake_area[field][-2] += region_metrics[field]
+                if in_req:
+                    global_table_lake_area[field][-1] += region_metrics[field]
+
+    for lake_area_idx in range(len(lake_err['lake_area'])):
+        wse_err = compute_metrics_from_error(np.array(lake_err['wse_err'][lake_area_idx]))
+        global_table_lake_wse['wse_e_mean'][lake_area_idx] = wse_err['mean']
+        global_table_lake_wse['wse_e_std'][lake_area_idx] = wse_err['std']
+        global_table_lake_wse['|wse_e_68_pct|'][lake_area_idx] = wse_err['|68_pct|']
+        global_table_lake_wse['wse_e_50_pct'][lake_area_idx] = wse_err['50_pct']
+
+        area_pct_err = compute_metrics_from_error(np.array(lake_err['area_pct_err'][lake_area_idx]))
+        global_table_lake_area['area_%e_mean'][lake_area_idx] = area_pct_err['mean']
+        global_table_lake_area['area_%e_std'][lake_area_idx] = area_pct_err['std']
+        global_table_lake_area['|area_%e_68_pct|'][lake_area_idx] = area_pct_err['|68_pct|']
+        global_table_lake_area['area_%e_50_pct'][lake_area_idx] = area_pct_err['50_pct']
+
+    ttl = 'Global wse metrics - river (width in meters):'
+    SWOTRiver.analysis.tabley.print_table(global_table_river_wse, precision=5,
+                                          fname=global_table_river_wse_fname,
                                           preamble=preamble+'\n'+ttl)
 
-    ttl = 'Global metrics - lake (area in km^2):'
-    SWOTRiver.analysis.tabley.print_table(global_table_lake, precision=5,
-                                          fname=global_table_lake_fname,
+    ttl = 'Global area metrics - river (width in meters):'
+    SWOTRiver.analysis.tabley.print_table(global_table_river_area, precision=5,
+                                          fname=global_table_river_area_fname,
                                           preamble=preamble+'\n'+ttl)
 
+    ttl = 'Global wse metrics - lake (area in km^2):'
+    SWOTRiver.analysis.tabley.print_table(global_table_lake_wse, precision=5,
+                                          fname=global_table_lake_wse_fname,
+                                          preamble=preamble+'\n'+ttl)
+
+    ttl = 'Global area metrics - lake (area in km^2):'
+    SWOTRiver.analysis.tabley.print_table(global_table_lake_area, precision=5,
+                                          fname=global_table_lake_area_fname,
+                                          preamble=preamble+'\n'+ttl)
 
 def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                   preamble=None):
