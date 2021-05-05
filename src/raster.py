@@ -269,6 +269,7 @@ class RasterProcessor(object):
         self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask,
                                                              use_improved_geoloc)
 
+        self.aggregate_corrections(pixc, pixc_mask)
         self.aggregate_wse(pixc, pixc_mask, use_improved_geoloc)
         self.aggregate_water_area(pixc, pixc_mask)
         self.aggregate_cross_track(pixc, pixc_mask)
@@ -278,8 +279,6 @@ class RasterProcessor(object):
         self.aggregate_illumination_time(pixc, pixc_mask)
         self.aggregate_ice_flags(pixc, pixc_mask)
         self.aggregate_layover_impact(pixc, pixc_mask)
-        self.aggregate_corrections(pixc, pixc_mask)
-        self.apply_wse_corrections()
         if self.projection_type == 'utm':
             self.aggregate_lat_lon(pixc_mask)
 
@@ -457,6 +456,9 @@ class RasterProcessor(object):
                     n_wse_px = ag.simple(good, metric='sum')
                     if n_wse_px > 0:
                         self.n_wse_pix[i][j] = n_wse_px
+
+        self.apply_wse_corrections()
+
 
     def aggregate_water_area(self, pixc, mask):
         """ Aggregate water area, water fraction and associated uncertainties """
