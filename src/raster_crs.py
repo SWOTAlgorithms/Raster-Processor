@@ -12,7 +12,6 @@ import argparse
 import numpy as np
 from osgeo import osr
 
-EARTH_RAD = 6378137 # As defined in granule/sampling doc
 WGS84_ID = 4326
 UTM_NUM_ZONES = 60
 MGRS_VALID_BANDS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
@@ -144,19 +143,6 @@ def wgs84_crs():
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(WGS84_ID)
     return spatial_ref
-
-
-def terminal_loc_spherical(latitude, longitude, distance, bearing):
-    # Gets the lat/lon of a location a given distance and bearing from the
-    # original point using a spherical approximation
-    new_latitude = np.arcsin(
-        np.sin(latitude) * np.cos(distance/EARTH_RAD) \
-        + np.cos(latitude) * np.sin(distance/EARTH_RAD) * np.cos(bearing))
-    new_longitude = longitude + np.arctan2(
-        np.sin(bearing) * np.sin(distance/EARTH_RAD) * np.cos(latitude), \
-        np.cos(distance/EARTH_RAD) - np.sin(latitude) * np.sin(new_latitude))
-
-    return new_latitude, new_longitude
 
 
 def lon_360to180(longitude):

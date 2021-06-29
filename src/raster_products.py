@@ -124,7 +124,8 @@ COMMON_ATTRIBUTES = odict([
           generate this file""")}],
     ['product_version',
      {'dtype': 'str',
-      'docstr': 'Version identifier of this data file'}],
+      'docstr': 'Version identifier of this data file',
+      'value': 'V0.2'}],
     ['pge_name',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -767,7 +768,6 @@ class RasterUTM(Product):
     for key in COMMON_VARIABLES:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
-
 
     VARIABLES['latitude']['coordinates'] = 'x y'
     VARIABLES['latitude']['dimensions'] = odict([['y', 0], ['x', 0]])

@@ -36,7 +36,7 @@ def main():
     parser.add_argument('-eb', '--pixc_errors_basename', type=str, default=None,
                         help='pixc systematic errors basename')
     parser.add_argument('-df', '--dark_frac_thresh', type=float, default=None,
-                        help='Dark water fraction threshold for extra metric')
+                        help='Dark water fraction threshold to use as valid data')
     parser.add_argument('-wf', '--water_frac_thresh', type=float, default=None,
                         help='Water fraction threshold to use as valid data')
     parser.add_argument('-hu', '--wse_uncert_thresh', type=float, default=None,
@@ -52,7 +52,7 @@ def main():
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='list of sim scenes to exclude')
     parser.add_argument('-rt', '--region_tables', action='store_true',
-                        help='plot region tables along with global tables')
+                        help='plot tile-based region tables along with global tables')
     parser.add_argument('-o', '--outdir', type=str, default=None,
                         help='output directory for tables and plots')
     args = parser.parse_args()
@@ -699,34 +699,15 @@ def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None
 
 def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                   preamble=None):
-    # setup output fnames
-    table_wse_fname = None
-    table_area_fname = None
-    table_wse_norm_fname = None
-    table_area_norm_fname = None
-    if outdir is not None:
-        # create the outdir if it doesnt exist
-        table_wse_fname = os.path.join(outdir, 'table_wse_' + wb_type + '.txt')
-        table_area_fname = os.path.join(outdir, 'table_area_' + wb_type + '.txt')
-        table_wse_norm_fname = os.path.join(outdir, 'table_wse_norm_' + wb_type + '.txt')
-        table_area_norm_fname = os.path.join(outdir, 'table_area_norm_' + wb_type + '.txt')
+    # make outdir subdirectory for tile data
+    outdir = os.path.join(outdir, 'tile_data_' + wb_type)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
     passfail = get_passfail()
     data_not_in_truth_fail = (100**2)/resolution # TODO: tweak this
     passfail['uncommon_wse_pix_truth'] = [0, data_not_in_truth_fail]
     passfail['uncommon_area_pix_truth'] = [0, data_not_in_truth_fail]
-
-    region_table = {}
-    region_table_normalized = {}
-    for tile_metrics in metrics:
-        region_table = append_tile_table(tile_metrics, region_table,
-                                         wb_type=wb_type)
-        region_table_normalized = append_tile_table(tile_metrics,
-                                                    region_table_normalized,
-                                                    wb_type=wb_type,
-                                                    wse_prefix='wse_e/wse_u_',
-                                                    area_prefix='a_%e/a_%u_',
-                                                    normalize_by_uncert=True)
 
     if wb_type=='river':
         region_idx_key = 'river_idx'
@@ -735,7 +716,6 @@ def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
         region_idx_key = 'lake_idx'
         region_size_key = 'lake_area'
 
-    ttl = 'Tile metrics - ' + wb_type + ' - (wse in m):'
     wse_keys = ['sim_scene', 'cycle', 'tile_names', region_idx_key,
                 region_size_key, 'true_ct_mean', 'meas_wse_mean', 'true_wse_mean',
                 'wse_e_mean', 'wse_e_std', '|wse_e_68_pct|', 'wse_e_50_pct',
@@ -746,37 +726,69 @@ def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                  'a_%e_mean', 'a_%e_std', '|a_%e_68_pct|', 'a_%e_50_pct',
                  'total_area_pix', 'common_area_pix', 'uncommon_area_pix_truth',
                  'uncommon_area_pix_data']
-    region_table_wse = {key:region_table[key] for key in wse_keys}
-    region_table_area = {key:region_table[key] for key in area_keys}
 
-    SWOTRiver.analysis.tabley.print_table(region_table_wse, precision=5,
-                                          passfail=passfail, fname=table_wse_fname,
-                                          preamble=preamble+'\n'+ttl)
-    SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
-                                          passfail=passfail, fname=table_area_fname,
-                                          preamble=preamble+'\n'+ttl)
+    wse_keys_norm = ['sim_scene', 'cycle', 'tile_names', region_idx_key,
+                     region_size_key, 'meas_wse_mean', 'true_wse_mean',
+                     'wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
+                     'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix',
+                     'uncommon_wse_pix_truth', 'uncommon_wse_pix_data']
+    area_keys_norm = ['sim_scene', 'cycle', 'tile_names', region_idx_key,
+                      region_size_key, 'meas_area_total', 'true_area_total',
+                      'a_%e/a_%u_mean', 'a_%e/a_%u_std', '|a_%e/a_%u_68_pct|',
+                      'a_%e/a_%u_50_pct', 'total_area_pix', 'common_area_pix',
+                      'uncommon_area_pix_truth', 'uncommon_area_pix_data']
 
-    ttl = 'Tile metrics - ' + wb_type + ' - (normalized by uncertainties):'
-    wse_keys = ['sim_scene', 'cycle', 'tile_names', region_idx_key,
-                region_size_key, 'meas_wse_mean', 'true_wse_mean',
-                'wse_e/wse_u_mean', 'wse_e/wse_u_std', '|wse_e/wse_u_68_pct|',
-                'wse_e/wse_u_50_pct', 'total_wse_pix', 'common_wse_pix',
-                'uncommon_wse_pix_truth', 'uncommon_wse_pix_data']
-    area_keys = ['sim_scene', 'cycle', 'tile_names', region_idx_key,
-                 region_size_key, 'meas_area_total', 'true_area_total',
-                 'a_%e/a_%u_mean', 'a_%e/a_%u_std', '|a_%e/a_%u_68_pct|',
-                 'a_%e/a_%u_50_pct', 'total_area_pix', 'common_area_pix',
-                 'uncommon_area_pix_truth', 'uncommon_area_pix_data']
+    for tile_metrics in metrics:
+        # get tile info
+        this_scene = tile_metrics[0]['sim_scene']
+        this_cycle = tile_metrics[0]['cycle']
+        this_tile = tile_metrics[0]['tile_names']
 
-    region_table_wse = {key:region_table_normalized[key] for key in wse_keys}
-    region_table_area = {key:region_table_normalized[key] for key in area_keys}
+        # setup output fnames
+        table_wse_fname = None
+        table_area_fname = None
+        table_wse_norm_fname = None
+        table_area_norm_fname = None
+        if outdir is not None:
+            table_wse_fname = os.path.join(outdir, 'table_wse_{}_{}_{}_{}.txt'.format(
+                wb_type, this_scene, this_cycle, this_tile))
+            table_area_fname = os.path.join(outdir, 'table_area_{}_{}_{}_{}.txt'.format(
+                wb_type, this_scene, this_cycle, this_tile))
+            table_wse_norm_fname = os.path.join(outdir, 'table_wse_norm_{}_{}_{}_{}.txt'.format(
+                wb_type, this_scene, this_cycle, this_tile))
+            table_area_norm_fname = os.path.join(outdir, 'table_area_norm_{}_{}_{}_{}.txt'.format(
+                wb_type, this_scene, this_cycle, this_tile))
 
-    SWOTRiver.analysis.tabley.print_table(region_table_wse, precision=5,
-                                          passfail=passfail, fname=table_wse_norm_fname,
-                                          preamble=preamble+'\n'+ttl)
-    SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
-                                          passfail=passfail, fname=table_area_norm_fname,
-                                          preamble=preamble+'\n'+ttl)
+        ttl = 'Tile metrics - {} - {}_{}_{} - (wse in m):'.format(
+                wb_type, this_scene, this_cycle, this_tile)
+
+        ttl_norm = 'Tile metrics - {} - {}_{}_{} -normalized by uncertainties):'.format(
+                wb_type, this_scene, this_cycle, this_tile)
+
+        region_table = append_tile_table(tile_metrics, wb_type=wb_type)
+        region_table_normalized = append_tile_table(tile_metrics, wb_type=wb_type,
+                                                    wse_prefix='wse_e/wse_u_',
+                                                    area_prefix='a_%e/a_%u_',
+                                                    normalize_by_uncert=True)
+
+        region_table_wse = {key:region_table[key] for key in wse_keys}
+        region_table_area = {key:region_table[key] for key in area_keys}
+        region_table_wse_norm = {key:region_table_normalized[key] for key in wse_keys_norm}
+        region_table_area_norm = {key:region_table_normalized[key] for key in area_keys_norm}
+
+        SWOTRiver.analysis.tabley.print_table(region_table_wse, precision=5,
+                                              passfail=passfail, fname=table_wse_fname,
+                                              preamble=preamble+'\n'+ttl)
+        SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
+                                              passfail=passfail, fname=table_area_fname,
+                                              preamble=preamble+'\n'+ttl)
+
+        SWOTRiver.analysis.tabley.print_table(region_table_wse, precision=5,
+                                              passfail=passfail, fname=table_wse_norm_fname,
+                                              preamble=preamble+'\n'+ttl)
+        SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
+                                              passfail=passfail, fname=table_area_norm_fname,
+                                              preamble=preamble+'\n'+ttl)
 
 if __name__ == '__main__':
     main()
