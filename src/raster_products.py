@@ -1311,7 +1311,6 @@ class RasterPixc(Product):
         """ Get a mask of valid pixc points """
         LOGGER.info('RasterPixc::get_valid_mask')
 
-        #TODO: Update this for pixc qual flagging.
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
             lon_keyword = 'improved_longitude'
@@ -1322,7 +1321,19 @@ class RasterPixc(Product):
         lats = self.pixel_cloud[lat_keyword]
         lons = self.pixel_cloud[lon_keyword]
         klass = self.pixel_cloud['classification']
-        pixc_qual = self.pixel_cloud['pixc_qual']
+
+        # TODO: Do something more sophisticated with the pixc qual flags than
+        # just throwing away all "bad" values from any flag.
+        # Probably will want to split into separate flags for different
+        # aggregated quantities.
+        per_pixel_line_qual = \
+            self.pixel_cloud['pixc_line_qual'][self.pixel_cloud['azimuth_index']]
+        pixc_qual = np.logical_or.reduce((
+            self.pixel_cloud['interferogram_qual'] == 2,
+            self.pixel_cloud['classification_qual'] == 2,
+            self.pixel_cloud['height_qual'] == 2,
+            per_pixel_line_qual == 2))
+
         mask = np.ones(np.shape(lats))
 
         if np.ma.is_masked(lats):
@@ -1354,7 +1365,7 @@ class RasterPixelCloud(Product):
             'docstr':'ratio of the number of real looks to the effective number of independent looks'}],
     ])
     ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
-    DIMENSIONS = odict([['points', 0]])
+    DIMENSIONS = odict([['points', 0], ['num_pixc_lines', 0]])
     VARIABLES = odict([
         ['latitude', odict([])],
         ['longitude', odict([])],
@@ -1397,10 +1408,14 @@ class RasterPixelCloud(Product):
         ['model_dry_tropo_cor', odict([])],
         ['model_wet_tropo_cor', odict([])],
         ['iono_cor_gim_ka', odict([])],
-        ['pixc_qual', odict([])],
+        ['interferogram_qual', odict([])],
+        ['classification_qual', odict([])],
+        ['height_qual', odict([])],
+        ['pixc_line_qual', odict([])],
     ])
     for name, reference in VARIABLES.items():
-        reference['dimensions'] = DIMENSIONS
+        reference['dimensions'] = odict([['points', 0]])
+    VARIABLES['pixc_line_qual']['dimensions'] = odict([['num_pixc_lines',0],])
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
