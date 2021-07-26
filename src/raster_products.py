@@ -19,7 +19,8 @@ from SWOTWater.products.product import Product
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
-TIME_FORMAT_STR = '%Y-%m-%d %H:%M:%S.%fZ'
+TIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
+EMPTY_TIME = "0000-00-00T00:00:00.000000Z"
 
 PIXC_BAD_FLAG_VALUE = 2
 
@@ -847,7 +848,7 @@ class RasterUTM(Product):
 
     def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
         """ Get the mapping of pixc points to raster bins """
-        LOGGER.info('RasterUTM::get_raster_mapping')
+        LOGGER.info('getting raster mapping')
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -894,7 +895,7 @@ class RasterUTM(Product):
 
     def crop_to_bounds(self, swath_polygon_points):
         """ Crop raster to the given swath polygon """
-        LOGGER.info('RasterUTM::crop_to_bounds')
+        LOGGER.info('cropping to bounds')
 
         # Convert polygon points to UTM
         input_crs = raster_crs.wgs84_crs()
@@ -923,7 +924,7 @@ class RasterUTM(Product):
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
-        LOGGER.info('RasterUTM::get_uncorrected_height')
+        LOGGER.info('getting uncorrected height')
 
         height = self.wse + (
             self.geoid +
@@ -1086,7 +1087,7 @@ class RasterGeo(Product):
 
     def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
         """ Get the mapping of pixc points to raster bins """
-        LOGGER.info('RasterGeo::get_raster_mapping')
+        LOGGER.info('getting raster mapping')
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -1119,7 +1120,7 @@ class RasterGeo(Product):
 
     def crop_to_bounds(self, swath_polygon_points):
         """ Crop raster to the given swath polygon """
-        LOGGER.info('RasterGeo::crop_to_bounds')
+        LOGGER.info('cropping to bounds')
 
         poly = Polygon(swath_polygon_points)
 
@@ -1139,24 +1140,23 @@ class RasterGeo(Product):
 
         # Set the time coverage start and end
         if np.all(self.illumination_time.mask):
+            start_illumination_time = EMPTY_TIME
+            end_illumination_time = EMPTY_TIME
+        else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-        else:
-            start_illumination_time = 0
-            end_illumination_time = 0
-        start_time = datetime.fromtimestamp(
-            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + start_illumination_time)
-        end_time = datetime.fromtimestamp(
-            (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + end_illumination_time))
-
-        self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
-        self.time_coverage_end = stop_time.strftime(TIME_FORMAT_STR)
+            start_time = datetime.fromtimestamp(
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                + start_illumination_time)
+            end_time = datetime.fromtimestamp(
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                + end_illumination_time)
+            self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
+            self.time_coverage_end = stop_time.strftime(TIME_FORMAT_STR)
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
-        LOGGER.info('RasterGeo::get_uncorrected_height')
+        LOGGER.info('getting uncorrected height')
 
         height = self.wse + (
             self.geoid +
@@ -1254,7 +1254,7 @@ class RasterPixc(Product):
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
-        LOGGER.info('RasterPixc::from_tile')
+        LOGGER.info('constructing raster pixc from tile')
 
         raster_pixc = cls()
 
@@ -1322,7 +1322,7 @@ class RasterPixc(Product):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
-        LOGGER.info('RasterPixc::from_tiles')
+        LOGGER.info('constructing raster pixc from tiles')
 
         num_tiles = len(pixc_tiles)
         if pixcvec_tiles is None:
@@ -1404,7 +1404,7 @@ class RasterPixc(Product):
     def get_mask(self, valid_classes, qual_flags=[],
                  use_improved_geoloc=True):
         """ Get mask of valid pixc points for raster aggregation """
-        LOGGER.info('RasterPixc::get_valid_masks')
+        LOGGER.info('getting mask')
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -1446,7 +1446,7 @@ class RasterPixc(Product):
             else:
                 qual_mask = np.logical_or(
                     qual_mask, self.pixel_cloud[qual_flag]==PIXC_BAD_FLAG_VALUE)
-        mask[pixc_qual] == 0
+        mask[qual_mask] = 0
 
         return mask==1
 
@@ -1522,7 +1522,7 @@ class RasterPixelCloud(Product):
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
-        LOGGER.info('RasterPixelCloud::from_tile')
+        LOGGER.info('constructing raster pixel cloud from tile')
 
         raster_pixel_cloud = cls()
 
@@ -1592,7 +1592,7 @@ class RasterTVP(Product):
     @classmethod
     def from_tile(cls, pixc_tile):
         """ Construct self from a single pixc tile """
-        LOGGER.info('RasterTVP::from_tile')
+        LOGGER.info('constructing raster tvp from tile')
 
         raster_tvp = cls()
 

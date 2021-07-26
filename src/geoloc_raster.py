@@ -27,15 +27,13 @@ LOGGER = logging.getLogger(__name__)
 
 class GeolocRaster(object):
     def __init__(self, pixc, raster, algorithmic_config):
-        LOGGER.info("GeolocRaster::init")
-
         self.pixc = pixc
         self.raster = raster
         self.algorithmic_config = algorithmic_config
 
     def process(self):
         """ Do improved raster geolocation """
-        LOGGER.info("GeolocRaster::process")
+        LOGGER.info("processing")
 
         self.update_heights_from_raster()
         self.apply_improved_geoloc()
@@ -46,19 +44,21 @@ class GeolocRaster(object):
 
     def update_heights_from_raster(self):
         """ Update pixelcloud heights from raster """
-        LOGGER.info("GeolocRaster::update_heights_from_raster")
+        LOGGER.info("updating heights from raster")
 
         self.new_height = self.pixc['pixel_cloud']['height'].copy()
 
-        pixc_mask = self.pixc.get_valid_mask(use_improved_geoloc=False)
-        pixc_mask = np.logical_and(
-            pixc_mask,
-            np.isin(self.pixc['pixel_cloud']['classification'],
-                    np.concatenate((self.algorithmic_config['interior_water_classes'],
-                                    self.algorithmic_config['water_edge_classes'],
-                                    self.algorithmic_config['land_edge_classes'],
-                                    self.algorithmic_config['dark_water_classes']))))
-        proj_mapping = self.raster.get_raster_mapping(self.pixc, pixc_mask,
+        all_classes = np.concatenate(
+            (self.algorithmic_config['interior_water_classes'],
+             self.algorithmic_config['water_edge_classes'],
+             self.algorithmic_config['land_edge_classes'],
+             self.algorithmic_config['dark_water_classes']))
+        common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
+                             'classification_qual', 'height_qual']
+        all_mask = self.pixc.get_mask(
+            all_classes, common_qual_flags, use_improved_geoloc=False)
+
+        proj_mapping = self.raster.get_raster_mapping(self.pixc, all_mask,
                                                       use_improved_geoloc=False)
 
         raster_uncorrected_height = self.raster.get_uncorrected_height()
@@ -71,7 +71,7 @@ class GeolocRaster(object):
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
-        LOGGER.info("GeolocRaster::apply_improved_geoloc")
+        LOGGER.info("applying improved geolocation")
 
         method = self.algorithmic_config[ \
             'lowres_raster_height_constrained_geoloc_method']
@@ -83,7 +83,7 @@ class GeolocRaster(object):
 
     def taylor_improved_geoloc(self):
         """ Improve the height of noisy point (in object sensor) """
-        LOGGER.info("GeolocRaster::taylor_improved_geoloc")
+        LOGGER.info("doing taylor improved geolocation")
 
         nb_pix = self.pixc['pixel_cloud']['height'].size
         # Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)

@@ -31,8 +31,6 @@ LOGGER = logging.getLogger(__name__)
 class L2PixcToRaster(object):
     def __init__(self, pixc=None, polygon_points=None,
                  algorithmic_config=None, runtime_config=None):
-        LOGGER.info("L2PixcToRaster::init")
-
         self.pixc = pixc
         self.polygon_points = polygon_points
         self.algorithmic_config = algorithmic_config
@@ -46,7 +44,7 @@ class L2PixcToRaster(object):
 
     def process(self):
         """ Process L2Pixc to Raster """
-        LOGGER.info("L2PixcToRaster::process")
+        LOGGER.info("processing l2pixc to raster")
 
         # Get height-constrained geolocation as specified in config:
         # "none" - we want to use non-improved geoloc
@@ -79,7 +77,7 @@ class L2PixcToRaster(object):
 
     def do_height_constrained_geolocation(self):
         """ Do raster height constrained geolocation """
-        LOGGER.info("L2PixcToRaster::do_height_constrained_geolocation")
+        LOGGER.info("doing height constrained geolocation")
 
         # TODO: Handle land edges better in improved geolocation
         # Normally land edges wouldn't get raster heights, but we are forcing
@@ -124,7 +122,7 @@ class L2PixcToRaster(object):
 
     def get_smoothed_height(self):
         """ Get smoothed raster height for ifgram flattening """
-        LOGGER.info("L2PixcToRaster::get_smoothed_height")
+        LOGGER.info("getting smoothed height")
 
         height_constrained_geoloc_raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
@@ -158,7 +156,7 @@ class L2PixcToRaster(object):
 
     def do_raster_processing(self):
         """ Do raster processing """
-        LOGGER.info("L2PixcToRaster::do_raster_processing")
+        LOGGER.info("doing raster processing")
 
         raster_proc = RasterProcessor(
             self.runtime_config['output_sampling_grid_type'],
@@ -185,8 +183,6 @@ class RasterProcessor(object):
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
-        LOGGER.info("RasterProcessor::init")
-
         self.projection_type = projection_type
 
         if projection_type=='geo':
@@ -211,7 +207,7 @@ class RasterProcessor(object):
 
     def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
         """ Rasterize pixc to raster """
-        LOGGER.info("RasterProcessor::rasterize")
+        LOGGER.info("rasterizing")
 
         # Note: use_improved_geoloc indicates whether improved geolocations
         # are used for pixel binning. Improved heights are still needed for
@@ -258,10 +254,14 @@ class RasterProcessor(object):
         # TODO: determine qual flags to use for each mask
         common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
                              'classification_qual', 'height_qual']
-        all_mask = pixc.get_mask(all_classes, qual_flags=common_qual_flags)
-        wse_mask = pixc.get_mask(water_classes, qual_flags=common_qual_flags)
-        water_area_mask = pixc.get_mask(all_classes, qual_flags=common_qual_flags)
-        sig0_mask = pixc.get_mask(water_classes, qual_flags=common_qual_flags)
+        all_mask = pixc.get_mask(
+            all_classes, common_qual_flags, use_improved_geoloc)
+        wse_mask = pixc.get_mask(
+            water_classes, common_qual_flags, use_improved_geoloc)
+        water_area_mask = pixc.get_mask(
+            all_classes, common_qual_flags, use_improved_geoloc)
+        sig0_mask = pixc.get_mask(
+            water_classes, common_qual_flags, use_improved_geoloc)
 
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
@@ -270,7 +270,7 @@ class RasterProcessor(object):
             LOGGER.warn('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
-        self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask,
+        self.proj_mapping = empty_product.get_raster_mapping(pixc, all_mask,
                                                              use_improved_geoloc)
 
         self.aggregate_corrections(pixc, all_mask)
@@ -294,7 +294,7 @@ class RasterProcessor(object):
 
     def create_projection_from_polygon(self, polygon_points):
         """ Create the output projection given a bounding polygon """
-        LOGGER.info("RasterProcessor::create_projection_from_polygon")
+        LOGGER.info("creating projection from polygon")
 
         poly_edge_y = [point[0] for point in polygon_points]
         poly_edge_x = [point[1] for point in polygon_points]
@@ -368,7 +368,7 @@ class RasterProcessor(object):
 
     def aggregate_wse(self, pixc, mask, use_improved_geoloc=True):
         """ Aggregate water surface elevation and associated uncertainties """
-        LOGGER.info("RasterProcessor::aggregate_wse")
+        LOGGER.info("aggregating wse")
 
         pixc_height = pixc['pixel_cloud']['height']
         pixc_num_rare_looks = pixc['pixel_cloud']['eff_num_rare_looks']
@@ -458,7 +458,7 @@ class RasterProcessor(object):
 
     def aggregate_water_area(self, pixc, mask):
         """ Aggregate water area, water fraction and associated uncertainties """
-        LOGGER.info("RasterProcessor::aggregate_water_area")
+        LOGGER.info("aggregating water area")
 
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
@@ -522,7 +522,7 @@ class RasterProcessor(object):
 
     def aggregate_cross_track(self, pixc, mask):
         """ Aggregate cross track """
-        LOGGER.info("RasterProcessor::aggregate_cross_track")
+        LOGGER.info("aggregating cross track")
 
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
@@ -538,7 +538,7 @@ class RasterProcessor(object):
 
     def aggregate_sig0(self, pixc, mask):
         """ Aggregate sigma0 """
-        LOGGER.info("RasterProcessor::aggregate_sig0")
+        LOGGER.info("aggregating sigma0")
 
         pixc_sig0 = pixc['pixel_cloud']['sig0']
         pixc_sig0_uncert = pixc['pixel_cloud']['sig0_uncert']
@@ -564,7 +564,7 @@ class RasterProcessor(object):
 
     def aggregate_inc(self, pixc, mask):
         """ Aggregate incidence angle """
-        LOGGER.info("RasterProcessor::aggregate_inc")
+        LOGGER.info("aggregating incidence angle")
 
         pixc_inc = pixc['pixel_cloud']['inc']
 
@@ -579,7 +579,7 @@ class RasterProcessor(object):
 
     def aggregate_dark_frac(self, pixc, mask):
         """ Aggregate dark water fraction """
-        LOGGER.info("RasterProcessor::aggregate_dark_frac")
+        LOGGER.info("aggregating dark fraction")
 
         pixc_classif = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
@@ -625,7 +625,7 @@ class RasterProcessor(object):
 
     def aggregate_classification(self, pixc, mask):
         """ Aggregate binary classification """
-        LOGGER.info("RasterProcessor::aggregate_classification")
+        LOGGER.info("aggregating classification")
 
         pixc_classif = pixc['pixel_cloud']['classification']
 
@@ -640,7 +640,7 @@ class RasterProcessor(object):
 
     def aggregate_illumination_time(self, pixc, mask):
         """ Aggregate illumination time """
-        LOGGER.info("RasterProcessor::aggregate_illumination_time")
+        LOGGER.info("aggregating illumination time")
 
         pixc_illumination_time = pixc['pixel_cloud']['illumination_time']
         pixc_illumination_time_tai = pixc['pixel_cloud']['illumination_time_tai']
@@ -667,25 +667,27 @@ class RasterProcessor(object):
 
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
+            self.time_coverage_start = raster_products.EMPTY_TIME
+            self.time_coverage_end = raster_products.EMPTY_TIME
+        else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-        else:
-            start_illumination_time = 0
-            end_illumination_time = 0
-        start_time = datetime.fromtimestamp(
-            (raster_products.SWOT_EPOCH-raster_products.UNIX_EPOCH).total_seconds() \
-            + start_illumination_time)
-        end_time = datetime.fromtimestamp(
-            (raster_products.SWOT_EPOCH-raster_products.UNIX_EPOCH).total_seconds() \
-            + end_illumination_time))
-        self.time_coverage_start = start_time.strftime(
-            raster_products.TIME_FORMAT_STR)
-        self.time_coverage_end = stop_time.strftime(
-            raster_products.TIME_FORMAT_STR)
+            start_time = datetime.fromtimestamp(
+                (raster_products.SWOT_EPOCH
+                 - raster_products.UNIX_EPOCH).total_seconds() \
+                + start_illumination_time)
+            stop_time = datetime.fromtimestamp(
+                (raster_products.SWOT_EPOCH
+                 - raster_products.UNIX_EPOCH).total_seconds() \
+                + end_illumination_time)
+            self.time_coverage_start = start_time.strftime(
+                raster_products.TIME_FORMAT_STR)
+            self.time_coverage_end = stop_time.strftime(
+                raster_products.TIME_FORMAT_STR)
 
     def aggregate_ice_flags(self, pixc, mask):
         """ Aggregate ice flags """
-        LOGGER.info("RasterProcessor::aggregate_ice_flags")
+        LOGGER.info("aggregating ice flags")
 
         pixc_ice_clim_flag = pixc['pixel_cloud']['ice_clim_flag']
         pixc_ice_dyn_flag = pixc['pixel_cloud']['ice_dyn_flag']
@@ -716,7 +718,7 @@ class RasterProcessor(object):
 
     def aggregate_layover_impact(self, pixc, mask):
         """ Aggregate layover impact """
-        LOGGER.info("RasterProcessor::aggregate_layover_impact")
+        LOGGER.info("aggregating layover impact")
 
         pixc_layover_impact = pixc['pixel_cloud']['layover_impact']
 
@@ -746,7 +748,7 @@ class RasterProcessor(object):
 
     def aggregate_corrections(self, pixc, mask):
         """ Aggregate geophysical corrections """
-        LOGGER.info("RasterProcessor::aggregate_corrections")
+        LOGGER.info("aggregating corrections")
 
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
@@ -797,7 +799,7 @@ class RasterProcessor(object):
 
     def apply_wse_corrections(self):
         """ Apply geophysical corrections to wse """
-        LOGGER.info("RasterProcessor::apply_wse_corrections")
+        LOGGER.info("applying wse corrections")
 
         self.wse -= (
             self.geoid +
@@ -807,7 +809,7 @@ class RasterProcessor(object):
 
     def aggregate_lat_lon(self, mask):
         """ Aggregate latitude and longitude """
-        LOGGER.info("RasterProcessor::aggregate_lat_lon")
+        LOGGER.info("aggregating latitude and longitude")
 
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
@@ -831,7 +833,7 @@ class RasterProcessor(object):
 
     def build_product(self, populate_values=True, polygon_points=None):
         """ Assemble the product """
-        LOGGER.info("RasterProcessor::build_product")
+        LOGGER.info("building product")
 
         if self.projection_type == 'utm':
             if self.debug_flag:
