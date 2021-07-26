@@ -19,6 +19,9 @@ from SWOTWater.products.product import Product
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
+TIME_FORMAT_STR = '%Y-%m-%d %H:%M:%S.%fZ'
+
+PIXC_BAD_FLAG_VALUE = 2
 
 LOGGER = logging.getLogger(__name__)
 
@@ -136,6 +139,16 @@ COMMON_ATTRIBUTES = odict([
       'docstr': textjoin("""
           Version identifier of the product generation executable (PGE) that
           created this file""")}],
+    ['time_granule_start',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Nominal starting UTC time of product granule.
+          Format is: YYYY-MM-DDThh:mm:ss.ssssssZ""")}],
+    ['time_granule_end',
+     {'dtype': 'str',
+      'docstr': textjoin("""
+          Nominal ending UTC time of product granule.
+          Format is: YYYY-MM-DDThh:mm:ss.ssssssZ""")}],
     ['time_coverage_start',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -370,7 +383,7 @@ COMMON_VARIABLES = odict([
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
-    ['raster_qual',
+    ['wse_qual',
      odict([['dtype', 'u1'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
@@ -380,7 +393,32 @@ COMMON_VARIABLES = odict([
             ['valid_max', 1],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Quality flag for raster data.""")],
+                Quality flag for the WSE quantities in the raster data.""")],
+        ])],
+    ['water_area_qual',
+     odict([['dtype', 'u1'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', 'good bad'],
+            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['valid_min', 0],
+            ['valid_max', 1],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Quality flag for the water area quantities in the raster
+                data.""")],
+        ])],
+    ['sig0_qual',
+     odict([['dtype', 'u1'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', 'good bad'],
+            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['valid_min', 0],
+            ['valid_max', 1],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Quality flag for the sigma0 quantities in the raster data.""")],
         ])],
     ['n_wse_pix',
      odict([['dtype', 'u4'],
@@ -394,9 +432,9 @@ COMMON_VARIABLES = odict([
                 Number of pixel cloud samples used in water surface elevation
                 aggregation.""")],
         ])],
-    ['n_area_pix',
+    ['n_water_area_pix',
      odict([['dtype', 'u4'],
-            ['long_name', 'number of area pixels'],
+            ['long_name', 'number of water area pixels'],
             ['grid_mapping', 'crs'],
             ['units', 'l'],
             ['valid_min', 0],
@@ -405,6 +443,29 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Number of pixel cloud samples used in water area and
                 water fraction aggregation.""")],
+        ])],
+    ['n_sig0_pix',
+     odict([['dtype', 'u4'],
+            ['long_name', 'number of sigma0 pixels'],
+            ['grid_mapping', 'crs'],
+            ['units', 'l'],
+            ['valid_min', 0],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Number of pixel cloud samples used in sigma0 aggregation.""")],
+        ])],
+    ['n_other_pix',
+     odict([['dtype', 'u4'],
+            ['long_name', 'number of other pixels'],
+            ['grid_mapping', 'crs'],
+            ['units', 'l'],
+            ['valid_min', 0],
+            ['valid_max', 999999],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Number of pixel cloud samples used in aggregation of
+                quantities not related to WSE, water area or sigma0.""")],
         ])],
     ['dark_frac',
      odict([['dtype', 'f4'],
@@ -638,6 +699,8 @@ class RasterUTM(Product):
         ['product_version', COMMON_ATTRIBUTES['product_version']],
         ['pge_name', COMMON_ATTRIBUTES['pge_name']],
         ['pge_version', COMMON_ATTRIBUTES['pge_version']],
+        ['time_granule_start', COMMON_ATTRIBUTES['time_granule_start']],
+        ['time_granule_end', COMMON_ATTRIBUTES['time_granule_end']],
         ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
         ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
         ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
@@ -748,9 +811,13 @@ class RasterUTM(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
+        ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
+        ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
+        ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
-        ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
+        ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
+        ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
+        ['n_other_pix', COMMON_VARIABLES['n_other_pix'].copy()],
         ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
@@ -870,7 +937,7 @@ class RasterUTM(Product):
 
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
-            if np.logical_not(var_data.mask.all()):
+            if np.logical_not(np.all(var_data.mask)):
                 return 0
         return 1
 
@@ -908,6 +975,8 @@ class RasterGeo(Product):
         ['product_version', COMMON_ATTRIBUTES['product_version']],
         ['pge_name', COMMON_ATTRIBUTES['pge_name']],
         ['pge_version', COMMON_ATTRIBUTES['pge_version']],
+        ['time_granule_start', COMMON_ATTRIBUTES['time_granule_start']],
+        ['time_granule_end', COMMON_ATTRIBUTES['time_granule_end']],
         ['time_coverage_start', COMMON_ATTRIBUTES['time_coverage_start']],
         ['time_coverage_end', COMMON_ATTRIBUTES['time_coverage_end']],
         ['geospatial_lon_min', COMMON_ATTRIBUTES['geospatial_lon_min']],
@@ -986,9 +1055,13 @@ class RasterGeo(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['raster_qual', COMMON_VARIABLES['raster_qual'].copy()],
+        ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
+        ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
+        ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
-        ['n_area_pix', COMMON_VARIABLES['n_area_pix'].copy()],
+        ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
+        ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
+        ['n_other_pix', COMMON_VARIABLES['n_other_pix'].copy()],
         ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
@@ -1065,15 +1138,21 @@ class RasterGeo(Product):
                     self.variables[var].mask, np.logical_not(mask))
 
         # Set the time coverage start and end
+        if np.all(self.illumination_time.mask):
+            start_illumination_time = np.min(self.illumination_time)
+            end_illumination_time = np.max(self.illumination_time)
+        else:
+            start_illumination_time = 0
+            end_illumination_time = 0
         start_time = datetime.fromtimestamp(
             (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + np.min(self.illumination_time))
-        stop_time = datetime.fromtimestamp(
+            + start_illumination_time)
+        end_time = datetime.fromtimestamp(
             (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
-            + np.max(self.illumination_time))
+            + end_illumination_time))
 
-        self.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
-        self.time_coverage_end = stop_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+        self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
+        self.time_coverage_end = stop_time.strftime(TIME_FORMAT_STR)
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
@@ -1091,7 +1170,7 @@ class RasterGeo(Product):
 
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
-            if np.logical_not(var_data.mask.all()):
+            if np.logical_not(np.all(var_data.mask)):
                 return 0
         return 1
 
@@ -1138,6 +1217,7 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES['classification']['dimensions'] = \
         odict([['latitude', 0], ['longitude', 0]])
 
+
 class RasterPixc(Product):
     ATTRIBUTES = odict([
         ['cycle_number', odict([])],
@@ -1146,6 +1226,8 @@ class RasterPixc(Product):
         ['tile_numbers', odict([])],
         ['tile_names', odict([])],
         ['tile_polarizations', odict([])],
+        ['time_granule_start', odict([])],
+        ['time_granule_end', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
         ['wavelength', odict([])],
@@ -1183,6 +1265,8 @@ class RasterPixc(Product):
         raster_pixc.tile_names = [pixc_tile.tile_name]
         raster_pixc.tile_polarizations = [pixc_tile.polarization]
         raster_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('i2')
+        raster_pixc.time_granule_start = pixc_tile.time_granule_start
+        raster_pixc.time_granule_end = pixc_tile.time_granule_end
         raster_pixc.time_coverage_start = pixc_tile.time_coverage_start
         raster_pixc.time_coverage_end = pixc_tile.time_coverage_end
         raster_pixc.wavelength = pixc_tile.wavelength
@@ -1233,8 +1317,8 @@ class RasterPixc(Product):
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   start_time, end_time, cycle_number, pass_number,
-                   scene_number, pixcvec_tiles=None):
+                   granule_start_time, granule_end_time, cycle_number,
+                   pass_number, scene_number, pixcvec_tiles=None):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
@@ -1251,10 +1335,14 @@ class RasterPixc(Product):
 
         # Add all of the pixel_cloud/tvp data
         raster_pixc = np.array(tile_objs).sum()
-        start_times = [datetime.strptime(
-            tile.time_coverage_start, '%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
-        end_times = [datetime.strptime(
-            tile.time_coverage_end,'%Y-%m-%d %H:%M:%S.%fZ') for tile in tile_objs]
+        granule_start_times = [datetime.strptime(
+            tile.time_granule_start, TIME_FORMAT_STR) for tile in tile_objs]
+        granule_end_times = [datetime.strptime(
+            tile.time_granule_end, TIME_FORMAT_STR) for tile in tile_objs]
+        coverage_start_times = [datetime.strptime(
+            tile.time_coverage_start, TIME_FORMAT_STR) for tile in tile_objs]
+        coverage_end_times = [datetime.strptime(
+            tile.time_coverage_end, TIME_FORMAT_STR) for tile in tile_objs]
         raster_pixc.cycle_number = np.short(cycle_number)
         raster_pixc.pass_number = np.short(pass_number)
         raster_pixc.scene_number = np.short(scene_number)
@@ -1263,7 +1351,7 @@ class RasterPixc(Product):
                        for tile_name in tile.tile_names]
         sort_indices = np.argsort(
             [swath_side + str(start_time)
-             for swath_side, start_time in zip(swath_sides, start_times)])
+             for swath_side, start_time in zip(swath_sides, granule_start_times)])
 
         raster_pixc.tile_numbers = [tile_num for i in sort_indices
                                     for tile_num in tile_objs[i].tile_numbers]
@@ -1273,13 +1361,19 @@ class RasterPixc(Product):
         raster_pixc.tile_polarizations =', '.join(
             [tile_pol for i in sort_indices
              for tile_pol in tile_objs[i].tile_polarizations])
-        raster_pixc.time_coverage_start = start_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
-        raster_pixc.time_coverage_end = end_time.strftime('%Y-%m-%d %H:%M:%S.%fZ')
+        raster_pixc.time_granule_start = \
+            granule_start_time.strftime(TIME_FORMAT_STR)
+        raster_pixc.time_granule_end = \
+            granule_end_time.strftime(TIME_FORMAT_STR)
+        raster_pixc.time_coverage_start = \
+            min(coverage_start_times).strftime(TIME_FORMAT_STR)
+        raster_pixc.time_coverage_end = \
+            max(coverage_end_times).strftime(TIME_FORMAT_STR)
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
-        central_tile_index = start_times.index(
-            np.percentile(start_times, 50, interpolation='nearest'))
+        central_tile_index = granule_start_times.index(
+            np.percentile(granule_start_times, 50, interpolation='nearest'))
         raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
         raster_pixc.near_range = tile_objs[central_tile_index].near_range
         raster_pixc.nominal_slant_range_spacing = \
@@ -1307,9 +1401,10 @@ class RasterPixc(Product):
         raster_pixc.geospatial_lon_max = max(lons)
         return raster_pixc
 
-    def get_valid_mask(self, use_improved_geoloc=True):
-        """ Get a mask of valid pixc points """
-        LOGGER.info('RasterPixc::get_valid_mask')
+    def get_mask(self, valid_classes, qual_flags=[],
+                 use_improved_geoloc=True):
+        """ Get mask of valid pixc points for raster aggregation """
+        LOGGER.info('RasterPixc::get_valid_masks')
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -1320,19 +1415,7 @@ class RasterPixc(Product):
 
         lats = self.pixel_cloud[lat_keyword]
         lons = self.pixel_cloud[lon_keyword]
-        klass = self.pixel_cloud['classification']
-
-        # TODO: Do something more sophisticated with the pixc qual flags than
-        # just throwing away all "bad" values from any flag.
-        # Probably will want to split into separate flags for different
-        # aggregated quantities.
-        per_pixel_line_qual = \
-            self.pixel_cloud['pixc_line_qual'][self.pixel_cloud['azimuth_index']]
-        pixc_qual = np.logical_or.reduce((
-            self.pixel_cloud['interferogram_qual'] == 2,
-            self.pixel_cloud['classification_qual'] == 2,
-            self.pixel_cloud['height_qual'] == 2,
-            per_pixel_line_qual == 2))
+        pixc_classif = self.pixel_cloud['classification']
 
         mask = np.ones(np.shape(lats))
 
@@ -1343,8 +1426,27 @@ class RasterPixc(Product):
 
         mask[np.isnan(lats)] = 0
         mask[np.isnan(lons)] = 0
-        mask[np.isnan(klass)] = 0
-        mask[pixc_qual] = 0
+        mask[np.isnan(pixc_classif)] = 0
+
+        # Use valid classes to mask
+        classif_mask = np.zeros_like(mask)
+        for classif_val in valid_classes:
+            classif_mask = np.logical_or(
+                classif_mask, pixc_classif==classif_val)
+        mask[classif_mask] = 0
+
+        # Use qual flags to mask
+        qual_mask = np.zeros_like(mask)
+        for qual_flag in qual_flags:
+            if qual_flag == 'pixc_line_qual':
+                per_pixel_line_qual = \
+                    self.pixel_cloud['pixc_line_qual'][self.pixel_cloud['azimuth_index']]
+                qual_mask = np.logical_or(
+                    qual_mask, per_pixel_line_qual==PIXC_BAD_FLAG_VALUE)
+            else:
+                qual_mask = np.logical_or(
+                    qual_mask, self.pixel_cloud[qual_flag]==PIXC_BAD_FLAG_VALUE)
+        mask[pixc_qual] == 0
 
         return mask==1
 

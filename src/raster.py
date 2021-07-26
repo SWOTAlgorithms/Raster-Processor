@@ -21,10 +21,10 @@ from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 # Internal class values used in area aggregation
-TMP_INTERIOR_WATER_KLASS = 1
-TMP_WATER_EDGE_KLASS = 2
-TMP_LAND_EDGE_KLASS = 3
-TMP_DARK_WATER_KLASS = 4
+TMP_INTERIOR_WATER_CLASSIF = 1
+TMP_WATER_EDGE_CLASSIF = 2
+TMP_LAND_EDGE_CLASSIF = 3
+TMP_DARK_WATER_CLASSIF = 4
 
 LOGGER = logging.getLogger(__name__)
 
@@ -223,6 +223,8 @@ class RasterProcessor(object):
         self.tile_names = pixc.tile_names
         self.tile_polarizations = pixc.tile_polarizations
         self.scene_number = pixc.scene_number
+        self.time_granule_start = pixc.time_granule_start
+        self.time_granule_end = pixc.time_granule_end
         self.time_coverage_start = pixc.time_coverage_start
         self.time_coverage_end = pixc.time_coverage_end
         self.geospatial_lon_min = pixc.geospatial_lon_min
@@ -248,16 +250,18 @@ class RasterProcessor(object):
         else:
             self.create_projection_from_polygon(polygon_points)
 
-        # Get mask of valid pixc values
-        pixc_mask = pixc.get_valid_mask(use_improved_geoloc)
-        # Exclude classes not defined in the processor
-        pixc_mask = np.logical_and(
-            pixc_mask,
-            np.isin(pixc['pixel_cloud']['classification'],
-                    np.concatenate((self.interior_water_classes,
-                                    self.water_edge_classes,
-                                    self.land_edge_classes,
-                                    self.dark_water_classes))))
+        # Get masks of valid pixc values
+        water_classes = np.concatenate((self.interior_water_classes,
+                                        self.water_edge_classes,
+                                        self.dark_water_classes))
+        all_classes = np.concatenate((water_classes, self.land_edge_classes))
+        # TODO: determine qual flags to use for each mask
+        common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
+                             'classification_qual', 'height_qual']
+        all_mask = pixc.get_mask(all_classes, qual_flags=common_qual_flags)
+        wse_mask = pixc.get_mask(water_classes, qual_flags=common_qual_flags)
+        water_area_mask = pixc.get_mask(all_classes, qual_flags=common_qual_flags)
+        sig0_mask = pixc.get_mask(water_classes, qual_flags=common_qual_flags)
 
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
@@ -269,21 +273,21 @@ class RasterProcessor(object):
         self.proj_mapping = empty_product.get_raster_mapping(pixc, pixc_mask,
                                                              use_improved_geoloc)
 
-        self.aggregate_corrections(pixc, pixc_mask)
-        self.aggregate_wse(pixc, pixc_mask, use_improved_geoloc)
-        self.aggregate_water_area(pixc, pixc_mask)
-        self.aggregate_cross_track(pixc, pixc_mask)
-        self.aggregate_sig0(pixc, pixc_mask)
-        self.aggregate_inc(pixc, pixc_mask)
-        self.aggregate_dark_frac(pixc, pixc_mask)
-        self.aggregate_illumination_time(pixc, pixc_mask)
-        self.aggregate_ice_flags(pixc, pixc_mask)
-        self.aggregate_layover_impact(pixc, pixc_mask)
+        self.aggregate_corrections(pixc, all_mask)
+        self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
+        self.aggregate_water_area(pixc, water_area_mask)
+        self.aggregate_cross_track(pixc, all_mask)
+        self.aggregate_sig0(pixc, sig0_mask)
+        self.aggregate_inc(pixc, all_mask)
+        self.aggregate_dark_frac(pixc, all_mask)
+        self.aggregate_illumination_time(pixc, all_mask)
+        self.aggregate_ice_flags(pixc, all_mask)
+        self.aggregate_layover_impact(pixc, wse_mask)
         if self.projection_type == 'utm':
-            self.aggregate_lat_lon(pixc_mask)
+            self.aggregate_lat_lon(all_mask)
 
         if self.debug_flag:
-            self.aggregate_classification(pixc, pixc_mask)
+            self.aggregate_classification(pixc, all_mask)
 
         return self.build_product(polygon_points=polygon_points)
 
@@ -419,14 +423,6 @@ class RasterProcessor(object):
                                                pixc_tvp_index,
                                                pixc_wavelength)
 
-        # Aggregate heights for interior water, water edges, and dark water
-        pixc_klass = pixc['pixel_cloud']['classification']
-        mask = np.logical_and(mask,
-                              np.isin(pixc_klass, np.concatenate((
-                                  self.interior_water_classes,
-                                  self.water_edge_classes,
-                                  self.dark_water_classes))))
-
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
         self.n_wse_pix = np.ma.masked_all((self.size_y, self.size_x))
@@ -470,23 +466,23 @@ class RasterProcessor(object):
         pixc_darea_dheight = pixc['pixel_cloud']['darea_dheight']
         pixc_pfd = pixc['pixel_cloud']['false_detection_rate']
         pixc_pmd = pixc['pixel_cloud']['missed_detection_rate']
-        pixc_klass = pixc['pixel_cloud']['classification']
+        pixc_classif = pixc['pixel_cloud']['classification']
 
-        tmp_klass = np.zeros_like(pixc_klass)
-        tmp_klass[np.isin(pixc_klass, self.interior_water_classes)] = \
-            TMP_INTERIOR_WATER_KLASS
-        tmp_klass[np.isin(pixc_klass, self.water_edge_classes)] = \
-            TMP_WATER_EDGE_KLASS
-        tmp_klass[np.isin(pixc_klass, self.land_edge_classes)] = \
-            TMP_LAND_EDGE_KLASS
-        tmp_klass[np.isin(pixc_klass, self.dark_water_classes)] = \
-            TMP_DARK_WATER_KLASS
+        tmp_classif = np.zeros_like(pixc_classif)
+        tmp_classif[np.isin(pixc_classif, self.interior_water_classes)] = \
+            TMP_INTERIOR_WATER_CLASSIF
+        tmp_classif[np.isin(pixc_classif, self.water_edge_classes)] = \
+            TMP_WATER_EDGE_CLASSIF
+        tmp_classif[np.isin(pixc_classif, self.land_edge_classes)] = \
+            TMP_LAND_EDGE_CLASSIF
+        tmp_classif[np.isin(pixc_classif, self.dark_water_classes)] = \
+            TMP_DARK_WATER_CLASSIF
 
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_area_pix = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_water_area_pix = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -497,15 +493,15 @@ class RasterProcessor(object):
                         pixc_water_fraction[self.proj_mapping[i][j]],
                         pixc_water_fraction_uncert[self.proj_mapping[i][j]],
                         pixc_darea_dheight[self.proj_mapping[i][j]],
-                        tmp_klass[self.proj_mapping[i][j]],
+                        tmp_classif[self.proj_mapping[i][j]],
                         pixc_pfd[self.proj_mapping[i][j]],
                         pixc_pmd[self.proj_mapping[i][j]],
                         good,
                         method=self.area_agg_method,
-                        interior_water_klass=TMP_INTERIOR_WATER_KLASS,
-                        water_edge_klass=TMP_WATER_EDGE_KLASS,
-                        land_edge_klass=TMP_LAND_EDGE_KLASS,
-                        dark_water_klasses=[TMP_DARK_WATER_KLASS])
+                        interior_water_klass=TMP_INTERIOR_WATER_CLASSIF,
+                        water_edge_klass=TMP_WATER_EDGE_CLASSIF,
+                        land_edge_klass=TMP_LAND_EDGE_CLASSIF,
+                        dark_water_klasses=[TMP_DARK_WATER_CLASSIF])
 
                     self.water_area[i][j] = grid_area[0]
                     self.water_area_u[i][j] = grid_area[1]
@@ -520,9 +516,9 @@ class RasterProcessor(object):
                     self.water_frac[i][j] = grid_area[0]/pixel_area
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
 
-                    n_area_px = ag.simple(good, metric='sum')
-                    if n_area_px > 0:
-                        self.n_area_pix[i][j] = n_area_px
+                    n_water_area_px = ag.simple(good, metric='sum')
+                    if n_water_area_px > 0:
+                        self.n_water_area_pix[i][j] = n_water_area_px
 
     def aggregate_cross_track(self, pixc, mask):
         """ Aggregate cross track """
@@ -549,6 +545,7 @@ class RasterProcessor(object):
 
         self.sig0 = np.ma.masked_all((self.size_y, self.size_x))
         self.sig0_u = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_sig0_pix = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -560,6 +557,10 @@ class RasterProcessor(object):
                         method='rare')
                     self.sig0[i][j] = grid_sig0[0]
                     self.sig0_u[i][j] = grid_sig0[2]
+
+                    n_sig0_px = ag.simple(good, metric='sum')
+                    if n_sig0_px > 0:
+                        self.n_sig0_pix[i][j] = n_sig0_px
 
     def aggregate_inc(self, pixc, mask):
         """ Aggregate incidence angle """
@@ -580,19 +581,19 @@ class RasterProcessor(object):
         """ Aggregate dark water fraction """
         LOGGER.info("RasterProcessor::aggregate_dark_frac")
 
-        pixc_klass = pixc['pixel_cloud']['classification']
+        pixc_classif = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
 
-        tmp_klass = np.zeros_like(pixc_klass)
-        tmp_klass[np.isin(pixc_klass, self.interior_water_classes)] = \
-            TMP_INTERIOR_WATER_KLASS
-        tmp_klass[np.isin(pixc_klass, self.water_edge_classes)] = \
-            TMP_WATER_EDGE_KLASS
-        tmp_klass[np.isin(pixc_klass, self.land_edge_classes)] = \
-            TMP_LAND_EDGE_KLASS
-        dark_mask = np.isin(pixc_klass, self.dark_water_classes)
-        tmp_klass[dark_mask] = TMP_DARK_WATER_KLASS
+        tmp_classif = np.zeros_like(pixc_classif)
+        tmp_classif[np.isin(pixc_classif, self.interior_water_classes)] = \
+            TMP_INTERIOR_WATER_CLASSIF
+        tmp_classif[np.isin(pixc_classif, self.water_edge_classes)] = \
+            TMP_WATER_EDGE_CLASSIF
+        tmp_classif[np.isin(pixc_classif, self.land_edge_classes)] = \
+            TMP_LAND_EDGE_CLASSIF
+        dark_mask = np.isin(pixc_classif, self.dark_water_classes)
+        tmp_classif[dark_mask] = TMP_DARK_WATER_CLASSIF
 
         self.dark_frac = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -608,13 +609,13 @@ class RasterProcessor(object):
                     total_area, _ = ag.area_only(
                         pixc_pixel_area[self.proj_mapping[i][j]],
                         pixc_water_fraction[self.proj_mapping[i][j]],
-                        tmp_klass[self.proj_mapping[i][j]],
+                        tmp_classif[self.proj_mapping[i][j]],
                         good,
                         method=self.area_agg_method,
-                        interior_water_klass=TMP_INTERIOR_WATER_KLASS,
-                        water_edge_klass=TMP_WATER_EDGE_KLASS,
-                        land_edge_klass=TMP_LAND_EDGE_KLASS,
-                        dark_water_klasses=[TMP_DARK_WATER_KLASS])
+                        interior_water_klass=TMP_INTERIOR_WATER_CLASSIF,
+                        water_edge_klass=TMP_WATER_EDGE_CLASSIF,
+                        land_edge_klass=TMP_LAND_EDGE_CLASSIF,
+                        dark_water_klasses=[TMP_DARK_WATER_CLASSIF])
 
                     # If we don't have any water at all, we have no dark water...
                     if total_area==0:
@@ -626,7 +627,7 @@ class RasterProcessor(object):
         """ Aggregate binary classification """
         LOGGER.info("RasterProcessor::aggregate_classification")
 
-        pixc_klass = pixc['pixel_cloud']['classification']
+        pixc_classif = pixc['pixel_cloud']['classification']
 
         self.classification = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -635,7 +636,7 @@ class RasterProcessor(object):
                 if len(self.proj_mapping[i][j]) != 0:
                     good = mask[self.proj_mapping[i][j]]
                     self.classification[i][j] = ag.simple(
-                        pixc_klass[self.proj_mapping[i][j]][good], metric='mode')
+                        pixc_classif[self.proj_mapping[i][j]][good], metric='mode')
 
     def aggregate_illumination_time(self, pixc, mask):
         """ Aggregate illumination time """
@@ -663,6 +664,24 @@ class RasterProcessor(object):
         self.tai_utc_difference = \
             self.illumination_time_tai[min_illumination_time_index] \
             - self.illumination_time[min_illumination_time_index]
+
+        # Set the time coverage start and end based on illumination time
+        if np.all(self.illumination_time.mask):
+            start_illumination_time = np.min(self.illumination_time)
+            end_illumination_time = np.max(self.illumination_time)
+        else:
+            start_illumination_time = 0
+            end_illumination_time = 0
+        start_time = datetime.fromtimestamp(
+            (raster_products.SWOT_EPOCH-raster_products.UNIX_EPOCH).total_seconds() \
+            + start_illumination_time)
+        end_time = datetime.fromtimestamp(
+            (raster_products.SWOT_EPOCH-raster_products.UNIX_EPOCH).total_seconds() \
+            + end_illumination_time))
+        self.time_coverage_start = start_time.strftime(
+            raster_products.TIME_FORMAT_STR)
+        self.time_coverage_end = stop_time.strftime(
+            raster_products.TIME_FORMAT_STR)
 
     def aggregate_ice_flags(self, pixc, mask):
         """ Aggregate ice flags """
@@ -710,14 +729,6 @@ class RasterProcessor(object):
         pixc_height_std[pixc_height_std<=0] = bad_num
         pixc_height_std[np.isinf(pixc_height_std)] = bad_num
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
-
-        # Aggregate heights for interior water, water edges, and dark water
-        pixc_klass = pixc['pixel_cloud']['classification']
-        mask = np.logical_and(mask,
-                              np.isin(pixc_klass, np.concatenate((
-                                  self.interior_water_classes,
-                                  self.water_edge_classes,
-                                  self.dark_water_classes))))
 
         self.layover_impact = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -846,6 +857,8 @@ class RasterProcessor(object):
         product.tile_polarizations = self.tile_polarizations
         product.scene_number = self.scene_number
         product.resolution = self.resolution
+        product.time_granule_start = self.time_granule_start
+        product.time_granule_end = self.time_granule_end
         product.time_coverage_start = self.time_coverage_start
         product.time_coverage_end = self.time_coverage_end
         product.geospatial_lon_min = self.geospatial_lon_min
@@ -915,7 +928,8 @@ class RasterProcessor(object):
             product['sig0_uncert'] = self.sig0_u
             product['inc'] = self.inc
             product['n_wse_pix'] = self.n_wse_pix
-            product['n_area_pix'] = self.n_area_pix
+            product['n_water_area_pix'] = self.n_water_area_pix
+            product['n_sig0_pix'] = self.n_sig0_pix
             product['dark_frac'] = self.dark_frac
             product['ice_clim_flag'] = self.ice_clim_flag
             product['ice_dyn_flag'] = self.ice_dyn_flag
