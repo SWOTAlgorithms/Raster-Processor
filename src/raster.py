@@ -538,7 +538,7 @@ class RasterProcessor(object):
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
         self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_other_pix = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_other_pix = np.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):

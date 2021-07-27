@@ -1156,7 +1156,7 @@ class RasterGeo(Product):
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
-            self.time_coverage_end = stop_time.strftime(TIME_FORMAT_STR)
+            self.time_coverage_end = end_time.strftime(TIME_FORMAT_STR)
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
