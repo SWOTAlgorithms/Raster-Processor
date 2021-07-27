@@ -242,6 +242,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'water surface elevation above geoid'],
             ['grid_mapping', 'crs'],
             ['units', 'm'],
+            ['quality_flag', 'wse_qual'],
             ['valid_min', -1500],
             ['valid_max', 15000],
             ['coordinates', '[Raster coordinates]'],
@@ -266,6 +267,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'surface area of water'],
             ['grid_mapping', 'crs'],
             ['units', 'm^2'],
+            ['quality_flag', 'water_area_qual'],
             ['valid_min', -2000000],
             ['valid_max', 2000000000],
             ['coordinates', '[Raster coordinates]'],
@@ -288,6 +290,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'water fraction'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
+            ['quality_flag', 'water_area_qual'],
             ['valid_min', -1000],
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
@@ -310,6 +313,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'sigma0'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
+            ['quality_flag', 'sig0_qual'],
             ['valid_min', -1000],
             ['valid_max', 10000000],
             ['coordinates', '[Raster coordinates]'],
@@ -1145,10 +1149,10 @@ class RasterGeo(Product):
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-            start_time = datetime.fromtimestamp(
+            start_time = datetime.utcfromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
                 + start_illumination_time)
-            end_time = datetime.fromtimestamp(
+            end_time = datetime.utcfromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
@@ -1433,7 +1437,7 @@ class RasterPixc(Product):
         for classif_val in valid_classes:
             classif_mask = np.logical_or(
                 classif_mask, pixc_classif==classif_val)
-        mask[classif_mask] = 0
+        mask[np.logical_not(classif_mask)] = 0
 
         # Use qual flags to mask
         qual_mask = np.zeros_like(mask)

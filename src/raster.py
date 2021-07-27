@@ -26,6 +26,12 @@ TMP_WATER_EDGE_CLASSIF = 2
 TMP_LAND_EDGE_CLASSIF = 3
 TMP_DARK_WATER_CLASSIF = 4
 
+# Quality flagging constants TODO: revise these values
+WSE_BAD_UNCERT = 5
+WATER_FRAC_BAD_UNCERT = 0.5
+SIG0_BAD_UNCERT = 20
+BAD_NUM_PIXELS = 5
+
 LOGGER = logging.getLogger(__name__)
 
 class L2PixcToRaster(object):
@@ -425,12 +431,13 @@ class RasterProcessor(object):
 
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_wse_pix = np.ma.masked_all((self.size_y, self.size_x))
+        self.wse_qual = np.ones((self.size_y, self.size_x))
+        self.n_wse_pix = np.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     grid_height = ag.height_with_uncerts(
                         pixc_height[self.proj_mapping[i][j]],
                         good,
@@ -448,13 +455,14 @@ class RasterProcessor(object):
 
                     self.wse[i][j] = grid_height[0]
                     self.wse_u[i][j] = grid_height[2]
+                    self.n_wse_pix[i][j] = ag.simple(good, metric='sum')
 
-                    n_wse_px = ag.simple(good, metric='sum')
-                    if n_wse_px > 0:
-                        self.n_wse_pix[i][j] = n_wse_px
+                    # TODO: more complex qual handling
+                    self.wse_qual[i][j] = np.logical_or(
+                        self.wse_u[i][j] >= WSE_BAD_UNCERT,
+                        self.n_wse_pix[i][j] <= BAD_NUM_PIXELS)
 
         self.apply_wse_corrections()
-
 
     def aggregate_water_area(self, pixc, mask):
         """ Aggregate water area, water fraction and associated uncertainties """
@@ -482,12 +490,13 @@ class RasterProcessor(object):
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_water_area_pix = np.ma.masked_all((self.size_y, self.size_x))
+        self.water_area_qual = np.ones((self.size_y, self.size_x))
+        self.n_water_area_pix = np.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     grid_area = ag.area_with_uncert(
                         pixc_pixel_area[self.proj_mapping[i][j]],
                         pixc_water_fraction[self.proj_mapping[i][j]],
@@ -515,10 +524,12 @@ class RasterProcessor(object):
 
                     self.water_frac[i][j] = grid_area[0]/pixel_area
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
+                    self.n_water_area_pix[i][j] = ag.simple(good, metric='sum')
 
-                    n_water_area_px = ag.simple(good, metric='sum')
-                    if n_water_area_px > 0:
-                        self.n_water_area_pix[i][j] = n_water_area_px
+                    # TODO: more complex qual handling
+                    self.water_area_qual[i][j] = np.logical_or(
+                        self.water_frac_u[i][j] >= WATER_FRAC_BAD_UNCERT,
+                        self.n_water_area_pix[i][j] <= BAD_NUM_PIXELS)
 
     def aggregate_cross_track(self, pixc, mask):
         """ Aggregate cross track """
@@ -527,14 +538,16 @@ class RasterProcessor(object):
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
         self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_other_pix = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     self.cross_track[i][j] = ag.simple(
                         pixc_cross_track[self.proj_mapping[i][j]][good],
                         metric='mean')
+                    self.n_other_pix[i][j] = ag.simple(good, metric='sum')
 
     def aggregate_sig0(self, pixc, mask):
         """ Aggregate sigma0 """
@@ -545,12 +558,13 @@ class RasterProcessor(object):
 
         self.sig0 = np.ma.masked_all((self.size_y, self.size_x))
         self.sig0_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_sig0_pix = np.ma.masked_all((self.size_y, self.size_x))
+        self.sig0_qual = np.ones((self.size_y, self.size_x))
+        self.n_sig0_pix = np.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     grid_sig0 = ag.sig0_with_uncerts(
                         pixc_sig0[self.proj_mapping[i][j]], good,
                         pixc_sig0_uncert[self.proj_mapping[i][j]],
@@ -562,6 +576,11 @@ class RasterProcessor(object):
                     if n_sig0_px > 0:
                         self.n_sig0_pix[i][j] = n_sig0_px
 
+                    # TODO: more complex qual handling
+                    self.sig0_qual[i][j] = np.logical_or(
+                        self.sig0_u[i][j] >= SIG0_BAD_UNCERT,
+                        self.n_sig0_pix[i][j] <= BAD_NUM_PIXELS)
+
     def aggregate_inc(self, pixc, mask):
         """ Aggregate incidence angle """
         LOGGER.info("aggregating incidence angle")
@@ -572,8 +591,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     self.inc[i][j] = ag.simple(
                         pixc_inc[self.proj_mapping[i][j]][good], metric='mean')
 
@@ -599,8 +618,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     good_dark = np.logical_and(
                         dark_mask[self.proj_mapping[i][j]], good)
                     dark_area = ag.simple(
@@ -633,8 +652,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     self.classification[i][j] = ag.simple(
                         pixc_classif[self.proj_mapping[i][j]][good], metric='mode')
 
@@ -650,8 +669,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     self.illumination_time[i][j] = ag.simple(
                         pixc_illumination_time[self.proj_mapping[i][j]][good],
                         metric='mean')
@@ -672,11 +691,11 @@ class RasterProcessor(object):
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-            start_time = datetime.fromtimestamp(
+            start_time = datetime.utcfromtimestamp(
                 (raster_products.SWOT_EPOCH
                  - raster_products.UNIX_EPOCH).total_seconds() \
                 + start_illumination_time)
-            stop_time = datetime.fromtimestamp(
+            stop_time = datetime.utcfromtimestamp(
                 (raster_products.SWOT_EPOCH
                  - raster_products.UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
@@ -697,8 +716,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     good_ice_clim_flag = \
                         pixc_ice_clim_flag[self.proj_mapping[i][j]][good]
                     good_ice_dyn_flag = \
@@ -736,8 +755,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     grid_height = ag.height_only(
                         pixc_layover_impact[self.proj_mapping[i][j]],
                         good,
@@ -770,8 +789,8 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     self.geoid[i][j] = ag.simple(
                         pixc_geoid[self.proj_mapping[i][j]][good],
                         metric='mean')
@@ -822,13 +841,14 @@ class RasterProcessor(object):
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if len(self.proj_mapping[i][j]) != 0:
-                    good = mask[self.proj_mapping[i][j]]
+                good = mask[self.proj_mapping[i][j]]
+                if np.any(good):
                     # get the lat and lon if there are any good pixels at all
                     if np.any(good):
                         lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
                         self.latitude[i][j] = lon
                         self.longitude[i][j] = lat
+
 
 
     def build_product(self, populate_values=True, polygon_points=None):
@@ -929,9 +949,13 @@ class RasterProcessor(object):
             product['sig0'] = self.sig0
             product['sig0_uncert'] = self.sig0_u
             product['inc'] = self.inc
+            product['wse_qual'] = self.wse_qual
+            product['water_area_qual'] = self.water_area_qual
+            product['sig0_qual'] = self.sig0_qual
             product['n_wse_pix'] = self.n_wse_pix
             product['n_water_area_pix'] = self.n_water_area_pix
             product['n_sig0_pix'] = self.n_sig0_pix
+            product['n_other_pix'] = self.n_other_pix
             product['dark_frac'] = self.dark_frac
             product['ice_clim_flag'] = self.ice_clim_flag
             product['ice_dyn_flag'] = self.ice_dyn_flag
