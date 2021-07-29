@@ -10,8 +10,8 @@ The software consists of three files (pixc_to_raster.py, raster.py and raster_pr
 
  - max_cross_track_distance                        (-) = 64e3
  - padding                                         (-) = 0
- - interior_water_classes                          (-) = [4]
- - water_edge_classes                              (-) = [3]
+ - interior_water_classes                          (-) = [4, 7]
+ - water_edge_classes                              (-) = [3, 6]
  - land_edge_classes                               (-) = [2]
  - dark_water_classes                              (-) = [5, 23, 24]
  - height_agg_method                               (-) = weight
@@ -21,7 +21,7 @@ The software consists of three files (pixc_to_raster.py, raster.py and raster_pr
  - lowres_raster_scale_factor                      (-) = 0.2
  - debug_flag                                      (-) = False
  - allow_arbitrary_resolution                      (-) = False
- - write_intermediate_files                        (-) = False
+ - write_internal_files                            (-) = False
 
 The software is dependent on the open source RiverObs code at: https://github.com/SWOTAlgorithms/RiverObs
 
