@@ -117,8 +117,8 @@ def main():
                                                   'raster_region_maps.nc')
             truth_raster_regionmaps = os.path.join(truth_raster_path,
                                                    'raster_region_maps.nc')
-            proc_int_pixc = os.path.join(proc_raster_path, 'intermediate_raster_pixc.nc')
-            truth_int_pixc = os.path.join(truth_raster_path, 'intermediate_raster_pixc.nc')
+            proc_int_pixc = os.path.join(proc_raster_path, 'internal_scene_pixc.nc')
+            truth_int_pixc = os.path.join(truth_raster_path, 'internal_scene_pixc.nc')
             gdem = os.path.join(slc_base, 'slc_data', 'gdem_truth.RightSwath.nc')
             slant_region_map = os.path.join(slant_region_map_base, 'region_map_data',
                                             'region_map.nc')
@@ -176,8 +176,8 @@ def main():
                                               'raster_region_maps.nc')
         truth_raster_regionmaps = os.path.join(truth_raster_path,
                                                'raster_region_maps.nc')
-        proc_int_pixc = os.path.join(proc_raster_path, 'intermediate_raster_pixc.nc')
-        truth_int_pixc = os.path.join(truth_raster_path, 'intermediate_raster_pixc.nc')
+        proc_int_pixc = os.path.join(proc_raster_path, 'internal_scene_pixc.nc')
+        truth_int_pixc = os.path.join(truth_raster_path, 'internal_scene_pixc.nc')
 
         if os.path.isdir(args.slant_region_map):
             slant_region_map = os.path.join(args.slant_region_map,
@@ -321,7 +321,7 @@ def rasterize_region_maps(raster_filename, int_pixc_filename,
                           region_map_river, region_map_lake,
                           alg_cfg, rt_cfg):
     raster_in = raster_products.RasterUTM.from_ncfile(raster_filename)
-    pixc = raster_products.RasterPixc.from_ncfile(int_pixc_filename)
+    pixc = raster_products.ScenePixc.from_ncfile(int_pixc_filename)
 
     # use improved geolocation if specified in config
     use_improved_geoloc=False

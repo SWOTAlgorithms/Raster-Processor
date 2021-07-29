@@ -1222,7 +1222,7 @@ class RasterGeoDebug(RasterGeo):
         odict([['latitude', 0], ['longitude', 0]])
 
 
-class RasterPixc(Product):
+class ScenePixc(Product):
     ATTRIBUTES = odict([
         ['cycle_number', odict([])],
         ['pass_number', odict([])],
@@ -1251,73 +1251,73 @@ class RasterPixc(Product):
         ['geospatial_lat_max', odict([])],
     ])
     GROUPS = odict([
-        ['pixel_cloud', 'RasterPixelCloud'],
-        ['tvp', 'RasterTVP'],
+        ['pixel_cloud', 'ScenePixelCloud'],
+        ['tvp', 'SceneTVP'],
     ])
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
-        LOGGER.info('constructing raster pixc from tile')
+        LOGGER.info('constructing scene pixc from tile')
 
-        raster_pixc = cls()
+        scene_pixc = cls()
 
         # Copy over attributes
-        raster_pixc.cycle_number = pixc_tile.cycle_number
-        raster_pixc.pass_number = pixc_tile.pass_number
-        raster_pixc.tile_numbers = [pixc_tile.tile_number]
-        raster_pixc.tile_names = [pixc_tile.tile_name]
-        raster_pixc.tile_polarizations = [pixc_tile.polarization]
-        raster_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('i2')
-        raster_pixc.time_granule_start = pixc_tile.time_granule_start
-        raster_pixc.time_granule_end = pixc_tile.time_granule_end
-        raster_pixc.time_coverage_start = pixc_tile.time_coverage_start
-        raster_pixc.time_coverage_end = pixc_tile.time_coverage_end
-        raster_pixc.wavelength = pixc_tile.wavelength
-        raster_pixc.near_range = pixc_tile.near_range
-        raster_pixc.nominal_slant_range_spacing = \
+        scene_pixc.cycle_number = pixc_tile.cycle_number
+        scene_pixc.pass_number = pixc_tile.pass_number
+        scene_pixc.tile_numbers = [pixc_tile.tile_number]
+        scene_pixc.tile_names = [pixc_tile.tile_name]
+        scene_pixc.tile_polarizations = [pixc_tile.polarization]
+        scene_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('i2')
+        scene_pixc.time_granule_start = pixc_tile.time_granule_start
+        scene_pixc.time_granule_end = pixc_tile.time_granule_end
+        scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
+        scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
+        scene_pixc.wavelength = pixc_tile.wavelength
+        scene_pixc.near_range = pixc_tile.near_range
+        scene_pixc.nominal_slant_range_spacing = \
             pixc_tile.nominal_slant_range_spacing
 
         swath_side = pixc_tile.swath_side
 
         if swath_side.lower() == 'l':
-            raster_pixc.left_first_longitude = pixc_tile.outer_first_longitude
-            raster_pixc.left_last_longitude = pixc_tile.outer_last_longitude
-            raster_pixc.left_first_latitude = pixc_tile.outer_first_latitude
-            raster_pixc.left_last_latitude = pixc_tile.outer_last_latitude
-            raster_pixc.right_first_longitude = pixc_tile.inner_first_longitude
-            raster_pixc.right_last_longitude = pixc_tile.inner_last_longitude
-            raster_pixc.right_first_latitude = pixc_tile.inner_first_latitude
-            raster_pixc.right_last_latitude = pixc_tile.inner_last_latitude
+            scene_pixc.left_first_longitude = pixc_tile.outer_first_longitude
+            scene_pixc.left_last_longitude = pixc_tile.outer_last_longitude
+            scene_pixc.left_first_latitude = pixc_tile.outer_first_latitude
+            scene_pixc.left_last_latitude = pixc_tile.outer_last_latitude
+            scene_pixc.right_first_longitude = pixc_tile.inner_first_longitude
+            scene_pixc.right_last_longitude = pixc_tile.inner_last_longitude
+            scene_pixc.right_first_latitude = pixc_tile.inner_first_latitude
+            scene_pixc.right_last_latitude = pixc_tile.inner_last_latitude
         elif swath_side.lower() == 'r':
-            raster_pixc.left_first_longitude = pixc_tile.inner_first_longitude
-            raster_pixc.left_last_longitude = pixc_tile.inner_last_longitude
-            raster_pixc.left_first_latitude = pixc_tile.inner_first_latitude
-            raster_pixc.left_last_latitude = pixc_tile.inner_last_latitude
-            raster_pixc.right_first_longitude = pixc_tile.outer_first_longitude
-            raster_pixc.right_last_longitude = pixc_tile.outer_last_longitude
-            raster_pixc.right_first_latitude = pixc_tile.outer_first_latitude
-            raster_pixc.right_last_latitude = pixc_tile.outer_last_latitude
+            scene_pixc.left_first_longitude = pixc_tile.inner_first_longitude
+            scene_pixc.left_last_longitude = pixc_tile.inner_last_longitude
+            scene_pixc.left_first_latitude = pixc_tile.inner_first_latitude
+            scene_pixc.left_last_latitude = pixc_tile.inner_last_latitude
+            scene_pixc.right_first_longitude = pixc_tile.outer_first_longitude
+            scene_pixc.right_last_longitude = pixc_tile.outer_last_longitude
+            scene_pixc.right_first_latitude = pixc_tile.outer_first_latitude
+            scene_pixc.right_last_latitude = pixc_tile.outer_last_latitude
 
-        lats = [raster_pixc.left_first_latitude,
-                 raster_pixc.right_first_latitude,
-                 raster_pixc.left_last_latitude,
-                 raster_pixc.right_last_latitude]
-        lons = [raster_pixc.left_first_longitude,
-                   raster_pixc.right_first_longitude,
-                   raster_pixc.left_last_longitude,
-                   raster_pixc.right_last_longitude]
-        raster_pixc.geospatial_lat_min = min(lats)
-        raster_pixc.geospatial_lat_max = max(lats)
-        raster_pixc.geospatial_lon_min = min(lons)
-        raster_pixc.geospatial_lon_max = max(lons)
+        lats = [scene_pixc.left_first_latitude,
+                 scene_pixc.right_first_latitude,
+                 scene_pixc.left_last_latitude,
+                 scene_pixc.right_last_latitude]
+        lons = [scene_pixc.left_first_longitude,
+                   scene_pixc.right_first_longitude,
+                   scene_pixc.left_last_longitude,
+                   scene_pixc.right_last_longitude]
+        scene_pixc.geospatial_lat_min = min(lats)
+        scene_pixc.geospatial_lat_max = max(lats)
+        scene_pixc.geospatial_lon_min = min(lons)
+        scene_pixc.geospatial_lon_max = max(lons)
 
         # Copy over groups
-        raster_pixc['pixel_cloud'] = RasterPixelCloud.from_tile(
+        scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
             pixc_tile['pixel_cloud'], pixcvec_tile)
-        raster_pixc['tvp'] = RasterTVP.from_tile(pixc_tile['tvp'])
+        scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile['tvp'])
 
-        return raster_pixc
+        return scene_pixc
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
@@ -1326,7 +1326,7 @@ class RasterPixc(Product):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
-        LOGGER.info('constructing raster pixc from tiles')
+        LOGGER.info('constructing scene pixc from tiles')
 
         num_tiles = len(pixc_tiles)
         if pixcvec_tiles is None:
@@ -1338,7 +1338,7 @@ class RasterPixc(Product):
                                            pixcvec_tiles[tile_idx]))
 
         # Add all of the pixel_cloud/tvp data
-        raster_pixc = np.array(tile_objs).sum()
+        scene_pixc = np.array(tile_objs).sum()
         granule_start_times = [datetime.strptime(
             tile.time_granule_start, DATETIME_FORMAT_STR) for tile in tile_objs]
         granule_end_times = [datetime.strptime(
@@ -1347,9 +1347,9 @@ class RasterPixc(Product):
             tile.time_coverage_start, DATETIME_FORMAT_STR) for tile in tile_objs]
         coverage_end_times = [datetime.strptime(
             tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs]
-        raster_pixc.cycle_number = np.short(cycle_number)
-        raster_pixc.pass_number = np.short(pass_number)
-        raster_pixc.scene_number = np.short(scene_number)
+        scene_pixc.cycle_number = np.short(cycle_number)
+        scene_pixc.pass_number = np.short(pass_number)
+        scene_pixc.scene_number = np.short(scene_number)
 
         swath_sides = [tile_name[-1] for tile in tile_objs
                        for tile_name in tile.tile_names]
@@ -1357,30 +1357,30 @@ class RasterPixc(Product):
             [swath_side + str(start_time)
              for swath_side, start_time in zip(swath_sides, granule_start_times)])
 
-        raster_pixc.tile_numbers = [tile_num for i in sort_indices
+        scene_pixc.tile_numbers = [tile_num for i in sort_indices
                                     for tile_num in tile_objs[i].tile_numbers]
-        raster_pixc.tile_names = ', '.join(
+        scene_pixc.tile_names = ', '.join(
             [tile_name for i in sort_indices
              for tile_name in tile_objs[i].tile_names])
-        raster_pixc.tile_polarizations =', '.join(
+        scene_pixc.tile_polarizations =', '.join(
             [tile_pol for i in sort_indices
              for tile_pol in tile_objs[i].tile_polarizations])
-        raster_pixc.time_granule_start = \
+        scene_pixc.time_granule_start = \
             granule_start_time.strftime(DATETIME_FORMAT_STR)
-        raster_pixc.time_granule_end = \
+        scene_pixc.time_granule_end = \
             granule_end_time.strftime(DATETIME_FORMAT_STR)
-        raster_pixc.time_coverage_start = \
+        scene_pixc.time_coverage_start = \
             min(coverage_start_times).strftime(DATETIME_FORMAT_STR)
-        raster_pixc.time_coverage_end = \
+        scene_pixc.time_coverage_end = \
             max(coverage_end_times).strftime(DATETIME_FORMAT_STR)
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
         central_tile_index = granule_start_times.index(
             np.percentile(granule_start_times, 50, interpolation='nearest'))
-        raster_pixc.wavelength = tile_objs[central_tile_index].wavelength
-        raster_pixc.near_range = tile_objs[central_tile_index].near_range
-        raster_pixc.nominal_slant_range_spacing = \
+        scene_pixc.wavelength = tile_objs[central_tile_index].wavelength
+        scene_pixc.near_range = tile_objs[central_tile_index].near_range
+        scene_pixc.nominal_slant_range_spacing = \
             tile_objs[central_tile_index].nominal_slant_range_spacing
 
         # Set the first/last lats/lons from the swath edges
@@ -1388,26 +1388,26 @@ class RasterPixc(Product):
         #                (right_first_lat, right_first_lon),
         #                (left_last_lat, left_last_lon),
         #                (right_last_lat, right_last_lon))
-        raster_pixc.left_first_latitude = swath_edges[0][0]
-        raster_pixc.left_first_longitude = swath_edges[0][1]
-        raster_pixc.right_first_latitude = swath_edges[1][0]
-        raster_pixc.right_first_longitude = swath_edges[1][1]
-        raster_pixc.left_last_latitude = swath_edges[2][0]
-        raster_pixc.left_last_longitude = swath_edges[2][1]
-        raster_pixc.right_last_latitude = swath_edges[3][0]
-        raster_pixc.right_last_longitude = swath_edges[3][1]
+        scene_pixc.left_first_latitude = swath_edges[0][0]
+        scene_pixc.left_first_longitude = swath_edges[0][1]
+        scene_pixc.right_first_latitude = swath_edges[1][0]
+        scene_pixc.right_first_longitude = swath_edges[1][1]
+        scene_pixc.left_last_latitude = swath_edges[2][0]
+        scene_pixc.left_last_longitude = swath_edges[2][1]
+        scene_pixc.right_last_latitude = swath_edges[3][0]
+        scene_pixc.right_last_longitude = swath_edges[3][1]
 
         lats = [latlon[0] for latlon in swath_polygon_points]
         lons = [latlon[1] for latlon in swath_polygon_points]
-        raster_pixc.geospatial_lat_min = min(lats)
-        raster_pixc.geospatial_lat_max = max(lats)
-        raster_pixc.geospatial_lon_min = min(lons)
-        raster_pixc.geospatial_lon_max = max(lons)
-        return raster_pixc
+        scene_pixc.geospatial_lat_min = min(lats)
+        scene_pixc.geospatial_lat_max = max(lats)
+        scene_pixc.geospatial_lon_min = min(lons)
+        scene_pixc.geospatial_lon_max = max(lons)
+        return scene_pixc
 
     def get_mask(self, valid_classes, qual_flags=[],
                  use_improved_geoloc=True):
-        """ Get mask of valid pixc points for raster aggregation """
+        """ Get mask of valid pixc points for aggregation """
         LOGGER.info('getting mask')
 
         if use_improved_geoloc:
@@ -1457,13 +1457,13 @@ class RasterPixc(Product):
     def __add__(self, other):
         """ Add other to self """
 
-        klass = RasterPixc()
+        klass = ScenePixc()
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
         return klass
 
 
-class RasterPixelCloud(Product):
+class ScenePixelCloud(Product):
     ATTRIBUTES = odict([
         ['description',{'dtype': 'str',
             'value':'cloud of geolocated interferogram pixels'}],
@@ -1527,46 +1527,46 @@ class RasterPixelCloud(Product):
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
-        LOGGER.info('constructing raster pixel cloud from tile')
+        LOGGER.info('constructing scene pixel cloud from tile')
 
-        raster_pixel_cloud = cls()
+        scene_pixel_cloud = cls()
 
         # Copy common pixc variables
-        pixel_cloud_vars = set(raster_pixel_cloud.VARIABLES.keys())
+        pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
         for field in pixel_cloud_vars.intersection(
                 pixc_tile.VARIABLES.keys()):
-            raster_pixel_cloud[field] = pixc_tile[field]
+            scene_pixel_cloud[field] = pixc_tile[field]
 
         # Copy pixcvec variables (set improved llh to pixcvec llh here)
         if pixcvec_tile is not None:
-            raster_pixel_cloud['improved_latitude'] = \
+            scene_pixel_cloud['improved_latitude'] = \
                 pixcvec_tile.latitude_vectorproc
-            raster_pixel_cloud['improved_longitude'] = \
+            scene_pixel_cloud['improved_longitude'] = \
                 pixcvec_tile.longitude_vectorproc
-            raster_pixel_cloud['improved_height'] = \
+            scene_pixel_cloud['improved_height'] = \
                 pixcvec_tile.height_vectorproc
 
-            raster_pixel_cloud['ice_clim_flag'] = pixcvec_tile.ice_clim_f
-            raster_pixel_cloud['ice_dyn_flag'] = pixcvec_tile.ice_dyn_f
+            scene_pixel_cloud['ice_clim_flag'] = pixcvec_tile.ice_clim_f
+            scene_pixel_cloud['ice_dyn_flag'] = pixcvec_tile.ice_dyn_f
 
         # Copy common pixc attributes
-        pixel_cloud_attr = set(raster_pixel_cloud.ATTRIBUTES.keys())
+        pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
         for field in pixel_cloud_attr.intersection(
                 pixc_tile.ATTRIBUTES):
             attr_val = getattr(pixc_tile, field)
-            setattr(raster_pixel_cloud, field, attr_val)
-        return raster_pixel_cloud
+            setattr(scene_pixel_cloud, field, attr_val)
+        return scene_pixel_cloud
 
     def __add__(self, other):
         """ Add other to self """
-        klass = RasterPixelCloud()
+        klass = ScenePixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
             setattr(klass, key, np.concatenate((
                 getattr(self, key), getattr(other, key))))
         return klass
 
-class RasterTVP(Product):
+class SceneTVP(Product):
     ATTRIBUTES = odict([
         ['description', {'dtype': 'str',
             'value': textjoin("""
@@ -1597,24 +1597,24 @@ class RasterTVP(Product):
     @classmethod
     def from_tile(cls, pixc_tile):
         """ Construct self from a single pixc tile """
-        LOGGER.info('constructing raster tvp from tile')
+        LOGGER.info('constructing scene tvp from tile')
 
-        raster_tvp = cls()
+        scene_tvp = cls()
 
         # Copy common variables
-        tvp_vars = set(raster_tvp.VARIABLES.keys())
+        tvp_vars = set(scene_tvp.VARIABLES.keys())
         for field in tvp_vars.intersection(
                 pixc_tile.VARIABLES.keys()):
-            raster_tvp[field] = pixc_tile[field]
+            scene_tvp[field] = pixc_tile[field]
 
         # Copy common attributes
-        tvp_attr = set(raster_tvp.ATTRIBUTES.keys())
+        tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
         for field in tvp_attr.intersection(
                 pixc_tile.ATTRIBUTES):
             attr_val = getattr(pixc_tile, field)
-            setattr(raster_tvp, field, attr_val)
+            setattr(scene_tvp, field, attr_val)
 
-        return raster_tvp
+        return scene_tvp
 
     def __add__(self, other):
         """ Add other to self """
@@ -1622,7 +1622,7 @@ class RasterTVP(Product):
         # discard overlapping TVP records
         time = np.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)
-        klass = RasterTVP()
+        klass = SceneTVP()
         for key in klass.VARIABLES:
             setattr(klass, key, np.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])

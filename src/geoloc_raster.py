@@ -18,7 +18,7 @@ import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
-from raster_products import RasterPixc
+from raster_products import ScenePixc
 from pixc_to_raster import load_raster_configs
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
@@ -166,7 +166,7 @@ if __name__ == "__main__":
                                           args.runtime_config_file)
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
-    pixc_prod = RasterPixc.from_tile(pixc_tile, None)
+    pixc_prod = ScenePixc.from_tile(pixc_tile, None)
 
     if rt_cfg['output_sampling_grid_type'] == 'utm':
         if alg_cfg['debug_flag']:

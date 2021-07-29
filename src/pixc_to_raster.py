@@ -14,7 +14,7 @@ import raster
 import logging
 import argparse
 
-from raster_products import RasterPixc
+from raster_products import ScenePixc
 from SWOTWater.products.product import MutableProduct
 from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
 
@@ -26,8 +26,8 @@ description:
 example algorithmic config parameters:
     max_cross_track_distance                        (-) = 64e3
     padding                                         (-) = 0
-    interior_water_classes                          (-) = [4]
-    water_edge_classes                              (-) = [3]
+    interior_water_classes                          (-) = [4, 7]
+    water_edge_classes                              (-) = [3, 6]
     land_edge_classes                               (-) = [2]
     dark_water_classes                              (-) = [5, 23, 24]
     height_agg_method                               (-) = weight
@@ -37,7 +37,7 @@ example algorithmic config parameters:
     lowres_raster_scale_factor                      (-) = 0.2
     debug_flag                                      (-) = False
     allow_arbitrary_resolution                      (-) = False
-    write_intermediate_files                        (-) = False
+    write_internal_files                            (-) = False
 
 example runtime config parameters:
     raster_resolution           (-) = 100
@@ -62,8 +62,8 @@ def main():
                         help='output raster file')
     parser.add_argument("-pv", "--pixcvec_file", type=str,
                         help='pixcvec input file', default=None)
-    parser.add_argument("-id", "--intermediate_files_dir", type=str,
-                        help='directory to write out intermediate files',
+    parser.add_argument("-id", "--internal_files_dir", type=str,
+                        help='directory to write out internal files',
                         default=None)
     args = parser.parse_args()
 
@@ -77,15 +77,15 @@ def main():
     else:
         pixcvec_tile = None
 
-    pixc_data = RasterPixc.from_tile(pixc_tile, pixcvec_tile)
+    pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile)
 
     proc = raster.L2PixcToRaster(pixc=pixc_data, algorithmic_config=alg_cfg,
                                  runtime_config=rt_cfg)
     product = proc.process()
 
-    if args.intermediate_files_dir is not None:
-        proc.pixc.to_ncfile(os.path.join(args.intermediate_files_dir,
-                                         'intermediate_raster_pixc.nc'))
+    if args.internal_files_dir is not None:
+        proc.pixc.to_ncfile(os.path.join(args.internal_files_dir,
+                                         'internal_scene_pixc.nc'))
 
     product.to_ncfile(args.out_file)
 
