@@ -20,7 +20,9 @@ from SWOTWater.products.product import Product
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
 DATETIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
+LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
+EMPTY_LEAPSEC = "0000-00-00T00:00:00Z"
 
 PIXC_BAD_FLAG_VALUE = 2
 
@@ -66,7 +68,7 @@ COMMON_ATTRIBUTES = odict([
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'JPL D-56416 - Revision A (DRAFT) - January 27, 2021',
+     {'dtype': 'str', 'value':'JPL D-56416 - Revision A (DRAFT) - July 23, 2021',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -926,6 +928,22 @@ class RasterUTM(Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
+        # Set the time coverage start and end
+        if np.all(self.illumination_time.mask):
+            start_illumination_time = EMPTY_DATETIME
+            end_illumination_time = EMPTY_DATETIME
+        else:
+            start_illumination_time = np.min(self.illumination_time)
+            end_illumination_time = np.max(self.illumination_time)
+            start_time = datetime.utcfromtimestamp(
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                + start_illumination_time)
+            end_time = datetime.utcfromtimestamp(
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                + end_illumination_time)
+            self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
+            self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
+
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
         LOGGER.info('getting uncorrected height')
@@ -1249,6 +1267,7 @@ class ScenePixc(Product):
         ['geospatial_lon_max', odict([])],
         ['geospatial_lat_min', odict([])],
         ['geospatial_lat_max', odict([])],
+        ['leap_second', odict([])],
     ])
     GROUPS = odict([
         ['pixel_cloud', 'ScenePixelCloud'],
@@ -1256,7 +1275,7 @@ class ScenePixc(Product):
     ])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, leap_second=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixc from tile')
 
@@ -1312,6 +1331,9 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lon_min = min(lons)
         scene_pixc.geospatial_lon_max = max(lons)
 
+        if leap_second is not None:
+            scene_pixc.leap_second = leap_second
+
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
             pixc_tile['pixel_cloud'], pixcvec_tile)
@@ -1321,8 +1343,8 @@ class ScenePixc(Product):
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   granule_start_time, granule_end_time, cycle_number,
-                   pass_number, scene_number, pixcvec_tiles=None):
+                   granule_start_time, granule_end_time, leap_second,
+                   cycle_number, pass_number, scene_number, pixcvec_tiles=None):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
@@ -1403,6 +1425,7 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lat_max = max(lats)
         scene_pixc.geospatial_lon_min = min(lons)
         scene_pixc.geospatial_lon_max = max(lons)
+        scene_pixc.leap_second = leap_second
         return scene_pixc
 
     def get_mask(self, valid_classes, qual_flags=[],

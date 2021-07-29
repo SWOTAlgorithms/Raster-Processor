@@ -679,12 +679,6 @@ class RasterProcessor(object):
                         pixc_illumination_time_tai[self.proj_mapping[i][j]][good],
                         metric='mean')
 
-        min_illumination_time_index = np.unravel_index(
-            np.argmin(self.illumination_time), self.illumination_time.shape)
-        self.tai_utc_difference = \
-            self.illumination_time_tai[min_illumination_time_index] \
-            - self.illumination_time[min_illumination_time_index]
-
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
             self.time_coverage_start = raster_products.EMPTY_DATETIME
@@ -704,6 +698,25 @@ class RasterProcessor(object):
                 raster_products.DATETIME_FORMAT_STR)
             self.time_coverage_end = stop_time.strftime(
                 raster_products.DATETIME_FORMAT_STR)
+
+        # Set tai_utc_difference
+        min_illumination_time_index = np.unravel_index(
+            np.argmin(self.illumination_time), self.illumination_time.shape)
+        self.tai_utc_difference = \
+            self.illumination_time_tai[min_illumination_time_index] \
+            - self.illumination_time[min_illumination_time_index]
+
+        # Set leap second
+        if pixc.leap_second == raster_products.EMPTY_LEAPSEC:
+            self.leap_second = raster_products.EMPTY_LEAPSEC
+        else:
+            leap_second = datetime.strptime(pixc.leap_second,
+                                         raster_products.LEAPSEC_FORMAT_STR)
+            if leap_second < start_time or leap_second > end_time:
+                leap_second = raster_products.EMPTY_LEAPSEC
+
+            self.leap_second = leap_second.strftime(
+                raster_products.LEAPSEC_FORMAT_STR)
 
     def aggregate_ice_flags(self, pixc, mask):
         """ Aggregate ice flags """
@@ -940,6 +953,8 @@ class RasterProcessor(object):
             product['illumination_time_tai'] = self.illumination_time_tai
             product.VARIABLES['illumination_time']['tai_utc_difference'] = \
                 self.tai_utc_difference
+            product.VARIABLES['illumination_time']['leap_second'] = \
+                self.leap_second
             product['wse'] = self.wse
             product['wse_uncert'] = self.wse_u
             product['water_area'] = self.water_area
