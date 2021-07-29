@@ -19,8 +19,8 @@ from SWOTWater.products.product import Product
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
-TIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
-EMPTY_TIME = "0000-00-00T00:00:00.000000Z"
+DATETIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
+EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
 
 PIXC_BAD_FLAG_VALUE = 2
 
@@ -1144,8 +1144,8 @@ class RasterGeo(Product):
 
         # Set the time coverage start and end
         if np.all(self.illumination_time.mask):
-            start_illumination_time = EMPTY_TIME
-            end_illumination_time = EMPTY_TIME
+            start_illumination_time = EMPTY_DATETIME
+            end_illumination_time = EMPTY_DATETIME
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -1155,8 +1155,8 @@ class RasterGeo(Product):
             end_time = datetime.utcfromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
-            self.time_coverage_start = start_time.strftime(TIME_FORMAT_STR)
-            self.time_coverage_end = end_time.strftime(TIME_FORMAT_STR)
+            self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
+            self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
@@ -1340,13 +1340,13 @@ class RasterPixc(Product):
         # Add all of the pixel_cloud/tvp data
         raster_pixc = np.array(tile_objs).sum()
         granule_start_times = [datetime.strptime(
-            tile.time_granule_start, TIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_granule_start, DATETIME_FORMAT_STR) for tile in tile_objs]
         granule_end_times = [datetime.strptime(
-            tile.time_granule_end, TIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_granule_end, DATETIME_FORMAT_STR) for tile in tile_objs]
         coverage_start_times = [datetime.strptime(
-            tile.time_coverage_start, TIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_coverage_start, DATETIME_FORMAT_STR) for tile in tile_objs]
         coverage_end_times = [datetime.strptime(
-            tile.time_coverage_end, TIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs]
         raster_pixc.cycle_number = np.short(cycle_number)
         raster_pixc.pass_number = np.short(pass_number)
         raster_pixc.scene_number = np.short(scene_number)
@@ -1366,13 +1366,13 @@ class RasterPixc(Product):
             [tile_pol for i in sort_indices
              for tile_pol in tile_objs[i].tile_polarizations])
         raster_pixc.time_granule_start = \
-            granule_start_time.strftime(TIME_FORMAT_STR)
+            granule_start_time.strftime(DATETIME_FORMAT_STR)
         raster_pixc.time_granule_end = \
-            granule_end_time.strftime(TIME_FORMAT_STR)
+            granule_end_time.strftime(DATETIME_FORMAT_STR)
         raster_pixc.time_coverage_start = \
-            min(coverage_start_times).strftime(TIME_FORMAT_STR)
+            min(coverage_start_times).strftime(DATETIME_FORMAT_STR)
         raster_pixc.time_coverage_end = \
-            max(coverage_end_times).strftime(TIME_FORMAT_STR)
+            max(coverage_end_times).strftime(DATETIME_FORMAT_STR)
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
@@ -1516,7 +1516,8 @@ class RasterPixelCloud(Product):
         ['iono_cor_gim_ka', odict([])],
         ['interferogram_qual', odict([])],
         ['classification_qual', odict([])],
-        ['height_qual', odict([])],
+        ['geolocation_qual', odict([])],
+        ['sig0_qual', odict([])],
         ['pixc_line_qual', odict([])],
     ])
     for name, reference in VARIABLES.items():

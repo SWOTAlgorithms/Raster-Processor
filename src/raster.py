@@ -259,7 +259,8 @@ class RasterProcessor(object):
         all_classes = np.concatenate((water_classes, self.land_edge_classes))
         # TODO: determine qual flags to use for each mask
         common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
-                             'classification_qual', 'height_qual']
+                             'classification_qual', 'geolocation_qual']
+        sig0_qual_flags = common_qual_flags + ['sig0_qual']
         all_mask = pixc.get_mask(
             all_classes, common_qual_flags, use_improved_geoloc)
         wse_mask = pixc.get_mask(
@@ -267,7 +268,7 @@ class RasterProcessor(object):
         water_area_mask = pixc.get_mask(
             all_classes, common_qual_flags, use_improved_geoloc)
         sig0_mask = pixc.get_mask(
-            water_classes, common_qual_flags, use_improved_geoloc)
+            water_classes, sig0_qual_flags, use_improved_geoloc)
 
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
@@ -431,8 +432,8 @@ class RasterProcessor(object):
 
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.wse_qual = np.ones((self.size_y, self.size_x))
-        self.n_wse_pix = np.zeros((self.size_y, self.size_x))
+        self.wse_qual = np.ma.ones((self.size_y, self.size_x))
+        self.n_wse_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -490,8 +491,8 @@ class RasterProcessor(object):
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.water_area_qual = np.ones((self.size_y, self.size_x))
-        self.n_water_area_pix = np.zeros((self.size_y, self.size_x))
+        self.water_area_qual = np.ma.ones((self.size_y, self.size_x))
+        self.n_water_area_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -538,7 +539,7 @@ class RasterProcessor(object):
         pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
         self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_other_pix = np.zeros((self.size_y, self.size_x))
+        self.n_other_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -558,8 +559,8 @@ class RasterProcessor(object):
 
         self.sig0 = np.ma.masked_all((self.size_y, self.size_x))
         self.sig0_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.sig0_qual = np.ones((self.size_y, self.size_x))
-        self.n_sig0_pix = np.zeros((self.size_y, self.size_x))
+        self.sig0_qual = np.ma.ones((self.size_y, self.size_x))
+        self.n_sig0_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -686,8 +687,8 @@ class RasterProcessor(object):
 
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
-            self.time_coverage_start = raster_products.EMPTY_TIME
-            self.time_coverage_end = raster_products.EMPTY_TIME
+            self.time_coverage_start = raster_products.EMPTY_DATETIME
+            self.time_coverage_end = raster_products.EMPTY_DATETIME
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -700,9 +701,9 @@ class RasterProcessor(object):
                  - raster_products.UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(
-                raster_products.TIME_FORMAT_STR)
+                raster_products.DATETIME_FORMAT_STR)
             self.time_coverage_end = stop_time.strftime(
-                raster_products.TIME_FORMAT_STR)
+                raster_products.DATETIME_FORMAT_STR)
 
     def aggregate_ice_flags(self, pixc, mask):
         """ Aggregate ice flags """

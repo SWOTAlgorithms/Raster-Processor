@@ -54,7 +54,7 @@ class GeolocRaster(object):
              self.algorithmic_config['land_edge_classes'],
              self.algorithmic_config['dark_water_classes']))
         common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
-                             'classification_qual', 'height_qual']
+                             'classification_qual', 'geolocation_qual']
         all_mask = self.pixc.get_mask(
             all_classes, common_qual_flags, use_improved_geoloc=False)
 
