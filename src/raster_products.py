@@ -1333,6 +1333,8 @@ class ScenePixc(Product):
 
         if leap_second is not None:
             scene_pixc.leap_second = leap_second
+        else:
+            scene_pixc.leap_second = EMPTY_LEAPSEC
 
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
