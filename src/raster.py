@@ -20,12 +20,6 @@ from datetime import datetime
 from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
-# Internal class values used in area aggregation
-TMP_INTERIOR_WATER_CLASSIF = 1
-TMP_WATER_EDGE_CLASSIF = 2
-TMP_LAND_EDGE_CLASSIF = 3
-TMP_DARK_WATER_CLASSIF = 4
-
 # Quality flagging constants TODO: revise these values
 WSE_BAD_UNCERT = 5
 WATER_FRAC_BAD_UNCERT = 0.5
@@ -477,16 +471,6 @@ class RasterProcessor(object):
         pixc_pmd = pixc['pixel_cloud']['missed_detection_rate']
         pixc_classif = pixc['pixel_cloud']['classification']
 
-        tmp_classif = np.zeros_like(pixc_classif)
-        tmp_classif[np.isin(pixc_classif, self.interior_water_classes)] = \
-            TMP_INTERIOR_WATER_CLASSIF
-        tmp_classif[np.isin(pixc_classif, self.water_edge_classes)] = \
-            TMP_WATER_EDGE_CLASSIF
-        tmp_classif[np.isin(pixc_classif, self.land_edge_classes)] = \
-            TMP_LAND_EDGE_CLASSIF
-        tmp_classif[np.isin(pixc_classif, self.dark_water_classes)] = \
-            TMP_DARK_WATER_CLASSIF
-
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
@@ -503,15 +487,15 @@ class RasterProcessor(object):
                         pixc_water_fraction[self.proj_mapping[i][j]],
                         pixc_water_fraction_uncert[self.proj_mapping[i][j]],
                         pixc_darea_dheight[self.proj_mapping[i][j]],
-                        tmp_classif[self.proj_mapping[i][j]],
+                        pixc_classif[self.proj_mapping[i][j]],
                         pixc_pfd[self.proj_mapping[i][j]],
                         pixc_pmd[self.proj_mapping[i][j]],
                         good,
                         method=self.area_agg_method,
-                        interior_water_klass=TMP_INTERIOR_WATER_CLASSIF,
-                        water_edge_klass=TMP_WATER_EDGE_CLASSIF,
-                        land_edge_klass=TMP_LAND_EDGE_CLASSIF,
-                        dark_water_klasses=[TMP_DARK_WATER_CLASSIF])
+                        interior_water_klasses=self.interior_water_classes,
+                        water_edge_klasses=self.water_edge_classes,
+                        land_edge_klasses=self.land_edge_classes,
+                        dark_water_klasses=self.dark_water_classes)
 
                     self.water_area[i][j] = grid_area[0]
                     self.water_area_u[i][j] = grid_area[1]
@@ -604,16 +588,7 @@ class RasterProcessor(object):
         pixc_classif = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
-
-        tmp_classif = np.zeros_like(pixc_classif)
-        tmp_classif[np.isin(pixc_classif, self.interior_water_classes)] = \
-            TMP_INTERIOR_WATER_CLASSIF
-        tmp_classif[np.isin(pixc_classif, self.water_edge_classes)] = \
-            TMP_WATER_EDGE_CLASSIF
-        tmp_classif[np.isin(pixc_classif, self.land_edge_classes)] = \
-            TMP_LAND_EDGE_CLASSIF
         dark_mask = np.isin(pixc_classif, self.dark_water_classes)
-        tmp_classif[dark_mask] = TMP_DARK_WATER_CLASSIF
 
         self.dark_frac = np.ma.masked_all((self.size_y, self.size_x))
 
@@ -629,13 +604,13 @@ class RasterProcessor(object):
                     total_area, _ = ag.area_only(
                         pixc_pixel_area[self.proj_mapping[i][j]],
                         pixc_water_fraction[self.proj_mapping[i][j]],
-                        tmp_classif[self.proj_mapping[i][j]],
+                        pixc_classif[self.proj_mapping[i][j]],
                         good,
                         method=self.area_agg_method,
-                        interior_water_klass=TMP_INTERIOR_WATER_CLASSIF,
-                        water_edge_klass=TMP_WATER_EDGE_CLASSIF,
-                        land_edge_klass=TMP_LAND_EDGE_CLASSIF,
-                        dark_water_klasses=[TMP_DARK_WATER_CLASSIF])
+                        interior_water_klasses=self.interior_water_classes,
+                        water_edge_klasses=self.water_edge_classes,
+                        land_edge_klasses=self.land_edge_classes,
+                        dark_water_klasses=self.dark_water_classes)
 
                     # If we don't have any water at all, we have no dark water...
                     if total_area==0:
