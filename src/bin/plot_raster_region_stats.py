@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
@@ -11,13 +11,13 @@ import os
 import glob
 import argparse
 import numpy as np
-import raster_products
+import SWOTRaster.products
 import SWOTRiver.analysis.tabley
 import SWOTWater.aggregate as ag
 
-from metrics import *
-from netCDF4 import Dataset
 from pathlib import Path
+from netCDF4 import Dataset
+from SWOTRaster.analysis.metrics import *
 
 METRICS_LAYER_KEYS = ['river_width', 'lake_area']
 
@@ -122,7 +122,7 @@ def main():
                 print('Not analyzing sim scene: {}'.format(sim_scene))
                 continue
 
-            proc_raster_obj = raster_products.RasterUTM.from_ncfile(proc_raster)
+            proc_raster_obj = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster)
             sim_tile = proc_raster_obj.tile_names
             if isinstance(sim_tile, list):
                 sim_tile = '_'.join(sim_tile)
@@ -213,6 +213,7 @@ def main():
     print_global_metrics(river_metrics, lake_metrics, outdir=args.outdir,
                          preamble=preamble)
 
+
 def single_tile_stats(proc_raster, truth_raster,
                       proc_raster_regionmaps, truth_raster_regionmaps,
                       sim_scene=None, dark_frac_thresh=None,
@@ -247,14 +248,15 @@ def single_tile_stats(proc_raster, truth_raster,
 
     return tile_river_metrics, tile_lake_metrics
 
+
 def load_data(proc_raster_filename, truth_raster_filename,
               proc_raster_regionmaps_filename, truth_raster_regionmaps_filename,
               sim_scene='', wb_type='river', dark_frac_thresh=None,
               water_frac_thresh=None, wse_uncert_thresh=None,
               area_uncert_thresh=None, cross_track_bounds=None,
               min_wse_pixels=None, min_area_pixels=None):
-    proc_raster = raster_products.RasterUTM.from_ncfile(proc_raster_filename)
-    truth_raster = raster_products.RasterUTM.from_ncfile(truth_raster_filename)
+    proc_raster = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster_filename)
+    truth_raster = SWOTRaster.products.RasterUTM.from_ncfile(truth_raster_filename)
     with Dataset(proc_raster_regionmaps_filename, 'r') as fin_proc, \
          Dataset(truth_raster_regionmaps_filename, 'r') as fin_truth:
         # When loading, set unregioned area to -1 and width/area to nan
@@ -414,6 +416,7 @@ def load_data(proc_raster_filename, truth_raster_filename,
 
     return tile_metrics
 
+
 def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
                       wse_prefix='wse_e_', area_prefix='a_%e_',
                       normalize_by_uncert=False):
@@ -500,6 +503,7 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
         tile_table['uncommon_area_pix_data'].append(region_data['uncommon_area_pix_data'])
 
     return tile_table
+
 
 def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None):
     # setup output fnames
@@ -697,6 +701,7 @@ def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None
                                           fname=global_table_lake_area_fname,
                                           preamble=preamble+'\n'+ttl)
 
+
 def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                   preamble=None):
     # make outdir subdirectory for tile data
@@ -789,6 +794,7 @@ def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
         SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
                                               passfail=passfail, fname=table_area_norm_fname,
                                               preamble=preamble+'\n'+ttl)
+
 
 if __name__ == '__main__':
     main()

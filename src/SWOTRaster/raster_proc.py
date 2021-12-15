@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 '''
-Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
@@ -8,16 +7,14 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 '''
 
 import logging
-import raster_crs
 import numpy as np
-import geoloc_raster
-import raster_products
+import SWOTRaster.products
+import SWOTRaster.raster_crs
 import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from osgeo import osr
 from datetime import datetime
-from SWOTWater.constants import PIXC_CLASSES
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 # Quality flagging constants TODO: revise these values
@@ -28,172 +25,22 @@ BAD_NUM_PIXELS = 5
 
 LOGGER = logging.getLogger(__name__)
 
-class L2PixcToRaster(object):
-    def __init__(self, pixc=None, polygon_points=None,
-                 algorithmic_config=None, runtime_config=None):
-        self.pixc = pixc
-        self.polygon_points = polygon_points
-        self.algorithmic_config = algorithmic_config
-        self.runtime_config = runtime_config
-
-        # Add default zone adjusts to config
-        if 'utm_zone_adjust' not in self.runtime_config:
-            self.runtime_config['utm_zone_adjust'] = 0
-        if 'mgrs_band_adjust' not in self.runtime_config:
-            self.runtime_config['mgrs_band_adjust'] = 0
-
-    def process(self):
-        """ Process L2Pixc to Raster """
-        LOGGER.info("processing l2pixc to raster")
-
-        # Get height-constrained geolocation as specified in config:
-        # "none" - we want to use non-improved geoloc
-        # "lowres_raster" - we want to get height constrained geolocation using
-        #                   a lowres raster for improved geoloc
-        # "pixcvec" - we want to keep pixcvec improved geoloc as improved geoloc
-
-        if self.algorithmic_config['height_constrained_geoloc_source'].lower() \
-           == "none":
-            new_height = self.get_smoothed_height()
-            self.pixc['pixel_cloud']['improved_height'] = new_height
-            self.use_improved_geoloc = False
-        elif self.algorithmic_config['height_constrained_geoloc_source'].lower() \
-             == "lowres_raster":
-            new_lat, new_lon, new_height = self.do_height_constrained_geolocation()
-            self.pixc['pixel_cloud']['improved_latitude'] = new_lat
-            self.pixc['pixel_cloud']['improved_longitude'] = new_lon
-            self.pixc['pixel_cloud']['improved_height'] = new_height
-            self.use_improved_geoloc = True
-        elif self.algorithmic_config['height_constrained_geoloc_source'].lower() \
-             == "pixcvec":
-            self.use_improved_geoloc = True
-        else:
-            raise ValueError('Invalid height_constrained_geoloc_source: {}'.format( \
-                self.algorithmic_config['height_constrained_geoloc_source']))
-
-        product = self.do_raster_processing()
-
-        return product
-
-    def do_height_constrained_geolocation(self):
-        """ Do raster height constrained geolocation """
-        LOGGER.info("doing height constrained geolocation")
-
-        # TODO: Handle land edges better in improved geolocation
-        # Normally land edges wouldn't get raster heights, but we are forcing
-        # the land edges to be processed as water edges here. Only side effect
-        # is in water_area aggregation, which improved geolocation does not use.
-        tmp_water_edge_classes = np.concatenate(
-            (self.algorithmic_config['water_edge_classes'],
-             self.algorithmic_config['land_edge_classes']))
-        tmp_land_edge_classes = []
-
-        height_constrained_geoloc_raster_proc = RasterProcessor(
-            self.runtime_config['output_sampling_grid_type'],
-            self.runtime_config['raster_resolution'] \
-            / self.algorithmic_config['lowres_raster_scale_factor'],
-            self.algorithmic_config['padding'],
-            self.algorithmic_config['height_agg_method'],
-            self.algorithmic_config['area_agg_method'],
-            self.algorithmic_config['interior_water_classes'],
-            tmp_water_edge_classes,
-            tmp_land_edge_classes,
-            self.algorithmic_config['dark_water_classes'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
-            self.algorithmic_config['debug_flag'])
-
-        height_constrained_geoloc_raster = \
-            height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, self.polygon_points, use_improved_geoloc=False)
-
-        # if the height-constrained geoloc raster is empty, return fully masked
-        # output
-        if height_constrained_geoloc_raster.is_empty():
-            return (np.ma.masked_all_like(self.pixc['pixel_cloud']['latitude']),
-                    np.ma.masked_all_like(self.pixc['pixel_cloud']['longitude']),
-                    np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
-
-        geolocator = geoloc_raster.GeolocRaster(
-            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
-        out_lat, out_lon, out_height = geolocator.process()
-
-        return out_lat, out_lon, out_height
-
-    def get_smoothed_height(self):
-        """ Get smoothed raster height for ifgram flattening """
-        LOGGER.info("getting smoothed height")
-
-        height_constrained_geoloc_raster_proc = RasterProcessor(
-            self.runtime_config['output_sampling_grid_type'],
-            self.runtime_config['raster_resolution'] \
-            / self.algorithmic_config['lowres_raster_scale_factor'],
-            self.algorithmic_config['padding'],
-            self.algorithmic_config['height_agg_method'],
-            self.algorithmic_config['area_agg_method'],
-            self.algorithmic_config['interior_water_classes'],
-            self.algorithmic_config['water_edge_classes'],
-            self.algorithmic_config['land_edge_classes'],
-            self.algorithmic_config['dark_water_classes'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
-            self.algorithmic_config['debug_flag'])
-
-        height_constrained_geoloc_raster = \
-            height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, self.polygon_points, use_improved_geoloc=False)
-
-        # if the height-constrained geoloc raster is empty, return fully masked
-        # output
-        if height_constrained_geoloc_raster.is_empty():
-            return np.ma.masked_all_like(self.pixc['pixel_cloud']['height'])
-
-        geolocator = geoloc_raster.GeolocRaster(
-            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
-        geolocator.update_heights_from_raster()
-
-        return geolocator.new_height
-
-    def do_raster_processing(self):
-        """ Do raster processing """
-        LOGGER.info("doing raster processing")
-
-        raster_proc = RasterProcessor(
-            self.runtime_config['output_sampling_grid_type'],
-            self.runtime_config['raster_resolution'],
-            self.algorithmic_config['padding'],
-            self.algorithmic_config['height_agg_method'],
-            self.algorithmic_config['area_agg_method'],
-            self.algorithmic_config['interior_water_classes'],
-            self.algorithmic_config['water_edge_classes'],
-            self.algorithmic_config['land_edge_classes'],
-            self.algorithmic_config['dark_water_classes'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
-            self.algorithmic_config['debug_flag'])
-
-        out_raster = raster_proc.rasterize(
-            self.pixc, self.polygon_points,
-            use_improved_geoloc=self.use_improved_geoloc)
-        return out_raster
-
-
 class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
-        self.projection_type = projection_type
 
-        if projection_type=='geo':
+        self.projection_type = projection_type
+        if self.projection_type=='geo':
             # Geodetic resolution is given in arcsec
             self.resolution = np.float(resolution/(60*60))
-        elif projection_type=='utm':
+        elif self.projection_type=='utm':
             self.resolution = np.float(resolution)
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
         else:
-            raise Exception(
+            raise ValueError(
                 'Unknown projection type: {}'.format(self.projection_type))
 
         self.padding = padding
@@ -209,10 +56,7 @@ class RasterProcessor(object):
         """ Rasterize pixc to raster """
         LOGGER.info("rasterizing")
 
-        # Note: use_improved_geoloc indicates whether improved geolocations
-        # are used for pixel binning. Improved heights are still needed for
-        # interferogram flattening.
-        self.input_crs = raster_crs.wgs84_crs()
+        self.input_crs = SWOTRaster.raster_crs.wgs84_crs()
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
         self.tile_numbers = pixc.tile_numbers
@@ -292,7 +136,6 @@ class RasterProcessor(object):
 
         return self.build_product(polygon_points=polygon_points)
 
-
     def create_projection_from_polygon(self, polygon_points):
         """ Create the output projection given a bounding polygon """
         LOGGER.info("creating projection from polygon")
@@ -301,24 +144,26 @@ class RasterProcessor(object):
         poly_edge_x = [point[1] for point in polygon_points]
 
         if self.projection_type=='geo':
-            self.output_crs = raster_crs.wgs84_crs()
+            self.output_crs = SWOTRaster.raster_crs.wgs84_crs()
             proj_center_x = 0
             proj_center_y = 0
-        if self.projection_type=='utm':
+        elif self.projection_type=='utm':
             lat_mid = np.mean(poly_edge_y)
             lon_mid = np.mean(poly_edge_x)
-            utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
-            mgrs_band = raster_crs.mgrs_band_from_latlon(lat_mid, lon_mid)
+            utm_zone = SWOTRaster.raster_crs.utm_zone_from_latlon(
+                lat_mid, lon_mid)
+            mgrs_band = SWOTRaster.raster_crs.mgrs_band_from_latlon(
+                lat_mid, lon_mid)
             # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
             utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
-                              raster_crs.UTM_NUM_ZONES) + 1
+                              SWOTRaster.raster_crs.UTM_NUM_ZONES) + 1
 
             # adjust/shift the mgrs band
-            mgrs_band = raster_crs.mgrs_band_shift(mgrs_band,
+            mgrs_band = SWOTRaster.raster_crs.mgrs_band_shift(mgrs_band,
                                                    self.mgrs_band_adjust,
                                                    lon_mid)
 
-            self.output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
+            self.output_crs = SWOTRaster.raster_crs.utm_crs(utm_zone, mgrs_band)
 
             transf = osr.CoordinateTransformation(self.input_crs,
                                                   self.output_crs)
@@ -330,6 +175,9 @@ class RasterProcessor(object):
 
             proj_center_x = self.output_crs.GetProjParm('false_easting')
             proj_center_y = self.output_crs.GetProjParm('false_northing')
+        else:
+            raise ValueError(
+                'Unknown projection type: {}'.format(self.projection_type))
 
         # get the coordinate limits
         x_min = np.min(poly_edge_x)
@@ -355,7 +203,8 @@ class RasterProcessor(object):
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
         if self.projection_type=='utm':
             self.utm_zone = np.short(utm_zone)
-            self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
+            self.utm_hemisphere = \
+                SWOTRaster.raster_crs.hemisphere_from_mgrs_band(mgrs_band)
             self.mgrs_band = mgrs_band
 
         LOGGER.info({'proj': self.output_crs.ExportToWkt(),
@@ -504,8 +353,12 @@ class RasterProcessor(object):
                         pixel_area = self.resolution**2
                     elif self.projection_type == 'geo':
                         px_latitude = self.y_min + self.resolution*i
-                        pixel_area = raster_crs.wgs84_px_area(px_latitude,
-                                                       self.resolution)
+                        pixel_area = SWOTRaster.raster_crs.wgs84_px_area(
+                            px_latitude, self.resolution)
+                    else:
+                        raise ValueError(
+                            'Unknown projection type: {}'.format(
+                                self.projection_type))
 
                     self.water_frac[i][j] = grid_area[0]/pixel_area
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
@@ -656,23 +509,23 @@ class RasterProcessor(object):
 
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
-            self.time_coverage_start = raster_products.EMPTY_DATETIME
-            self.time_coverage_end = raster_products.EMPTY_DATETIME
+            self.time_coverage_start = SWOTRaster.products.EMPTY_DATETIME
+            self.time_coverage_end = SWOTRaster.products.EMPTY_DATETIME
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
-                (raster_products.SWOT_EPOCH
-                 - raster_products.UNIX_EPOCH).total_seconds() \
+                (SWOTRaster.products.SWOT_EPOCH
+                 - SWOTRaster.products.UNIX_EPOCH).total_seconds() \
                 + start_illumination_time)
             stop_time = datetime.utcfromtimestamp(
-                (raster_products.SWOT_EPOCH
-                 - raster_products.UNIX_EPOCH).total_seconds() \
+                (SWOTRaster.products.SWOT_EPOCH
+                 - SWOTRaster.products.UNIX_EPOCH).total_seconds() \
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(
-                raster_products.DATETIME_FORMAT_STR)
+                SWOTRaster.products.DATETIME_FORMAT_STR)
             self.time_coverage_end = stop_time.strftime(
-                raster_products.DATETIME_FORMAT_STR)
+                SWOTRaster.products.DATETIME_FORMAT_STR)
 
         # Set tai_utc_difference
         min_illumination_time_index = np.unravel_index(
@@ -682,16 +535,16 @@ class RasterProcessor(object):
             - self.illumination_time[min_illumination_time_index]
 
         # Set leap second
-        if pixc.leap_second == raster_products.EMPTY_LEAPSEC:
-            self.leap_second = raster_products.EMPTY_LEAPSEC
+        if pixc.leap_second == SWOTRaster.products.EMPTY_LEAPSEC:
+            self.leap_second = SWOTRaster.products.EMPTY_LEAPSEC
         else:
             leap_second = datetime.strptime(pixc.leap_second,
-                                         raster_products.LEAPSEC_FORMAT_STR)
+                                         SWOTRaster.products.LEAPSEC_FORMAT_STR)
             if leap_second < start_time or leap_second > end_time:
-                leap_second = raster_products.EMPTY_LEAPSEC
+                leap_second = SWOTRaster.products.EMPTY_LEAPSEC
 
             self.leap_second = leap_second.strftime(
-                raster_products.LEAPSEC_FORMAT_STR)
+                SWOTRaster.products.LEAPSEC_FORMAT_STR)
 
     def aggregate_ice_flags(self, pixc, mask):
         """ Aggregate ice flags """
@@ -838,22 +691,23 @@ class RasterProcessor(object):
                         self.latitude[i][j] = lon
                         self.longitude[i][j] = lat
 
-
-
     def build_product(self, populate_values=True, polygon_points=None):
         """ Assemble the product """
         LOGGER.info("building product")
 
         if self.projection_type == 'utm':
             if self.debug_flag:
-                product = raster_products.RasterUTMDebug()
+                product = SWOTRaster.products.RasterUTMDebug()
             else:
-                product = raster_products.RasterUTM()
+                product = SWOTRaster.products.RasterUTM()
         elif self.projection_type == 'geo':
             if self.debug_flag:
-                product = raster_products.RasterGeoDebug()
+                product = SWOTRaster.products.RasterGeoDebug()
             else:
-                product = raster_products.RasterGeo()
+                product = SWOTRaster.products.RasterGeo()
+        else:
+            raise ValueError(
+                'Unknown projection type: {}'.format(self.projection_type))
 
         current_datetime = datetime.utcnow()
         product.history = \
@@ -901,7 +755,6 @@ class RasterProcessor(object):
                 coordinate_system.GetProjParm('false_northing')
             product.VARIABLES['crs']['longitude_of_central_meridian'] = \
                 coordinate_system.GetProjParm('central_meridian')
-
         elif self.projection_type == 'geo':
             product.longitude_min = self.x_min
             product.longitude_max = self.x_max
@@ -913,7 +766,10 @@ class RasterProcessor(object):
             product['latitude'] = np.linspace(self.y_min,
                                               self.y_max,
                                               self.size_y)
-            coordinate_system = raster_crs.wgs84_crs()
+            coordinate_system = SWOTRaster.raster_crs.wgs84_crs()
+        else:
+            raise ValueError(
+                'Unknown projection type: {}'.format(self.projection_type))
 
         product.VARIABLES['crs']['crs_wkt'] = coordinate_system.ExportToWkt()
         product.VARIABLES['crs']['spatial_ref'] = \

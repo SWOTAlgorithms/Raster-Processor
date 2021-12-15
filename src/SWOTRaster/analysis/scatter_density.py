@@ -1,16 +1,17 @@
 '''
-Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Brent Williams
-
 '''
+
 import numpy as np
-import matplotlib.pyplot as plt
 import mpl_scatter_density
-from metrics import compute_metrics_from_error, nanmean_masked
+import matplotlib.pyplot as plt
+
 from collections import Counter
+from SWOTRaster.analysis.metrics import compute_metrics_from_error, nanmean_masked
 
 def get_top_sources(x_in, y_in, sources_in, bins_x, bins_y, n=3):
     """
@@ -44,6 +45,7 @@ def get_top_sources(x_in, y_in, sources_in, bins_x, bins_y, n=3):
             out_pcts[i][j] = [100*this_count/len(bin_data) for this_count in counts]
     return out_vals, out_pcts
 
+
 def make_format(bins_x, bins_y, top_sources, top_source_pcts):
     """
     make a cursor string format function with the top data sources
@@ -63,6 +65,7 @@ def make_format(bins_x, bins_y, top_sources, top_source_pcts):
                     format_str = '{0}{1}:{2:1.1f}%  '.format(format_str, ts[idx], tsp[idx])
         return format_str
     return format_coord
+
 
 def scatter_density(x_in, y_in,
         uncert=None, bin_edges=100, source=None, cmap='jet', exclude_outliers=True):

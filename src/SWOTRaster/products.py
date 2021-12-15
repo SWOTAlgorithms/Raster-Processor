@@ -1,17 +1,17 @@
 '''
-Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
 '''
+
 import logging
 import textwrap
-import raster_crs
 import numpy as np
+import SWOTRaster.raster_crs
 
 from osgeo import osr
-from netCDF4 import Dataset
 from datetime import datetime
 from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
@@ -864,10 +864,10 @@ class RasterUTM(Product):
             lon_keyword = 'longitude'
 
         pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
 
-        input_crs = raster_crs.wgs84_crs()
-        output_crs = raster_crs.utm_crs(self.utm_zone_num,
+        input_crs = SWOTRaster.raster_crs.wgs84_crs()
+        output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
 
@@ -904,8 +904,8 @@ class RasterUTM(Product):
         LOGGER.info('cropping to bounds')
 
         # Convert polygon points to UTM
-        input_crs = raster_crs.wgs84_crs()
-        output_crs = raster_crs.utm_crs(self.utm_zone_num,
+        input_crs = SWOTRaster.raster_crs.wgs84_crs()
+        output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
         swath_polygon_points_utm = []
@@ -1119,7 +1119,7 @@ class RasterGeo(Product):
             lon_keyword = 'longitude'
 
         pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
 
         mapping_tmp = []
         for i in range(0, self.dimensions['latitude']):
@@ -1590,6 +1590,7 @@ class ScenePixelCloud(Product):
             setattr(klass, key, np.concatenate((
                 getattr(self, key), getattr(other, key))))
         return klass
+
 
 class SceneTVP(Product):
     ATTRIBUTES = odict([

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
@@ -9,16 +9,14 @@ Author(s): Alexander Corben
 
 import os
 import glob
-import raster
 import argparse
-import raster_crs
 import numpy as np
 import multiprocessing
-import raster_products
+import SWOTRaster.products
 import SWOTWater.aggregate as ag
 
 from netCDF4 import Dataset
-from pixc_to_raster import load_raster_configs
+from swot_pixc2raster import load_raster_configs
 from scipy.interpolate import RegularGridInterpolator
 from pathlib import Path
 
@@ -137,7 +135,7 @@ def main():
             ground_region_map = os.path.join(args.ground_region_map,
                                              sim_scene + '_regionmap.nc')
 
-            proc_raster_obj = raster_products.RasterUTM.from_ncfile(proc_raster)
+            proc_raster_obj = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster)
             sim_tile = proc_raster_obj.tile_names
             if isinstance(sim_tile, list):
                 sim_tile = '_'.join(sim_tile)
@@ -205,6 +203,7 @@ def main():
                                gdem, args.proc_alg_config, args.truth_alg_config,
                                args.runtime_config)
 
+
 def mp_proc_async_keyed(func, func_args_tuple, proc_keys_tuple, processes=1):
     pool = multiprocessing.Pool(processes=processes)
     res = []
@@ -219,6 +218,7 @@ def mp_proc_async_keyed(func, func_args_tuple, proc_keys_tuple, processes=1):
             failed_list.append((r[0], e))
 
     return failed_list
+
 
 def proc_catcher(proc_raster, truth_raster, proc_raster_regionmaps,
                  truth_raster_regionmaps, proc_int_pixc,
@@ -238,6 +238,7 @@ def proc_catcher(proc_raster, truth_raster, proc_raster_regionmaps,
             sim_scene, sim_tile))
         print(e)
         raise e
+
 
 def single_tile_regionmaps(proc_raster, truth_raster,
                            proc_raster_regionmaps, truth_raster_regionmaps,
@@ -317,11 +318,12 @@ def single_tile_regionmaps(proc_raster, truth_raster,
                                     region_map_river_raster_truth,
                                     region_map_lake_raster_truth)
 
+
 def rasterize_region_maps(raster_filename, int_pixc_filename,
                           region_map_river, region_map_lake,
                           alg_cfg, rt_cfg):
-    raster_in = raster_products.RasterUTM.from_ncfile(raster_filename)
-    pixc = raster_products.ScenePixc.from_ncfile(int_pixc_filename)
+    raster_in = SWOTRaster.products.RasterUTM.from_ncfile(raster_filename)
+    pixc = SWOTRaster.products.ScenePixc.from_ncfile(int_pixc_filename)
 
     # use improved geolocation if specified in config
     use_improved_geoloc=False
@@ -376,10 +378,11 @@ def rasterize_region_maps(raster_filename, int_pixc_filename,
 
     return region_map_river_raster, region_map_lake_raster
 
+
 def make_raster_regionmaps_file(raster_filename, ground_region_map_filename,
                                 raster_regionmaps_filename,
                                 region_map_river, region_map_lake):
-    raster_in = raster_products.RasterUTM.from_ncfile(raster_filename)
+    raster_in = SWOTRaster.products.RasterUTM.from_ncfile(raster_filename)
 
     with Dataset(ground_region_map_filename, 'r') as fin, \
          Dataset(raster_regionmaps_filename, 'w') as fout:
@@ -406,6 +409,7 @@ def make_raster_regionmaps_file(raster_filename, ground_region_map_filename,
             this_var = fout.createVariable(key, fin[key].dtype, fin[key].dimensions,
                                            fill_value=fin[key][:].fill_value)
             this_var[:] = fin[key][:]
+
 
 if __name__ == '__main__':
     main()

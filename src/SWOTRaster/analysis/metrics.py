@@ -1,10 +1,9 @@
 '''
-Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
-
 '''
 
 import numpy as np
@@ -17,6 +16,7 @@ def metrics_fit(x, y, poly=3, pts=25):
     y_new = f(x_new)
     return x_new, y_new
 
+
 def get_passfail():
     passfail = {
         '|wse_e_68_pct|': [0.10, 1],
@@ -25,11 +25,14 @@ def get_passfail():
     }
     return passfail
 
+
 def std_mask(data, m=1):
     return abs(data - np.mean(data)) < m * np.std(data)
 
+
 def weighted_mean(data, weights=None):
     return np.nansum(data * weights) / np.nansum(weights)
+
 
 def weighted_percentile(data, pct, weights=None):
     if weights is None:
@@ -41,10 +44,12 @@ def weighted_percentile(data, pct, weights=None):
     weighted_pcts /= np.nansum(weights)
     return np.interp(pct/100, weighted_pcts, data)
 
+
 def weighted_std(data, weights=None):
     mean = weighted_mean(data, weights)
     variance = weighted_mean((data-mean)**2, weights)
     return np.sqrt(variance)
+
 
 def compute_metrics_from_error(err_array, weights=None, mask=None):
     error_metrics = {}
@@ -80,8 +85,9 @@ def compute_metrics_from_error(err_array, weights=None, mask=None):
 
     return error_metrics
 
+
 def nanmean_masked(value):
-    # TODO: this is a hack to fix a bug in nanmean with fully masked arrays...
+    # This is a hack to fix a bug in nanmean with fully masked arrays...
     unmasked_value = value[~value.mask]
     if len(unmasked_value)!=0:
         out = np.nanmean(unmasked_value)

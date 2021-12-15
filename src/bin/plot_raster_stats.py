@@ -1,25 +1,22 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
-
 '''
 
 import os
 import glob
-import scipy
 import argparse
 import numpy as np
-import raster_products
 import matplotlib.pyplot as plt
 import SWOTRiver.analysis.tabley
-from scatter_density import scatter_density
-from metrics import *
 
 from pathlib import Path
+from SWOTRaster.analysis.metrics import *
+from SWOTRaster.analysis.scatter_density import scatter_density
 from SWOTWater.products.product import MutableProduct
 
 import warnings
@@ -175,6 +172,7 @@ def main():
                   scatter_plot=args['scatter_plot'],
                   outdir=args['outdir'], preamble=preamble)
 
+
 def load_data(
         proc_raster_file, truth_raster_file, sim_scene='', dark_frac_thresh=None,
         water_frac_thresh=None, wse_uncert_thresh=None, area_uncert_thresh=None,
@@ -312,6 +310,7 @@ def load_data(
 
     return tile_metrics
 
+
 def print_metrics(metrics, weighted=False, scatter_plot=False,
                   outdir=None, preamble=None):
     # setup output fnames
@@ -365,7 +364,7 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
     tile_table_area = {key:tile_table[key] for key in area_keys}
     sort_table(tile_table_wse, '|wse_e_68_pct|')
     sort_table(tile_table_area, '|a_%e_68_pct|')
-    
+
     SWOTRiver.analysis.tabley.print_table(tile_table_wse, precision=5,
                                           passfail=passfail, fname=table_wse_fname,
                                           preamble=preamble+'\n'+ttl)
@@ -511,6 +510,7 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
         uncert_to_plot=uncert_to_plot, sources=all_sim_scenes, scatter_plot=scatter_plot,
         outdir=outdir)
 
+
 def append_tile_table(tile_metrics, tile_table={},
                       wse_prefix='wse_e_', area_prefix='a_%e_',
                       inverse_variance_weight=False, normalize_by_uncert=False):
@@ -594,6 +594,7 @@ def append_tile_table(tile_metrics, tile_table={},
     tile_table['tile_names'].append(tile_metrics['tile_names'])
     return tile_table
 
+
 def make_global_table(all_wse_err, all_area_perc_err,
                       wse_weight=None, area_weight=None,
                       wse_prefix='wse_e_', area_prefix='a_%e_', mask=None):
@@ -615,6 +616,7 @@ def make_global_table(all_wse_err, all_area_perc_err,
     global_table[area_prefix + '50_pct'] = [area_err_metrics['50_pct']]
 
     return global_table
+
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                  uncert_to_plot=None, poly=2, sources=None, scatter_plot=False,
@@ -681,6 +683,7 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
     if outdir is None:
         plt.show()
     warnings.resetwarnings()
+
 
 def sort_table(table, sort_key):
     sort_idx = np.argsort(table[sort_key])

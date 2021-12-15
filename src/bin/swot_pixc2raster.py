@@ -1,27 +1,13 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2017-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
-'''
 
-import os
-import ast
-import RDF
-import raster
-import logging
-import argparse
-
-from raster_products import ScenePixc
-from SWOTWater.products.product import MutableProduct
-from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
-
-description = """
-description:
-    pixc_to_raster.py rasterizes a given pixelcloud using configuration
-    parameters in algorithmic and runtime config files
+Rasterizes a given pixelcloud using configuration parameters in algorithmic
+and runtime config files
 
 example algorithmic config parameters:
     max_cross_track_distance                        (-) = 64e3
@@ -44,14 +30,26 @@ example runtime config parameters:
     output_sampling_grid_type   (-) = utm
     utm_zone_adjust             (-) = 0
     mgrs_band_adjust            (-) = 0
+'''
 
-"""
+import os
+import ast
+import RDF
+import logging
+import argparse
+import SWOTRaster.l2pixc_to_raster
+
+from SWOTRaster.products import ScenePixc
+from SWOTWater.products.product import MutableProduct
+from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
+
+LOGGER = logging.getLogger(__name__)
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description = description)
+        description=__doc__)
     parser.add_argument("pixc_file", type=str,
                         help='input pixelcloud file')
     parser.add_argument("alg_config_file", type=str,
@@ -79,8 +77,9 @@ def main():
 
     pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile)
 
-    proc = raster.L2PixcToRaster(pixc=pixc_data, algorithmic_config=alg_cfg,
-                                 runtime_config=rt_cfg)
+    proc = SWOTRaster.l2pixc_to_raster.L2PixcToRaster(
+        pixc=pixc_data, algorithmic_config=alg_cfg, runtime_config=rt_cfg)
+
     product = proc.process()
 
     if args.internal_files_dir is not None:
@@ -91,7 +90,7 @@ def main():
 
 def load_raster_configs(alg_config_file, runtime_config_file):
     alg_cfg = RDF.RDF()
-    alg_cfg.rdfParse(os.path.abspath(alg_config_file))
+    alg_cfg.rdfParse(alg_config_file)
     alg_cfg = dict(alg_cfg)
 
     # Typecast most config values with eval (except strings)
@@ -103,7 +102,7 @@ def load_raster_configs(alg_config_file, runtime_config_file):
         alg_cfg[key] = ast.literal_eval(alg_cfg[key])
 
     rt_cfg = RDF.RDF()
-    rt_cfg.rdfParse(os.path.abspath(runtime_config_file))
+    rt_cfg.rdfParse(runtime_config_file)
     rt_cfg = dict(rt_cfg)
 
     # Typecast most config values with eval (except strings)

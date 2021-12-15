@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 '''
-Copyright (c) 2020-, California Institute of Technology ("Caltech"). U.S.
+Copyright (c) 2021-, California Institute of Technology ("Caltech"). U.S.
 Government sponsorship acknowledged.
 All rights reserved.
 
@@ -10,11 +9,14 @@ Author(s): Alexander Corben
 import logging
 import argparse
 import numpy as np
+
 from osgeo import osr
 
 WGS84_ID = 4326
 UTM_NUM_ZONES = 60
 MGRS_VALID_BANDS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+LOGGER = logging.getLogger(__name__)
 
 def wgs84_px_area(center_lat, px_size):
     # Calculates the area of a pixel by getting the total area between
