@@ -21,8 +21,11 @@ example algorithmic config parameters:
     height_constrained_geoloc_source                (-) = lowres_raster
     lowres_raster_height_constrained_geoloc_method  (-) = taylor
     lowres_raster_scale_factor                      (-) = 0.2
+    wse_uncert_qual_thresh                          (-) = 5
+    water_frac_uncert_qual_thresh                   (-) = 0.5
+    sig0_uncert_qual_thresh                         (-) = 20
+    num_pixels_qual_thresh                          (-) = 5
     debug_flag                                      (-) = False
-    allow_arbitrary_resolution                      (-) = False
     write_internal_files                            (-) = False
 
 example runtime config parameters:

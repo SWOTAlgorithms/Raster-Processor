@@ -64,7 +64,6 @@ class L2PixcToRaster(object):
         """ Do raster height constrained geolocation """
         LOGGER.info("doing height constrained geolocation")
 
-        # TODO: Handle land edges better in improved geolocation
         # Normally land edges wouldn't get raster heights, but we are forcing
         # the land edges to be processed as water edges here. Only side effect
         # is in water_area aggregation, which improved geolocation does not use.
@@ -85,9 +84,13 @@ class L2PixcToRaster(object):
                 tmp_water_edge_classes,
                 tmp_land_edge_classes,
                 self.algorithmic_config['dark_water_classes'],
-                self.runtime_config['utm_zone_adjust'],
-                self.runtime_config['mgrs_band_adjust'],
-                self.algorithmic_config['debug_flag'])
+                self.algorithmic_config['wse_uncert_qual_thresh'],
+                self.algorithmic_config['water_frac_uncert_qual_thresh'],
+                self.algorithmic_config['sig0_uncert_qual_thresh'],
+                self.algorithmic_config['num_pixels_qual_thresh'],
+                utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
+                mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
+                debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
@@ -122,9 +125,13 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['water_edge_classes'],
                 self.algorithmic_config['land_edge_classes'],
                 self.algorithmic_config['dark_water_classes'],
-                self.runtime_config['utm_zone_adjust'],
-                self.runtime_config['mgrs_band_adjust'],
-                self.algorithmic_config['debug_flag'])
+                self.algorithmic_config['wse_uncert_qual_thresh'],
+                self.algorithmic_config['water_frac_uncert_qual_thresh'],
+                self.algorithmic_config['sig0_uncert_qual_thresh'],
+                self.algorithmic_config['num_pixels_qual_thresh'],
+                utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
+                mgrs_band_adjuct=self.runtime_config['mgrs_band_adjust'],
+                debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
@@ -155,9 +162,13 @@ class L2PixcToRaster(object):
             self.algorithmic_config['water_edge_classes'],
             self.algorithmic_config['land_edge_classes'],
             self.algorithmic_config['dark_water_classes'],
-            self.runtime_config['utm_zone_adjust'],
-            self.runtime_config['mgrs_band_adjust'],
-            self.algorithmic_config['debug_flag'])
+            self.algorithmic_config['wse_uncert_qual_thresh'],
+            self.algorithmic_config['water_frac_uncert_qual_thresh'],
+            self.algorithmic_config['sig0_uncert_qual_thresh'],
+            self.algorithmic_config['num_pixels_qual_thresh'],
+            utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
+            mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
+            debug_flag=self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(
             self.pixc, self.polygon_points,

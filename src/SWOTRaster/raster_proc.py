@@ -17,18 +17,14 @@ from osgeo import osr
 from datetime import datetime
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
-# Quality flagging constants TODO: revise these values
-WSE_BAD_UNCERT = 5
-WATER_FRAC_BAD_UNCERT = 0.5
-SIG0_BAD_UNCERT = 20
-BAD_NUM_PIXELS = 5
-
 LOGGER = logging.getLogger(__name__)
 
 class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
+                 wse_uncert_qual_thresh, water_frac_uncert_qual_thresh,
+                 sig0_uncert_qual_thresh, num_pixels_qual_thresh,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
 
         self.projection_type = projection_type
@@ -50,6 +46,12 @@ class RasterProcessor(object):
         self.water_edge_classes = water_edge_classes
         self.land_edge_classes = land_edge_classes
         self.dark_water_classes = dark_water_classes
+
+        self.wse_uncert_qual_thresh = wse_uncert_qual_thresh
+        self.water_frac_uncert_qual_thresh = water_frac_uncert_qual_thresh
+        self.sig0_uncert_qual_thresh = sig0_uncert_qual_thresh
+        self.num_pixels_qual_thresh = num_pixels_qual_thresh
+
         self.debug_flag = debug_flag
 
     def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
@@ -301,10 +303,9 @@ class RasterProcessor(object):
                     self.wse_u[i][j] = grid_height[2]
                     self.n_wse_pix[i][j] = ag.simple(good, metric='sum')
 
-                    # TODO: more complex qual handling
                     self.wse_qual[i][j] = np.logical_or(
-                        self.wse_u[i][j] >= WSE_BAD_UNCERT,
-                        self.n_wse_pix[i][j] <= BAD_NUM_PIXELS)
+                        self.wse_u[i][j] >= self.wse_uncert_qual_thresh,
+                        self.n_wse_pix[i][j] <= self.num_pixels_qual_thresh)
 
         self.apply_wse_corrections()
 
@@ -364,10 +365,9 @@ class RasterProcessor(object):
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
                     self.n_water_area_pix[i][j] = ag.simple(good, metric='sum')
 
-                    # TODO: more complex qual handling
                     self.water_area_qual[i][j] = np.logical_or(
-                        self.water_frac_u[i][j] >= WATER_FRAC_BAD_UNCERT,
-                        self.n_water_area_pix[i][j] <= BAD_NUM_PIXELS)
+                        self.water_frac_u[i][j] >= self.water_frac_uncert_qual_thresh,
+                        self.n_water_area_pix[i][j] <= self.num_pixels_qual_thresh)
 
     def aggregate_cross_track(self, pixc, mask):
         """ Aggregate cross track """
@@ -414,10 +414,9 @@ class RasterProcessor(object):
                     if n_sig0_px > 0:
                         self.n_sig0_pix[i][j] = n_sig0_px
 
-                    # TODO: more complex qual handling
                     self.sig0_qual[i][j] = np.logical_or(
-                        self.sig0_u[i][j] >= SIG0_BAD_UNCERT,
-                        self.n_sig0_pix[i][j] <= BAD_NUM_PIXELS)
+                        self.sig0_u[i][j] >= self.sig0_uncert_qual_thresh,
+                        self.n_sig0_pix[i][j] <= self.num_pixels_qual_thresh)
 
     def aggregate_inc(self, pixc, mask):
         """ Aggregate incidence angle """
