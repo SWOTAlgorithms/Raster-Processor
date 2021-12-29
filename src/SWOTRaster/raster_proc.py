@@ -15,6 +15,7 @@ import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from osgeo import osr
 from datetime import datetime
+from SWOTRaster.errors import RasterUsageException
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 LOGGER = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class RasterProcessor(object):
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
         else:
-            raise ValueError(
+            raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
         self.padding = padding
@@ -178,7 +179,7 @@ class RasterProcessor(object):
             proj_center_x = self.output_crs.GetProjParm('false_easting')
             proj_center_y = self.output_crs.GetProjParm('false_northing')
         else:
-            raise ValueError(
+            raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
         # get the coordinate limits
@@ -357,7 +358,7 @@ class RasterProcessor(object):
                         pixel_area = SWOTRaster.raster_crs.wgs84_px_area(
                             px_latitude, self.resolution)
                     else:
-                        raise ValueError(
+                        raise RasterUsageException(
                             'Unknown projection type: {}'.format(
                                 self.projection_type))
 
@@ -538,7 +539,7 @@ class RasterProcessor(object):
             self.leap_second = SWOTRaster.products.EMPTY_LEAPSEC
         else:
             leap_second = datetime.strptime(pixc.leap_second,
-                                         SWOTRaster.products.LEAPSEC_FORMAT_STR)
+                SWOTRaster.products.LEAPSEC_FORMAT_STR)
             if leap_second < start_time or leap_second > end_time:
                 leap_second = SWOTRaster.products.EMPTY_LEAPSEC
 
@@ -705,7 +706,7 @@ class RasterProcessor(object):
             else:
                 product = SWOTRaster.products.RasterGeo()
         else:
-            raise ValueError(
+            raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
         current_datetime = datetime.utcnow()
@@ -767,7 +768,7 @@ class RasterProcessor(object):
                                               self.size_y)
             coordinate_system = SWOTRaster.raster_crs.wgs84_crs()
         else:
-            raise ValueError(
+            raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
         product.VARIABLES['crs']['crs_wkt'] = coordinate_system.ExportToWkt()

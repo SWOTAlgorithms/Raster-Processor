@@ -11,6 +11,8 @@ import numpy as np
 import SWOTRaster.geoloc_raster
 import SWOTRaster.raster_proc
 
+from SWOTRaster.errors import RasterUsageException
+
 LOGGER = logging.getLogger(__name__)
 
 class L2PixcToRaster(object):
@@ -53,8 +55,9 @@ class L2PixcToRaster(object):
              == "pixcvec":
             self.use_improved_geoloc = True
         else:
-            raise ValueError('Invalid height_constrained_geoloc_source: {}'.format( \
-                self.algorithmic_config['height_constrained_geoloc_source']))
+            raise RasterUsageException(
+                'Invalid height_constrained_geoloc_source: {}'.format(
+                    self.algorithmic_config['height_constrained_geoloc_source']))
 
         product = self.do_raster_processing()
 
