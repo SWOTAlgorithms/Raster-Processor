@@ -133,7 +133,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['sig0_uncert_qual_thresh'],
                 self.algorithmic_config['num_pixels_qual_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
-                mgrs_band_adjuct=self.runtime_config['mgrs_band_adjust'],
+                mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
