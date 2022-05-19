@@ -1331,7 +1331,7 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lon_min = min(lons)
         scene_pixc.geospatial_lon_max = max(lons)
 
-        if leap_second is not None:
+        if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
             scene_pixc.leap_second = leap_second
         else:
             scene_pixc.leap_second = EMPTY_LEAPSEC
@@ -1427,7 +1427,12 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lat_max = max(lats)
         scene_pixc.geospatial_lon_min = min(lons)
         scene_pixc.geospatial_lon_max = max(lons)
-        scene_pixc.leap_second = leap_second
+
+        if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
+            scene_pixc.leap_second = leap_second
+        else:
+            scene_pixc.leap_second = EMPTY_LEAPSEC
+
         return scene_pixc
 
     def get_mask(self, valid_classes, qual_flags=[],
