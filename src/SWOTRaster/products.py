@@ -1578,6 +1578,13 @@ class ScenePixelCloud(Product):
 
             scene_pixel_cloud['ice_clim_flag'] = pixcvec_tile.ice_clim_f
             scene_pixel_cloud['ice_dyn_flag'] = pixcvec_tile.ice_dyn_f
+        else:
+            scene_pixel_cloud['improved_latitude'] = \
+                scene_pixel_cloud['latitude']
+            scene_pixel_cloud['improved_longitude'] = \
+                scene_pixel_cloud['longitude']
+            scene_pixel_cloud['improved_height'] = \
+                scene_pixel_cloud['height']
 
         # Copy common pixc attributes
         pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
