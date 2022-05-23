@@ -1368,9 +1368,11 @@ class ScenePixc(Product):
         granule_end_times = [datetime.strptime(
             tile.time_granule_end, DATETIME_FORMAT_STR) for tile in tile_objs]
         coverage_start_times = [datetime.strptime(
-            tile.time_coverage_start, DATETIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_coverage_start, DATETIME_FORMAT_STR) for tile in tile_objs
+                                if tile.time_coverage_start != EMPTY_DATETIME]
         coverage_end_times = [datetime.strptime(
-            tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs]
+            tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs
+                              if tile.time_coverage_end != EMPTY_DATETIME]
         scene_pixc.cycle_number = np.short(cycle_number)
         scene_pixc.pass_number = np.short(pass_number)
         scene_pixc.scene_number = np.short(scene_number)
@@ -1393,10 +1395,18 @@ class ScenePixc(Product):
             granule_start_time.strftime(DATETIME_FORMAT_STR)
         scene_pixc.time_granule_end = \
             granule_end_time.strftime(DATETIME_FORMAT_STR)
-        scene_pixc.time_coverage_start = \
-            min(coverage_start_times).strftime(DATETIME_FORMAT_STR)
-        scene_pixc.time_coverage_end = \
-            max(coverage_end_times).strftime(DATETIME_FORMAT_STR)
+
+        if len(coverage_start_times) > 0:
+            scene_pixc.time_coverage_start = \
+                min(coverage_start_times).strftime(DATETIME_FORMAT_STR)
+        else:
+            scene_pixc.time_coverage_start = EMPTY_DATETIME
+
+        if len(coverage_end_times) > 0:
+            scene_pixc.time_coverage_end = \
+                max(coverage_end_times).strftime(DATETIME_FORMAT_STR)
+        else:
+            scene_pixc.time_coverage_end = EMPTY_DATETIME
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
