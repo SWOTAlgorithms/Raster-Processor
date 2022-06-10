@@ -26,6 +26,10 @@ class RasterProcessor(object):
                  water_edge_classes, land_edge_classes, dark_water_classes,
                  wse_uncert_qual_thresh, water_frac_uncert_qual_thresh,
                  sig0_uncert_qual_thresh, num_pixels_qual_thresh,
+                 usable_interferogram_qual_meanings,
+                 usable_classification_qual_meanings,
+                 usable_geolocation_qual_meanings,
+                 usable_sig0_qual_meanings,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
 
         self.projection_type = projection_type
@@ -52,6 +56,12 @@ class RasterProcessor(object):
         self.water_frac_uncert_qual_thresh = water_frac_uncert_qual_thresh
         self.sig0_uncert_qual_thresh = sig0_uncert_qual_thresh
         self.num_pixels_qual_thresh = num_pixels_qual_thresh
+        self.usable_interferogram_qual_meanings = \
+            usable_interferogram_qual_meanings
+        self.usable_classification_qual_meanings = \
+            usable_classification_qual_meanings
+        self.usable_geolocation_qual_meanings = usable_geolocation_qual_meanings
+        self.usable_sig0_qual_meanings = usable_sig0_qual_meanings
 
         self.debug_flag = debug_flag
 
@@ -99,17 +109,27 @@ class RasterProcessor(object):
                                         self.dark_water_classes))
         all_classes = np.concatenate((water_classes, self.land_edge_classes))
         # TODO: determine qual flags to use for each mask
-        common_qual_flags = ['pixc_line_qual', 'interferogram_qual',
-                             'classification_qual', 'geolocation_qual']
+        common_qual_flags = ['interferogram_qual', 'classification_qual',
+                             'geolocation_qual']
+        common_usable_qual_flag_meanings = [
+            self.usable_interferogram_qual_meanings,
+            self.usable_classification_qual_meanings,
+            self.usable_geolocation_qual_meanings]
         sig0_qual_flags = common_qual_flags + ['sig0_qual']
+        sig0_usable_qual_flag_meanings = common_usable_qual_flag_meanings \
+                                         + [self.usable_sig0_qual_meanings]
         all_mask = pixc.get_mask(
-            all_classes, common_qual_flags, use_improved_geoloc)
+            all_classes, common_qual_flags, common_usable_qual_flag_meanings,
+            use_improved_geoloc)
         wse_mask = pixc.get_mask(
-            water_classes, common_qual_flags, use_improved_geoloc)
+            water_classes, common_qual_flags, common_usable_qual_flag_meanings,
+            use_improved_geoloc)
         water_area_mask = pixc.get_mask(
-            all_classes, common_qual_flags, use_improved_geoloc)
+            all_classes, common_qual_flags, common_usable_qual_flag_meanings,
+            use_improved_geoloc)
         sig0_mask = pixc.get_mask(
-            water_classes, sig0_qual_flags, use_improved_geoloc)
+            water_classes, sig0_qual_flags, sig0_usable_qual_flag_meanings,
+            use_improved_geoloc)
 
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)

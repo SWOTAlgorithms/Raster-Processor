@@ -24,8 +24,6 @@ LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
 EMPTY_LEAPSEC = "0000-00-00T00:00:00Z"
 
-PIXC_BAD_FLAG_VALUE = 2
-
 LOGGER = logging.getLogger(__name__)
 
 def textjoin(text):
@@ -488,6 +486,7 @@ COMMON_VARIABLES = odict([
     ['ice_clim_flag',
      odict([['dtype', 'u1'],
             ['long_name', 'climatological ice cover flag'],
+            ['standard_name', 'status_flag'],
             ['source', 'UNC'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
@@ -507,6 +506,7 @@ COMMON_VARIABLES = odict([
     ['ice_dyn_flag',
      odict([['dtype', 'u1'],
             ['long_name', 'dynamic ice cover flag'],
+            ['standard_name', 'status_flag'],
             ['source', 'UNC'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
@@ -1446,9 +1446,12 @@ class ScenePixc(Product):
         return scene_pixc
 
     def get_mask(self, valid_classes, qual_flags=[],
-                 use_improved_geoloc=True):
+                 usable_qual_flag_meanings=None, use_improved_geoloc=True):
         """ Get mask of valid pixc points for aggregation """
         LOGGER.info('getting mask')
+
+        if usable_qual_flag_meanings is None:
+            usable_qual_flag_meanings = [[]]*len(qual_flags)
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -1481,17 +1484,32 @@ class ScenePixc(Product):
 
         # Use qual flags to mask
         qual_mask = np.zeros_like(mask)
-        for qual_flag in qual_flags:
-            if qual_flag == 'pixc_line_qual':
-                per_pixel_line_qual = \
-                    self.pixel_cloud['pixc_line_qual'][self.pixel_cloud['azimuth_index']]
-                qual_mask = np.logical_or(
-                    qual_mask, per_pixel_line_qual==PIXC_BAD_FLAG_VALUE)
-            else:
-                qual_mask = np.logical_or(
-                    qual_mask, self.pixel_cloud[qual_flag]==PIXC_BAD_FLAG_VALUE)
-        mask[qual_mask] = 0
+        for idx, qual_flag in enumerate(qual_flags):
+            this_flag_meanings = \
+                self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
+            this_flag_masks = \
+                self.pixel_cloud.VARIABLES[qual_flag]['flag_masks']
 
+            if qual_flag == 'pixc_line_qual':
+                this_flag = \
+                    self.pixel_cloud[qual_flag][self.pixel_cloud['azimuth_index']]
+            else:
+                this_flag = self.pixel_cloud[qual_flag]
+
+            bitmask = 0
+            for usable_qual_flag_meaning in usable_qual_flag_meanings[idx]:
+                try:
+                    flag_idx = this_flag_meanings.index(usable_qual_flag_meaning)
+                except ValueError as e:
+                    LOGGER.warning('Flag value {} not in {}, skipping...'.format(
+                        usable_qual_flag_meaning, qual_flag))
+                    continue
+                bitmask = bitmask | this_flag_masks[flag_idx]
+
+            this_qual_mask = np.bitwise_and(this_flag, ~bitmask) > 0
+            qual_mask = np.logical_or(qual_mask, this_qual_mask)
+
+        mask[qual_mask] = 0
         return mask==1
 
     def __add__(self, other):
@@ -1571,10 +1589,12 @@ class ScenePixelCloud(Product):
 
         scene_pixel_cloud = cls()
 
-        # Copy common pixc variables
+        # Copy common pixc variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
         for field in pixel_cloud_vars.intersection(
                 pixc_tile.VARIABLES.keys()):
+            scene_pixel_cloud.VARIABLES[field] = \
+                pixc_tile.VARIABLES[field]
             scene_pixel_cloud[field] = pixc_tile[field]
 
         # Copy pixcvec variables (set improved llh to pixcvec llh here)
@@ -1602,6 +1622,7 @@ class ScenePixelCloud(Product):
                 pixc_tile.ATTRIBUTES):
             attr_val = getattr(pixc_tile, field)
             setattr(scene_pixel_cloud, field, attr_val)
+
         return scene_pixel_cloud
 
     def __add__(self, other):
