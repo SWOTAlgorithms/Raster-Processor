@@ -1597,6 +1597,7 @@ class ScenePixelCloud(Product):
                 pixc_tile.ATTRIBUTES):
             attr_val = getattr(pixc_tile, field)
             setattr(scene_pixel_cloud, field, attr_val)
+
         return scene_pixel_cloud
 
     def __add__(self, other):
@@ -1604,7 +1605,7 @@ class ScenePixelCloud(Product):
         klass = ScenePixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
-            setattr(klass, key, np.concatenate((
+            setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key))))
         return klass
 
@@ -1663,10 +1664,10 @@ class SceneTVP(Product):
         """ Add other to self """
 
         # discard overlapping TVP records
-        time = np.concatenate((self.time, other.time))
+        time = np.ma.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)
         klass = SceneTVP()
         for key in klass.VARIABLES:
-            setattr(klass, key, np.concatenate((
+            setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
         return klass
