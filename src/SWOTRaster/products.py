@@ -863,24 +863,17 @@ class RasterUTM(Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+            pixc['pixel_cloud'][lon_keyword][mask])
+        pixc_idx = np.where(mask)[0]
 
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
         output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
-
-        x_tmp=[]
-        y_tmp=[]
-        for x in range(0, len(pixc_lats)):
-            if mask[x]:
-                u_x, u_y = transf.TransformPoint(pixc_lats[x], pixc_lons[x])[:2]
-                x_tmp.append(u_x)
-                y_tmp.append(u_y)
-            else:
-                x_tmp.append(0)
-                y_tmp.append(0)
+        points = [(lat, lon) for lat, lon in zip(pixc_lats, pixc_lons)]
+        transf_points = transf.TransformPoints(points)
 
         mapping_tmp = []
         for i in range(0, self.dimensions['y']):
@@ -888,14 +881,16 @@ class RasterUTM(Product):
             for j in range(0, self.dimensions['x']):
                 mapping_tmp[i].append([])
 
-        for x in range(0,len(pixc_lats)):
-            if mask[x]:
-                i = int(round((y_tmp[x] - self.y_min) / self.resolution))
-                j = int(round((x_tmp[x] - self.x_min) / self.resolution))
-                # check bounds
-                if (i >= 0 and i < self.dimensions['y'] and
-                    j >= 0 and j < self.dimensions['x']):
-                    mapping_tmp[i][j].append(x)
+        i_tmp = np.array([int(round((pt[1] - self.y_min) / self.resolution))
+                          for pt in transf_points])
+        j_tmp = np.array([int(round((pt[0] - self.x_min) / self.resolution))
+                          for pt in transf_points])
+        idx_mask = np.logical_and.reduce((
+            i_tmp >= 0, i_tmp < self.dimensions['y'],
+            j_tmp >= 0, j_tmp < self.dimensions['x']))
+
+        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m: mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
@@ -907,12 +902,10 @@ class RasterUTM(Product):
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
         output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
-        transf = osr.CoordinateTransformation(input_crs, output_crs)
-        swath_polygon_points_utm = []
-        for pt in swath_polygon_points:
-            swath_polygon_points_utm.append(transf.TransformPoint(pt[0],
-                                                                  pt[1])[:2])
 
+        transf = osr.CoordinateTransformation(input_crs, output_crs)
+        transf_points = transf.TransformPoints(swath_polygon_points)
+        swath_polygon_points_utm = [point[:2] for point in transf_points]
         poly = Polygon(swath_polygon_points_utm)
 
         # Check whether each pixel center is within the polygon
@@ -1118,8 +1111,10 @@ class RasterGeo(Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+            pixc['pixel_cloud'][lon_keyword][mask])
+        pixc_idx = np.where(mask)[0]
 
         mapping_tmp = []
         for i in range(0, self.dimensions['latitude']):
@@ -1127,16 +1122,16 @@ class RasterGeo(Product):
             for j in range(0, self.dimensions['longitude']):
                 mapping_tmp[i].append([])
 
-        for x in range(0, len(pixc_lats)):
-            if mask[x]:
-                i = int(round((pixc_lats[x] - self.latitude_min)
-                              / self.resolution).astype(int))
-                j = int(round((pixc_lons[x] - self.longitude_min)
-                              / self.resolution).astype(int))
-                # check bounds
-                if (i >= 0 and i < self.dimensions['latitude'] and
-                    j >= 0 and j < self.dimensions['longitude']):
-                    mapping_tmp[i][j].append(x)
+        i_tmp = np.array([int(round((lat - self.latitude_min) / self.resolution))
+                          for lat in pixc_lats])
+        j_tmp = np.array([int(round((lon - self.longitude_min) / self.resolution))
+                          for lon in pixc_lons])
+        idx_mask = np.logical_and.reduce((
+            i_tmp >= 0, i_tmp < self.dimensions['latitude'],
+            j_tmp >= 0, j_tmp < self.dimensions['longitude']))
+
+        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m: mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
