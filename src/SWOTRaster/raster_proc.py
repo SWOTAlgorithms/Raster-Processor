@@ -465,8 +465,7 @@ class RasterProcessor(object):
                         land_edge_klasses=self.land_edge_classes,
                         dark_water_klasses=self.dark_water_classes)
 
-                    # If we don't have any water at all, we have no dark water...
-                    if total_area==0:
+                    if not np.any(good_dark) or total_area==0:
                         self.dark_frac[i][j] = 0
                     else:
                         self.dark_frac[i][j] = dark_area/total_area
