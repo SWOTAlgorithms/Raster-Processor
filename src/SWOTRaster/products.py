@@ -533,6 +533,35 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Estimate of the water surface elevation error caused by layover.""")],
         ])],
+    ['sig0_cor_atmos_model',
+     odict([['dtype', 'f4'],
+            ['long_name', textjoin("""
+                two-way atmospheric correction to sigma0 from model""")],
+            ['source', 'European Centre for Medium-Range Weather Forecasts'],
+            ['institution', 'ECMWF'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', 1],
+            ['valid_max', 10],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Atmospheric correction to sigma0 from weather model data as
+                a linear power multiplier (not decibels).
+                sig0_cor_atmos_model is already applied in computing sig0.""")],
+        ])],
+    ['height_cor_xover',
+     odict([['dtype', 'f4'],
+            ['long_name', 'height correction from KaRIn crossovers'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -10],
+            ['valid_max', 10],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Height correction from KaRIn crossover calibration. The
+                correction is applied before geolocation but reported as
+                an equivalent height correction.""")],
+        ])],
     ['geoid',
      odict([['dtype', 'f4'],
             ['long_name', 'geoid height'],
@@ -829,6 +858,8 @@ class RasterUTM(Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
+        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
@@ -1082,6 +1113,8 @@ class RasterGeo(Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
+        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
@@ -1541,6 +1574,8 @@ class ScenePixelCloud(Product):
         ['ice_clim_flag', odict([])],
         ['ice_dyn_flag', odict([])],
         ['layover_impact', odict([])],
+        ['sig0_cor_atmos_model', odict([])],
+        ['height_cor_xover', odict([])],
         ['geoid', odict([])],
         ['solid_earth_tide', odict([])],
         ['load_tide_fes', odict([])],
