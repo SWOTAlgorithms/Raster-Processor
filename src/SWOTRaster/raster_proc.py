@@ -485,8 +485,7 @@ class RasterProcessor(object):
                         land_edge_klasses=self.land_edge_classes,
                         dark_water_klasses=self.dark_water_classes)
 
-                    # If we don't have any water at all, we have no dark water...
-                    if total_area==0:
+                    if not np.any(good_dark) or total_area==0:
                         self.dark_frac[i][j] = 0
                     else:
                         self.dark_frac[i][j] = dark_area/total_area
@@ -619,18 +618,18 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 good = mask[self.proj_mapping[i][j]]
                 if np.any(good):
-                    grid_height = ag.height_only(
+                    self.layover_impact[i][j] = ag.height_only(
                         pixc_layover_impact[self.proj_mapping[i][j]],
                         good,
                         pixc_height_std[self.proj_mapping[i][j]],
-                        method=self.height_agg_method)
-
-                    self.layover_impact[i][j] = grid_height[0]
+                        method=self.height_agg_method)[0]
 
     def aggregate_corrections(self, pixc, mask):
         """ Aggregate geophysical corrections """
         LOGGER.info("aggregating corrections")
 
+        pixc_sig0_cor_atmos_model = pixc['pixel_cloud']['sig0_cor_atmos_model']
+        pixc_height_cor_xover = pixc['pixel_cloud']['height_cor_xover']
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
         pixc_load_tide_fes = pixc['pixel_cloud']['load_tide_fes']
@@ -640,6 +639,18 @@ class RasterProcessor(object):
         pixc_model_wet_tropo_cor = pixc['pixel_cloud']['model_wet_tropo_cor']
         pixc_iono_cor_gim_ka = pixc['pixel_cloud']['iono_cor_gim_ka']
 
+        pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
+        pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
+        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
+        # set bad pix height std to high number to deweight
+        # instead of giving infs/nans
+        bad_num = 1.0e5
+        pixc_height_std[pixc_height_std<=0] = bad_num
+        pixc_height_std[np.isinf(pixc_height_std)] = bad_num
+        pixc_height_std[np.isnan(pixc_height_std)] = bad_num
+
+        self.sig0_cor_atmos_model = np.ma.masked_all((self.size_y, self.size_x))
+        self.height_cor_xover = np.ma.masked_all((self.size_y, self.size_x))
         self.geoid = np.ma.masked_all((self.size_y, self.size_x))
         self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
         self.load_tide_fes = np.ma.masked_all((self.size_y, self.size_x))
@@ -653,6 +664,14 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 good = mask[self.proj_mapping[i][j]]
                 if np.any(good):
+                    self.sig0_cor_atmos_model[i][j] = ag.simple(
+                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][good],
+                        metric='mean')
+                    self.height_cor_xover[i][j] = ag.height_only(
+                        pixc_height_cor_xover[self.proj_mapping[i][j]],
+                        good,
+                        pixc_height_std[self.proj_mapping[i][j]],
+                        method=self.height_agg_method)[0]
                     self.geoid[i][j] = ag.simple(
                         pixc_geoid[self.proj_mapping[i][j]][good],
                         metric='mean')
@@ -827,6 +846,8 @@ class RasterProcessor(object):
             product['ice_clim_flag'] = self.ice_clim_flag
             product['ice_dyn_flag'] = self.ice_dyn_flag
             product['layover_impact'] = self.layover_impact
+            product['sig0_cor_atmos_model'] = self.sig0_cor_atmos_model
+            product['height_cor_xover'] = self.height_cor_xover
             product['geoid'] = self.geoid
             product['solid_earth_tide'] = self.solid_earth_tide
             product['load_tide_fes'] = self.load_tide_fes

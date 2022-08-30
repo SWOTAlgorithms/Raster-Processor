@@ -533,6 +533,35 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Estimate of the water surface elevation error caused by layover.""")],
         ])],
+    ['sig0_cor_atmos_model',
+     odict([['dtype', 'f4'],
+            ['long_name', textjoin("""
+                two-way atmospheric correction to sigma0 from model""")],
+            ['source', 'European Centre for Medium-Range Weather Forecasts'],
+            ['institution', 'ECMWF'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', 1],
+            ['valid_max', 10],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Atmospheric correction to sigma0 from weather model data as
+                a linear power multiplier (not decibels).
+                sig0_cor_atmos_model is already applied in computing sig0.""")],
+        ])],
+    ['height_cor_xover',
+     odict([['dtype', 'f4'],
+            ['long_name', 'height correction from KaRIn crossovers'],
+            ['grid_mapping', 'crs'],
+            ['units', 'm'],
+            ['valid_min', -10],
+            ['valid_max', 10],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Height correction from KaRIn crossover calibration. The
+                correction is applied before geolocation but reported as
+                an equivalent height correction.""")],
+        ])],
     ['geoid',
      odict([['dtype', 'f4'],
             ['long_name', 'geoid height'],
@@ -829,6 +858,8 @@ class RasterUTM(Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
+        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
@@ -863,24 +894,17 @@ class RasterUTM(Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+            pixc['pixel_cloud'][lon_keyword][mask])
+        pixc_idx = np.where(mask)[0]
 
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
         output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
-
-        x_tmp=[]
-        y_tmp=[]
-        for x in range(0, len(pixc_lats)):
-            if mask[x]:
-                u_x, u_y = transf.TransformPoint(pixc_lats[x], pixc_lons[x])[:2]
-                x_tmp.append(u_x)
-                y_tmp.append(u_y)
-            else:
-                x_tmp.append(0)
-                y_tmp.append(0)
+        points = [(lat, lon) for lat, lon in zip(pixc_lats, pixc_lons)]
+        transf_points = transf.TransformPoints(points)
 
         mapping_tmp = []
         for i in range(0, self.dimensions['y']):
@@ -888,14 +912,16 @@ class RasterUTM(Product):
             for j in range(0, self.dimensions['x']):
                 mapping_tmp[i].append([])
 
-        for x in range(0,len(pixc_lats)):
-            if mask[x]:
-                i = int(round((y_tmp[x] - self.y_min) / self.resolution))
-                j = int(round((x_tmp[x] - self.x_min) / self.resolution))
-                # check bounds
-                if (i >= 0 and i < self.dimensions['y'] and
-                    j >= 0 and j < self.dimensions['x']):
-                    mapping_tmp[i][j].append(x)
+        i_tmp = np.array([int(round((pt[1] - self.y_min) / self.resolution))
+                          for pt in transf_points])
+        j_tmp = np.array([int(round((pt[0] - self.x_min) / self.resolution))
+                          for pt in transf_points])
+        idx_mask = np.logical_and.reduce((
+            i_tmp >= 0, i_tmp < self.dimensions['y'],
+            j_tmp >= 0, j_tmp < self.dimensions['x']))
+
+        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m: mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
@@ -907,12 +933,10 @@ class RasterUTM(Product):
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
         output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
-        transf = osr.CoordinateTransformation(input_crs, output_crs)
-        swath_polygon_points_utm = []
-        for pt in swath_polygon_points:
-            swath_polygon_points_utm.append(transf.TransformPoint(pt[0],
-                                                                  pt[1])[:2])
 
+        transf = osr.CoordinateTransformation(input_crs, output_crs)
+        transf_points = transf.TransformPoints(swath_polygon_points)
+        swath_polygon_points_utm = [point[:2] for point in transf_points]
         poly = Polygon(swath_polygon_points_utm)
 
         # Check whether each pixel center is within the polygon
@@ -1089,6 +1113,8 @@ class RasterGeo(Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
+        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
@@ -1118,8 +1144,10 @@ class RasterGeo(Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        pixc_lats = pixc['pixel_cloud'][lat_keyword]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(pixc['pixel_cloud'][lon_keyword])
+        pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
+        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+            pixc['pixel_cloud'][lon_keyword][mask])
+        pixc_idx = np.where(mask)[0]
 
         mapping_tmp = []
         for i in range(0, self.dimensions['latitude']):
@@ -1127,16 +1155,16 @@ class RasterGeo(Product):
             for j in range(0, self.dimensions['longitude']):
                 mapping_tmp[i].append([])
 
-        for x in range(0, len(pixc_lats)):
-            if mask[x]:
-                i = int(round((pixc_lats[x] - self.latitude_min)
-                              / self.resolution).astype(int))
-                j = int(round((pixc_lons[x] - self.longitude_min)
-                              / self.resolution).astype(int))
-                # check bounds
-                if (i >= 0 and i < self.dimensions['latitude'] and
-                    j >= 0 and j < self.dimensions['longitude']):
-                    mapping_tmp[i][j].append(x)
+        i_tmp = np.array([int(round((lat - self.latitude_min) / self.resolution))
+                          for lat in pixc_lats])
+        j_tmp = np.array([int(round((lon - self.longitude_min) / self.resolution))
+                          for lon in pixc_lons])
+        idx_mask = np.logical_and.reduce((
+            i_tmp >= 0, i_tmp < self.dimensions['latitude'],
+            j_tmp >= 0, j_tmp < self.dimensions['longitude']))
+
+        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m: mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
@@ -1564,6 +1592,8 @@ class ScenePixelCloud(Product):
         ['ice_clim_flag', odict([])],
         ['ice_dyn_flag', odict([])],
         ['layover_impact', odict([])],
+        ['sig0_cor_atmos_model', odict([])],
+        ['height_cor_xover', odict([])],
         ['geoid', odict([])],
         ['solid_earth_tide', odict([])],
         ['load_tide_fes', odict([])],
@@ -1630,7 +1660,7 @@ class ScenePixelCloud(Product):
         klass = ScenePixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
-            setattr(klass, key, np.concatenate((
+            setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key))))
         return klass
 
@@ -1689,10 +1719,10 @@ class SceneTVP(Product):
         """ Add other to self """
 
         # discard overlapping TVP records
-        time = np.concatenate((self.time, other.time))
+        time = np.ma.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)
         klass = SceneTVP()
         for key in klass.VARIABLES:
-            setattr(klass, key, np.concatenate((
+            setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
         return klass
