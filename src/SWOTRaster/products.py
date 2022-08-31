@@ -24,6 +24,30 @@ LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
 EMPTY_LEAPSEC = "0000-00-00T00:00:00Z"
 
+# define constants for each summary quality value
+QUAL_IND_GOOD = 0
+QUAL_IND_SUSPECT = 1
+QUAL_IND_DEGRADED = 2
+QUAL_IND_BAD = 3
+
+# define constants for each quality bit
+QUAL_IND_SIG0_QUAL_SUSPECT = 1                  # bit 0
+QUAL_IND_CLASS_QUAL_SUSPECT = 2                 # bit 1
+QUAL_IND_GEOLOCATION_QUAL_SUSPECT = 4           # bit 2
+QUAL_IND_WATER_FRACTION_SUSPECT = 8             # bit 3
+QUAL_IND_LARGE_UNCERT_SUSPECT = 32              # bit 5
+QUAL_IND_BRIGHT_LAND = 128                      # bit 7
+QUAL_IND_FEW_PIXELS = 4096                      # bit 12
+QUAL_IND_FAR_RANGE_SUSPECT = 8192               # bit 13
+QUAL_IND_NEAR_RANGE_SUSPECT = 16384             # bit 14
+QUAL_IND_SIG0_QUAL_DEGRADED = 131072            # bit 17
+QUAL_IND_CLASS_QUAL_DEGRADED = 262144           # bit 18
+QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
+QUAL_IND_VALUE_BAD = 16777216                   # bit 24
+QUAL_IND_NO_PIXELS = 268435456                  # bit 28
+QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
+QUAL_IND_NO_DATA_COLLECTED = 1073741824         # bit 30
+
 LOGGER = logging.getLogger(__name__)
 
 def textjoin(text):
@@ -388,42 +412,193 @@ COMMON_VARIABLES = odict([
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
-    ['wse_qual',
-     odict([['dtype', 'u1'],
+    ['wse_bit_qual',
+     odict([['dtype', 'u4'],
+            ['long_name', 'bitwise quality indicator for the water surface elevation'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
-            ['flag_meanings', 'good bad'],
-            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['flag_meanings', textjoin("""
+                classification_qual_suspect
+                geolocation_qual_suspect
+                large_uncert_suspect
+                bright_land
+                few_pixels
+                far_range_suspect
+                near_range_suspect
+                classification_qual_degraded
+                geolocation_qual_degraded
+                value_bad
+                no_pixels
+                outside_scene_bounds
+                no_data_collected""")],
+            ['flag_masks', np.array([
+                QUAL_IND_CLASS_QUAL_SUSPECT,
+                QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
+                QUAL_IND_LARGE_UNCERT_SUSPECT,
+                QUAL_IND_BRIGHT_LAND,
+                QUAL_IND_FEW_PIXELS,
+                QUAL_IND_FAR_RANGE_SUSPECT,
+                QUAL_IND_NEAR_RANGE_SUSPECT,
+                QUAL_IND_CLASS_QUAL_DEGRADED,
+                QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_VALUE_BAD,
+                QUAL_IND_NO_PIXELS,
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_NO_DATA_COLLECTED,
+            ]).astype('i4')],
             ['valid_min', 0],
-            ['valid_max', 1],
+            ['valid_max', 1896640678],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Quality flag for the WSE quantities in the raster data.""")],
+                Bitwise quality indicator for the WSE quantities.
+                If this word is interpreted as an unsigned integer, a value of 0
+                indicates good data, values less than 32768 represent
+                suspect data, values greater than or equal to 32768 but
+                less than 8388608 represent degraded data, and values
+                greater than or equal to 8388608 represent bad data.""")],
+        ])],
+    ['wse_qual',
+     odict([['dtype', 'u1'],
+            ['long_name', 'summary quality indicator for the water surface elevation'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', 'good suspect degraded bad'],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
+            ['valid_min', 0],
+            ['valid_max', 3],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Summary quality indicator for the WSE quantities.
+                Value of 0 indicates a nominal measurement, 1 indicates a
+                suspect measurement, 2 indicates a degraded quality
+                measurement, and 3 indicates a bad measurement.""")],
+        ])],
+    ['water_area_bit_qual',
+     odict([['dtype', 'u4'],
+            ['long_name', 'bitwise quality indicator for the water surface area'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', textjoin("""
+                classification_qual_suspect
+                geolocation_qual_suspect
+                large_uncert_suspect
+                bright_land
+                few_pixels
+                far_range_suspect
+                near_range_suspect
+                classification_qual_degraded
+                geolocation_qual_degraded
+                value_bad
+                no_pixels
+                outside_scene_bounds
+                no_data_collected""")],
+            ['flag_masks', np.array([
+                QUAL_IND_CLASS_QUAL_SUSPECT,
+                QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
+                QUAL_IND_WATER_FRACTION_SUSPECT,
+                QUAL_IND_LARGE_UNCERT_SUSPECT,
+                QUAL_IND_BRIGHT_LAND,
+                QUAL_IND_FEW_PIXELS,
+                QUAL_IND_FAR_RANGE_SUSPECT,
+                QUAL_IND_NEAR_RANGE_SUSPECT,
+                QUAL_IND_CLASS_QUAL_DEGRADED,
+                QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_VALUE_BAD,
+                QUAL_IND_NO_PIXELS,
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_NO_DATA_COLLECTED,
+            ]).astype('i4')],
+            ['valid_min', 0],
+            ['valid_max', 1896640686],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Bitwise quality indicator for the water surface area quantities.
+                If this word is interpreted as an unsigned integer, a value of 0
+                indicates good data, values less than 32768 represent
+                suspect data, values greater than or equal to 32768 but
+                less than 8388608 represent degraded data, and values
+                greater than or equal to 8388608 represent bad data.""")],
         ])],
     ['water_area_qual',
      odict([['dtype', 'u1'],
+            ['long_name', 'summary quality indicator for the water surface area'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
-            ['flag_meanings', 'good bad'],
-            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['flag_meanings', 'good suspect degraded bad'],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
             ['valid_min', 0],
-            ['valid_max', 1],
+            ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Quality flag for the water area quantities in the raster
-                data.""")],
+                Summary quality indicator for the water surfacenarea quantities.
+                Value of 0 indicates a nominal measurement, 1 indicates a
+                suspect measurement, 2 indicates a degraded quality
+                measurement, and 3 indicates a bad measurement.""")],
+        ])],
+    ['sig0_bit_qual',
+     odict([['dtype', 'u4'],
+            ['long_name', 'bitwise quality indicator for the sigma0'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', textjoin("""
+                sig0_qual_suspect
+                classification_qual_suspect
+                geolocation_qual_suspect
+                large_uncert_suspect
+                bright_land
+                few_pixels
+                far_range_suspect
+                near_range_suspect
+                sig0_qual_degraded
+                classification_qual_degraded
+                geolocation_qual_degraded
+                value_bad
+                no_pixels
+                outside_scene_bounds
+                no_data_collected""")],
+            ['flag_masks', np.array([
+                QUAL_IND_SIG0_QUAL_SUSPECT,
+                QUAL_IND_CLASS_QUAL_SUSPECT,
+                QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
+                QUAL_IND_LARGE_UNCERT_SUSPECT,
+                QUAL_IND_BRIGHT_LAND,
+                QUAL_IND_FEW_PIXELS,
+                QUAL_IND_FAR_RANGE_SUSPECT,
+                QUAL_IND_NEAR_RANGE_SUSPECT,
+                QUAL_IND_SIG0_QUAL_DEGRADED,
+                QUAL_IND_CLASS_QUAL_DEGRADED,
+                QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_VALUE_BAD,
+                QUAL_IND_NO_PIXELS,
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_NO_DATA_COLLECTED,
+            ]).astype('i4')],
+            ['valid_min', 0],
+            ['valid_max', 1896771751],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Bitwise quality indicator for the sigma0 quantities.
+                If this word is interpreted as an unsigned integer, a value of 0
+                indicates good data, values less than 32768 represent
+                suspect data, values greater than or equal to 32768 but
+                less than 8388608 represent degraded data, and values
+                greater than or equal to 8388608 represent bad data.""")],
         ])],
     ['sig0_qual',
      odict([['dtype', 'u1'],
+            ['long_name', 'summary quality indicator for the sigma0'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
-            ['flag_meanings', 'good bad'],
-            ['flag_values', np.array([0, 1]).astype('i1')],
+            ['flag_meanings', 'good suspect degraded bad'],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
             ['valid_min', 0],
-            ['valid_max', 1],
+            ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Quality flag for the sigma0 quantities in the raster data.""")],
+                Summary quality indicator for the sigma0 quantities.
+                Value of 0 indicates a nominal measurement, 1 indicates a
+                suspect measurement, 2 indicates a degraded quality
+                measurement, and 3 indicates a bad measurement.""")],
         ])],
     ['n_wse_pix',
      odict([['dtype', 'u4'],
@@ -847,8 +1022,11 @@ class RasterUTM(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
+        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
+        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
         ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
@@ -870,7 +1048,7 @@ class RasterUTM(Product):
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
-    for key in COMMON_VARIABLES:
+    for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
@@ -948,7 +1126,13 @@ class RasterUTM(Product):
 
         # Mask the datasets
         for var in self.variables:
-            if var not in ['crs', 'x', 'y']: # only the 2d datasets
+            if var in ['wse_bit_qual', 'water_area_bit_qual', 'sig0_bit_qual']:
+                self.variables[var][np.logical_not(mask)] = \
+                    QUAL_IND_OUTSIDE_SCENE_BOUNDS
+            elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
+                self.variables[var][np.logical_not(mask)] = \
+                    QUAL_IND_BAD
+            elif var not in ['crs', 'x', 'y']:
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
@@ -1102,8 +1286,11 @@ class RasterGeo(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
+        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
+        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
         ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
@@ -1125,7 +1312,7 @@ class RasterGeo(Product):
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
-    for key in COMMON_VARIABLES:
+    for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
 
@@ -1184,7 +1371,13 @@ class RasterGeo(Product):
 
         # Mask the datasets
         for var in self.variables:
-            if var not in ['crs', 'longitude', 'latitude']: # only the 2d datasets
+            if var in ['wse_bit_qual', 'water_area_bit_qual', 'sig0_bit_qual']:
+                self.variables[var][np.logical_not(mask)] = \
+                    QUAL_IND_OUTSIDE_SCENE_BOUNDS
+            elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
+                self.variables[var][np.logical_not(mask)] = \
+                    QUAL_IND_BAD
+            elif var not in ['crs', 'longitude', 'latitude']:
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
@@ -1236,7 +1429,7 @@ class RasterUTMDebug(RasterUTM):
         ['classification',
          odict([['dtype', 'i1']])],
     ]))
-    for key in COMMON_VARIABLES:
+    for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
@@ -1257,7 +1450,7 @@ class RasterGeoDebug(RasterGeo):
         ['classification',
          odict([['dtype', 'i1']])],
     ]))
-    for key in COMMON_VARIABLES:
+    for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
 
@@ -1473,13 +1666,40 @@ class ScenePixc(Product):
 
         return scene_pixc
 
-    def get_mask(self, valid_classes, qual_flags=[],
-                 usable_qual_flag_meanings=None, use_improved_geoloc=True):
+    def get_summary_qual_flag(self, qual_flag, suspect_qual_flag_mask,
+                              degraded_qual_flag_mask, bad_qual_flag_mask):
+        """ Get summary quality flag from quality bitflag """
+        LOGGER.info('getting summary quality flag: {}'.format(qual_flag))
+        flag = QUAL_IND_GOOD*np.ones(np.shape(self.pixel_cloud['latitude']))
+        flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask, False)] = \
+            QUAL_IND_SUSPECT
+        flag[self.get_qual_mask(qual_flag, degraded_qual_flag_mask, False)] = \
+            QUAL_IND_DEGRADED
+        flag[self.get_qual_mask(qual_flag, bad_qual_flag_mask, False)] = \
+            QUAL_IND_BAD
+        return flag
+
+    def get_qual_mask(self, qual_flag, qual_flag_mask,
+                      include_zero_qual_value=True):
+        """ Get mask of valid pixc points from quality flag """
+        LOGGER.info('getting qual mask: {} - {}'.format(
+            qual_flag, qual_flag_mask))
+
+        if qual_flag == 'pixc_line_qual':
+            flag = self.pixel_cloud[qual_flag][self.pixel_cloud['azimuth_index']]
+        else:
+            flag = self.pixel_cloud[qual_flag]
+
+        mask = np.bitwise_and(flag, qual_flag_mask) > 0
+
+        if include_zero_qual_value:
+            mask = np.logical_or(mask, flag==0)
+
+        return mask==1
+
+    def get_mask(self, valid_classes, use_improved_geoloc=True):
         """ Get mask of valid pixc points for aggregation """
         LOGGER.info('getting mask')
-
-        if usable_qual_flag_meanings is None:
-            usable_qual_flag_meanings = [[]]*len(qual_flags)
 
         if use_improved_geoloc:
             lat_keyword = 'improved_latitude'
@@ -1510,34 +1730,6 @@ class ScenePixc(Product):
                 classif_mask, pixc_classif==classif_val)
         mask[np.logical_not(classif_mask)] = 0
 
-        # Use qual flags to mask
-        qual_mask = np.zeros_like(mask)
-        for idx, qual_flag in enumerate(qual_flags):
-            this_flag_meanings = \
-                self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
-            this_flag_masks = \
-                self.pixel_cloud.VARIABLES[qual_flag]['flag_masks']
-
-            if qual_flag == 'pixc_line_qual':
-                this_flag = \
-                    self.pixel_cloud[qual_flag][self.pixel_cloud['azimuth_index']]
-            else:
-                this_flag = self.pixel_cloud[qual_flag]
-
-            bitmask = 0
-            for usable_qual_flag_meaning in usable_qual_flag_meanings[idx]:
-                try:
-                    flag_idx = this_flag_meanings.index(usable_qual_flag_meaning)
-                except ValueError as e:
-                    LOGGER.warning('Flag value {} not in {}, skipping...'.format(
-                        usable_qual_flag_meaning, qual_flag))
-                    continue
-                bitmask = bitmask | this_flag_masks[flag_idx]
-
-            this_qual_mask = np.bitwise_and(this_flag, ~bitmask) > 0
-            qual_mask = np.logical_or(qual_mask, this_qual_mask)
-
-        mask[qual_mask] = 0
         return mask==1
 
     def __add__(self, other):
@@ -1591,6 +1783,7 @@ class ScenePixelCloud(Product):
         ['illumination_time_tai', odict([])],
         ['ice_clim_flag', odict([])],
         ['ice_dyn_flag', odict([])],
+        ['bright_land_flag', odict([])],
         ['layover_impact', odict([])],
         ['sig0_cor_atmos_model', odict([])],
         ['height_cor_xover', odict([])],

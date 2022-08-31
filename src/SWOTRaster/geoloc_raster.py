@@ -44,18 +44,12 @@ class GeolocRaster(object):
              self.algorithmic_config['water_edge_classes'],
              self.algorithmic_config['land_edge_classes'],
              self.algorithmic_config['dark_water_classes']))
-        common_qual_flags = ['interferogram_qual',
-                             'classification_qual', 'geolocation_qual']
-        common_usable_qual_flag_meanings = [
-            self.algorithmic_config['usable_interferogram_qual_meanings'],
-            self.algorithmic_config['usable_classification_qual_meanings'],
-            self.algorithmic_config['usable_geolocation_qual_meanings']]
-        all_mask = self.pixc.get_mask(
-            all_classes, common_qual_flags, common_usable_qual_flag_meanings,
-            use_improved_geoloc=False)
 
-        proj_mapping = self.raster.get_raster_mapping(self.pixc, all_mask,
-                                                      use_improved_geoloc=False)
+        all_classes_mask = self.pixc.get_mask(
+            all_classes, use_improved_geoloc=False)
+
+        proj_mapping = self.raster.get_raster_mapping(
+            self.pixc, all_classes_mask, use_improved_geoloc=False)
 
         raster_uncorrected_height = self.raster.get_uncorrected_height()
 

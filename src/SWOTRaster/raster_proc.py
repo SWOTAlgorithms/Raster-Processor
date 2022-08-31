@@ -8,9 +8,9 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 
 import logging
 import numpy as np
-import SWOTRaster.products
-import SWOTRaster.raster_crs
 import SWOTWater.aggregate as ag
+import SWOTRaster.products as products
+import SWOTRaster.raster_crs as raster_crs
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from osgeo import osr
@@ -24,12 +24,20 @@ class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
-                 wse_uncert_qual_thresh, water_frac_uncert_qual_thresh,
-                 sig0_uncert_qual_thresh, num_pixels_qual_thresh,
-                 usable_interferogram_qual_meanings,
-                 usable_classification_qual_meanings,
-                 usable_geolocation_qual_meanings,
-                 usable_sig0_qual_meanings,
+                 use_bright_land,
+                 geo_qual_suspect, geo_qual_degraded, geo_qual_bad,
+                 class_qual_suspect, class_qual_degraded, class_qual_bad,
+                 sig0_qual_suspect, sig0_qual_degraded, sig0_qual_bad,
+                 num_good_sus_pix_thresh_wse, num_good_sus_pix_thresh_water_area,
+                 num_good_sus_pix_thresh_sig0, pixc_water_frac_suspect_thresh,
+                 num_wse_pix_suspect_thresh, num_water_area_pix_suspect_thresh,
+                 num_sig0_pix_suspect_thresh,
+                 near_range_suspect_thresh, far_range_suspect_thresh,
+                 wse_uncert_suspect_thresh, water_frac_uncert_suspect_thresh,
+                 sig0_uncert_suspect_thresh,
+                 wse_bad_thresh_min, wse_bad_thresh_max,
+                 water_frac_bad_thresh_min, water_frac_bad_thresh_max,
+                 sig0_bad_thresh_min, sig0_bad_thresh_max,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
 
         self.projection_type = projection_type
@@ -51,17 +59,38 @@ class RasterProcessor(object):
         self.water_edge_classes = water_edge_classes
         self.land_edge_classes = land_edge_classes
         self.dark_water_classes = dark_water_classes
+        self.use_bright_land = use_bright_land
 
-        self.wse_uncert_qual_thresh = wse_uncert_qual_thresh
-        self.water_frac_uncert_qual_thresh = water_frac_uncert_qual_thresh
-        self.sig0_uncert_qual_thresh = sig0_uncert_qual_thresh
-        self.num_pixels_qual_thresh = num_pixels_qual_thresh
-        self.usable_interferogram_qual_meanings = \
-            usable_interferogram_qual_meanings
-        self.usable_classification_qual_meanings = \
-            usable_classification_qual_meanings
-        self.usable_geolocation_qual_meanings = usable_geolocation_qual_meanings
-        self.usable_sig0_qual_meanings = usable_sig0_qual_meanings
+        self.geo_qual_suspect = geo_qual_suspect
+        self.geo_qual_degraded = geo_qual_degraded
+        self.geo_qual_bad = geo_qual_bad
+        self.class_qual_suspect = class_qual_suspect
+        self.class_qual_degraded = class_qual_degraded
+        self.class_qual_bad = class_qual_bad
+        self.sig0_qual_suspect = sig0_qual_suspect
+        self.sig0_qual_degraded = sig0_qual_degraded
+        self.sig0_qual_bad = sig0_qual_bad
+
+        self.num_good_sus_pix_thresh_wse = num_good_sus_pix_thresh_wse
+        self.num_good_sus_pix_thresh_water_area = num_good_sus_pix_thresh_water_area
+        self.num_good_sus_pix_thresh_sig0 = num_good_sus_pix_thresh_sig0
+
+        self.pixc_water_frac_suspect_thresh = pixc_water_frac_suspect_thresh
+        self.num_wse_pix_suspect_thresh = num_wse_pix_suspect_thresh
+        self.num_water_area_pix_suspect_thresh = num_water_area_pix_suspect_thresh
+        self.num_sig0_pix_suspect_thresh = num_sig0_pix_suspect_thresh
+        self.near_range_suspect_thresh = near_range_suspect_thresh
+        self.far_range_suspect_thresh = far_range_suspect_thresh
+        self.wse_uncert_suspect_thresh = wse_uncert_suspect_thresh
+        self.water_frac_uncert_suspect_thresh = water_frac_uncert_suspect_thresh
+        self.sig0_uncert_suspect_thresh = sig0_uncert_suspect_thresh
+
+        self.wse_bad_thresh_min = wse_bad_thresh_min
+        self.wse_bad_thresh_max = wse_bad_thresh_max
+        self.water_frac_bad_thresh_min = water_frac_bad_thresh_min
+        self.water_frac_bad_thresh_max = water_frac_bad_thresh_max
+        self.sig0_bad_thresh_min = sig0_bad_thresh_min
+        self.sig0_bad_thresh_max = sig0_bad_thresh_max
 
         self.debug_flag = debug_flag
 
@@ -69,7 +98,7 @@ class RasterProcessor(object):
         """ Rasterize pixc to raster """
         LOGGER.info("rasterizing")
 
-        self.input_crs = SWOTRaster.raster_crs.wgs84_crs()
+        self.input_crs = raster_crs.wgs84_crs()
         self.cycle_number = pixc.cycle_number
         self.pass_number = pixc.pass_number
         self.tile_numbers = pixc.tile_numbers
@@ -108,28 +137,67 @@ class RasterProcessor(object):
                                         self.water_edge_classes,
                                         self.dark_water_classes))
         all_classes = np.concatenate((water_classes, self.land_edge_classes))
-        # TODO: determine qual flags to use for each mask
-        common_qual_flags = ['interferogram_qual', 'classification_qual',
-                             'geolocation_qual']
-        common_usable_qual_flag_meanings = [
-            self.usable_interferogram_qual_meanings,
-            self.usable_classification_qual_meanings,
-            self.usable_geolocation_qual_meanings]
-        sig0_qual_flags = common_qual_flags + ['sig0_qual']
-        sig0_usable_qual_flag_meanings = common_usable_qual_flag_meanings \
-                                         + [self.usable_sig0_qual_meanings]
-        all_mask = pixc.get_mask(
-            all_classes, common_qual_flags, common_usable_qual_flag_meanings,
-            use_improved_geoloc)
-        wse_mask = pixc.get_mask(
-            water_classes, common_qual_flags, common_usable_qual_flag_meanings,
-            use_improved_geoloc)
-        water_area_mask = pixc.get_mask(
-            all_classes, common_qual_flags, common_usable_qual_flag_meanings,
-            use_improved_geoloc)
-        sig0_mask = pixc.get_mask(
-            water_classes, sig0_qual_flags, sig0_usable_qual_flag_meanings,
-            use_improved_geoloc)
+
+        water_classes_mask = pixc.get_mask(water_classes, use_improved_geoloc)
+        all_classes_mask = pixc.get_mask(all_classes, use_improved_geoloc)
+
+        bright_land_flag = pixc['pixel_cloud']['bright_land_flag']
+        if not self.use_bright_land:
+            water_classes_mask = np.logical_and(water_classes_mask,
+                                                np.logical_not(bright_land_flag))
+            all_classes_mask = np.logical_and(all_classes_mask,
+                                              np.logical_not(bright_land_flag))
+
+        geo_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'geolocation_qual', self.geo_qual_suspect, self.geo_qual_degraded,
+            self.geo_qual_bad)
+        class_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'classification_qual', self.class_qual_suspect,
+            self.class_qual_degraded, self.class_qual_bad)
+        sig0_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'sig0_qual', self.sig0_qual_suspect,
+            self.sig0_qual_degraded, self.sig0_qual_bad)
+
+        common_qual_flag = [max(x, y) for x, y
+                            in zip(geo_qual_pixc_flag, class_qual_pixc_flag)]
+        common_good_qual_mask = \
+            [x==products.QUAL_IND_GOOD for x in common_qual_flag]
+        common_suspect_qual_mask = \
+            [x==products.QUAL_IND_SUSPECT for x in common_qual_flag]
+        common_degraded_qual_mask = \
+            [x==products.QUAL_IND_DEGRADED for x in common_qual_flag]
+
+        sig0_qual_flag = [max(x, y) for x,y \
+                          in zip(common_qual_flag, sig0_qual_pixc_flag)]
+        sig0_good_qual_mask = \
+            [x==products.QUAL_IND_GOOD for x in sig0_qual_flag]
+        sig0_suspect_qual_mask = \
+            [x==products.QUAL_IND_SUSPECT for x in sig0_qual_flag]
+        sig0_degraded_qual_mask = \
+            [x==products.QUAL_IND_DEGRADED for x in sig0_qual_flag]
+
+        all_good_mask = np.logical_and(
+            all_classes_mask, common_good_qual_mask)
+        all_suspect_mask = np.logical_and(
+            all_classes_mask, common_suspect_qual_mask)
+        all_degraded_mask = np.logical_and(
+            all_classes_mask, common_degraded_qual_mask)
+        all_mask = np.logical_or.reduce((
+            all_good_mask, all_suspect_mask, all_degraded_mask))
+
+        wse_good_mask = np.logical_and(
+            water_classes_mask, common_good_qual_mask)
+        wse_suspect_mask = np.logical_and(
+            water_classes_mask, common_suspect_qual_mask)
+        wse_degraded_mask = np.logical_and(
+            water_classes_mask, common_degraded_qual_mask)
+
+        sig0_good_mask = np.logical_and(
+            water_classes_mask, sig0_good_qual_mask)
+        sig0_suspect_mask = np.logical_and(
+            water_classes_mask, sig0_suspect_qual_mask)
+        sig0_degraded_mask = np.logical_and(
+            water_classes_mask, sig0_degraded_qual_mask)
 
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
@@ -138,24 +206,48 @@ class RasterProcessor(object):
             LOGGER.warn('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
-        self.proj_mapping = empty_product.get_raster_mapping(pixc, all_mask,
-                                                             use_improved_geoloc)
+        self.proj_mapping = empty_product.get_raster_mapping(
+            pixc, all_mask, use_improved_geoloc)
 
-        self.aggregate_corrections(pixc, all_mask)
-        self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
-        self.aggregate_water_area(pixc, water_area_mask)
-        self.aggregate_cross_track(pixc, all_mask)
-        self.aggregate_sig0(pixc, sig0_mask)
-        self.aggregate_inc(pixc, all_mask)
-        self.aggregate_dark_frac(pixc, all_mask)
-        self.aggregate_illumination_time(pixc, all_mask)
-        self.aggregate_ice_flags(pixc, all_mask)
-        self.aggregate_layover_impact(pixc, wse_mask)
+        self.aggregate_corrections(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_wse(
+            pixc, wse_good_mask, wse_suspect_mask, wse_degraded_mask,
+            use_improved_geoloc)
+        self.aggregate_water_area(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_sig0(
+            pixc, sig0_good_mask, sig0_suspect_mask, sig0_degraded_mask)
+        self.aggregate_cross_track(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_inc(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_dark_frac(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_illumination_time(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_ice_flags(
+            pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
+        self.aggregate_layover_impact(
+            pixc, wse_good_mask, wse_suspect_mask, wse_degraded_mask)
+        self.aggregate_wse_qual(
+            wse_good_mask, wse_suspect_mask, wse_degraded_mask,
+            geo_qual_pixc_flag, class_qual_pixc_flag, bright_land_flag)
+        self.aggregate_water_area_qual(
+            all_good_mask, all_suspect_mask, all_degraded_mask,
+            geo_qual_pixc_flag, class_qual_pixc_flag, bright_land_flag,
+            pixc['pixel_cloud']['water_frac'])
+        self.aggregate_sig0_qual(
+            sig0_good_mask, sig0_suspect_mask, sig0_degraded_mask,
+            geo_qual_pixc_flag, class_qual_pixc_flag, sig0_qual_pixc_flag,
+            bright_land_flag)
         if self.projection_type == 'utm':
-            self.aggregate_lat_lon(all_mask)
+            self.aggregate_lat_lon(
+                all_good_mask, all_suspect_mask, all_degraded_mask)
 
         if self.debug_flag:
-            self.aggregate_classification(pixc, all_mask)
+            self.aggregate_classification(
+                pixc, all_good_mask, all_suspect_mask, all_degraded_mask)
 
         return self.build_product(polygon_points=polygon_points)
 
@@ -167,26 +259,24 @@ class RasterProcessor(object):
         poly_edge_x = [point[1] for point in polygon_points]
 
         if self.projection_type=='geo':
-            self.output_crs = SWOTRaster.raster_crs.wgs84_crs()
+            self.output_crs = raster_crs.wgs84_crs()
             proj_center_x = 0
             proj_center_y = 0
         elif self.projection_type=='utm':
             lat_mid = np.mean(poly_edge_y)
             lon_mid = np.mean(poly_edge_x)
-            utm_zone = SWOTRaster.raster_crs.utm_zone_from_latlon(
-                lat_mid, lon_mid)
-            mgrs_band = SWOTRaster.raster_crs.mgrs_band_from_latlon(
-                lat_mid, lon_mid)
+            utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
+            mgrs_band = raster_crs.mgrs_band_from_latlon(lat_mid, lon_mid)
             # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
             utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
-                              SWOTRaster.raster_crs.UTM_NUM_ZONES) + 1
+                              raster_crs.UTM_NUM_ZONES) + 1
 
             # adjust/shift the mgrs band
-            mgrs_band = SWOTRaster.raster_crs.mgrs_band_shift(mgrs_band,
+            mgrs_band = raster_crs.mgrs_band_shift(mgrs_band,
                                                    self.mgrs_band_adjust,
                                                    lon_mid)
 
-            self.output_crs = SWOTRaster.raster_crs.utm_crs(utm_zone, mgrs_band)
+            self.output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
 
             transf = osr.CoordinateTransformation(self.input_crs,
                                                   self.output_crs)
@@ -226,8 +316,7 @@ class RasterProcessor(object):
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
         if self.projection_type=='utm':
             self.utm_zone = np.short(utm_zone)
-            self.utm_hemisphere = \
-                SWOTRaster.raster_crs.hemisphere_from_mgrs_band(mgrs_band)
+            self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
             self.mgrs_band = mgrs_band
 
         LOGGER.info({'proj': self.output_crs.ExportToWkt(),
@@ -239,7 +328,98 @@ class RasterProcessor(object):
                      'y_max': self.y_max,
                      'size_y': self.size_y})
 
-    def aggregate_wse(self, pixc, mask, use_improved_geoloc=True):
+    def aggregate_corrections(self, pixc, good_mask, suspect_mask,
+                              degraded_mask):
+        """ Aggregate geophysical corrections """
+        LOGGER.info("aggregating corrections")
+
+        pixc_sig0_cor_atmos_model = pixc['pixel_cloud']['sig0_cor_atmos_model']
+        pixc_height_cor_xover = pixc['pixel_cloud']['height_cor_xover']
+        pixc_geoid = pixc['pixel_cloud']['geoid']
+        pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
+        pixc_load_tide_fes = pixc['pixel_cloud']['load_tide_fes']
+        pixc_load_tide_got = pixc['pixel_cloud']['load_tide_got']
+        pixc_pole_tide = pixc['pixel_cloud']['pole_tide']
+        pixc_model_dry_tropo_cor = pixc['pixel_cloud']['model_dry_tropo_cor']
+        pixc_model_wet_tropo_cor = pixc['pixel_cloud']['model_wet_tropo_cor']
+        pixc_iono_cor_gim_ka = pixc['pixel_cloud']['iono_cor_gim_ka']
+        pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
+        pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
+
+        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
+        # set bad pix height std to high number to deweight
+        # instead of giving infs/nans
+        bad_num = 1.0e5
+        pixc_height_std[pixc_height_std<=0] = bad_num
+        pixc_height_std[np.isinf(pixc_height_std)] = bad_num
+        pixc_height_std[np.isnan(pixc_height_std)] = bad_num
+
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
+        self.sig0_cor_atmos_model = np.ma.masked_all((self.size_y, self.size_x))
+        self.height_cor_xover = np.ma.masked_all((self.size_y, self.size_x))
+        self.geoid = np.ma.masked_all((self.size_y, self.size_x))
+        self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_fes = np.ma.masked_all((self.size_y, self.size_x))
+        self.load_tide_got = np.ma.masked_all((self.size_y, self.size_x))
+        self.pole_tide = np.ma.masked_all((self.size_y, self.size_x))
+        self.model_dry_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
+        self.model_wet_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
+        self.iono_cor_gim_ka = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
+                    self.sig0_cor_atmos_model[i][j] = ag.simple(
+                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.height_cor_xover[i][j] = ag.height_only(
+                        pixc_height_cor_xover[self.proj_mapping[i][j]],
+                        mask,
+                        pixc_height_std[self.proj_mapping[i][j]],
+                        method=self.height_agg_method)[0]
+                    self.geoid[i][j] = ag.simple(
+                        pixc_geoid[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.solid_earth_tide[i][j] = ag.simple(
+                        pixc_solid_earth_tide[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.load_tide_fes[i][j] = ag.simple(
+                        pixc_load_tide_fes[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.load_tide_got[i][j] = ag.simple(
+                        pixc_load_tide_got[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.pole_tide[i][j] = ag.simple(
+                        pixc_pole_tide[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.model_dry_tropo_cor[i][j] = ag.simple(
+                        pixc_model_dry_tropo_cor[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.model_wet_tropo_cor[i][j] = ag.simple(
+                        pixc_model_wet_tropo_cor[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.iono_cor_gim_ka[i][j] = ag.simple(
+                        pixc_iono_cor_gim_ka[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+
+    def apply_wse_corrections(self):
+        """ Apply geophysical corrections to wse """
+        LOGGER.info("applying wse corrections")
+
+        self.wse -= (
+            self.geoid +
+            self.solid_earth_tide +
+            self.load_tide_fes +
+            self.pole_tide)
+
+    def aggregate_wse(self, pixc, good_mask, suspect_mask, degraded_mask,
+                      use_improved_geoloc=True):
         """ Aggregate water surface elevation and associated uncertainties """
         LOGGER.info("aggregating wse")
 
@@ -296,18 +476,22 @@ class RasterProcessor(object):
                                                pixc_tvp_index,
                                                pixc_wavelength)
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.wse = np.ma.masked_all((self.size_y, self.size_x))
         self.wse_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.wse_qual = np.ma.ones((self.size_y, self.size_x))
-        self.n_wse_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     grid_height = ag.height_with_uncerts(
                         pixc_height[self.proj_mapping[i][j]],
-                        good,
+                        mask,
                         pixc_num_rare_looks[self.proj_mapping[i][j]],
                         pixc_num_med_looks[self.proj_mapping[i][j]],
                         flat_ifgram[self.proj_mapping[i][j]],
@@ -322,15 +506,10 @@ class RasterProcessor(object):
 
                     self.wse[i][j] = grid_height[0]
                     self.wse_u[i][j] = grid_height[2]
-                    self.n_wse_pix[i][j] = ag.simple(good, metric='sum')
-
-                    self.wse_qual[i][j] = np.logical_or(
-                        self.wse_u[i][j] >= self.wse_uncert_qual_thresh,
-                        self.n_wse_pix[i][j] <= self.num_pixels_qual_thresh)
 
         self.apply_wse_corrections()
 
-    def aggregate_water_area(self, pixc, mask):
+    def aggregate_water_area(self, pixc, good_mask, suspect_mask, degraded_mask):
         """ Aggregate water area, water fraction and associated uncertainties """
         LOGGER.info("aggregating water area")
 
@@ -342,17 +521,21 @@ class RasterProcessor(object):
         pixc_pmd = pixc['pixel_cloud']['missed_detection_rate']
         pixc_classif = pixc['pixel_cloud']['classification']
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac = np.ma.masked_all((self.size_y, self.size_x))
         self.water_frac_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.water_area_qual = np.ma.ones((self.size_y, self.size_x))
-        self.n_water_area_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     grid_area = ag.area_with_uncert(
                         pixc_pixel_area[self.proj_mapping[i][j]],
                         pixc_water_fraction[self.proj_mapping[i][j]],
@@ -361,7 +544,7 @@ class RasterProcessor(object):
                         pixc_classif[self.proj_mapping[i][j]],
                         pixc_pfd[self.proj_mapping[i][j]],
                         pixc_pmd[self.proj_mapping[i][j]],
-                        good,
+                        mask,
                         method=self.area_agg_method,
                         interior_water_klasses=self.interior_water_classes,
                         water_edge_klasses=self.water_edge_classes,
@@ -375,7 +558,7 @@ class RasterProcessor(object):
                         pixel_area = self.resolution**2
                     elif self.projection_type == 'geo':
                         px_latitude = self.y_min + self.resolution*i
-                        pixel_area = SWOTRaster.raster_crs.wgs84_px_area(
+                        pixel_area = raster_crs.wgs84_px_area(
                             px_latitude, self.resolution)
                     else:
                         raise RasterUsageException(
@@ -384,167 +567,166 @@ class RasterProcessor(object):
 
                     self.water_frac[i][j] = grid_area[0]/pixel_area
                     self.water_frac_u[i][j] = grid_area[1]/pixel_area
-                    self.n_water_area_pix[i][j] = ag.simple(good, metric='sum')
 
-                    self.water_area_qual[i][j] = np.logical_or(
-                        self.water_frac_u[i][j] >= self.water_frac_uncert_qual_thresh,
-                        self.n_water_area_pix[i][j] <= self.num_pixels_qual_thresh)
-
-    def aggregate_cross_track(self, pixc, mask):
-        """ Aggregate cross track """
-        LOGGER.info("aggregating cross track")
-
-        pixc_cross_track = pixc['pixel_cloud']['cross_track']
-
-        self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
-        self.n_other_pix = np.ma.zeros((self.size_y, self.size_x))
-
-        for i in range(0, self.size_y):
-            for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    self.cross_track[i][j] = ag.simple(
-                        pixc_cross_track[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.n_other_pix[i][j] = ag.simple(good, metric='sum')
-
-    def aggregate_sig0(self, pixc, mask):
+    def aggregate_sig0(self, pixc, good_mask, suspect_mask, degraded_mask):
         """ Aggregate sigma0 """
         LOGGER.info("aggregating sigma0")
 
         pixc_sig0 = pixc['pixel_cloud']['sig0']
         pixc_sig0_uncert = pixc['pixel_cloud']['sig0_uncert']
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.sig0 = np.ma.masked_all((self.size_y, self.size_x))
         self.sig0_u = np.ma.masked_all((self.size_y, self.size_x))
-        self.sig0_qual = np.ma.ones((self.size_y, self.size_x))
-        self.n_sig0_pix = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     grid_sig0 = ag.sig0_with_uncerts(
-                        pixc_sig0[self.proj_mapping[i][j]], good,
+                        pixc_sig0[self.proj_mapping[i][j]], mask,
                         pixc_sig0_uncert[self.proj_mapping[i][j]],
                         method='rare')
                     self.sig0[i][j] = grid_sig0[0]
                     self.sig0_u[i][j] = grid_sig0[2]
 
-                    n_sig0_px = ag.simple(good, metric='sum')
-                    if n_sig0_px > 0:
-                        self.n_sig0_pix[i][j] = n_sig0_px
+    def aggregate_cross_track(self, pixc, good_mask, suspect_mask, degraded_mask):
+        """ Aggregate cross track """
+        LOGGER.info("aggregating cross track")
 
-                    self.sig0_qual[i][j] = np.logical_or(
-                        self.sig0_u[i][j] >= self.sig0_uncert_qual_thresh,
-                        self.n_sig0_pix[i][j] <= self.num_pixels_qual_thresh)
+        pixc_cross_track = pixc['pixel_cloud']['cross_track']
 
-    def aggregate_inc(self, pixc, mask):
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
+        self.cross_track = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_other_pix = np.ma.zeros((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
+                    self.cross_track[i][j] = ag.simple(
+                        pixc_cross_track[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+                    self.n_other_pix[i][j] = ag.simple(mask, metric='sum')
+
+    def aggregate_inc(self, pixc, good_mask, suspect_mask, degraded_mask):
         """ Aggregate incidence angle """
         LOGGER.info("aggregating incidence angle")
 
         pixc_inc = pixc['pixel_cloud']['inc']
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.inc = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    self.inc[i][j] = ag.simple(
-                        pixc_inc[self.proj_mapping[i][j]][good], metric='mean')
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
-    def aggregate_dark_frac(self, pixc, mask):
+                if np.any(mask):
+                    self.inc[i][j] = ag.simple(
+                        pixc_inc[self.proj_mapping[i][j]][mask], metric='mean')
+
+    def aggregate_dark_frac(self, pixc, good_mask, suspect_mask, degraded_mask):
         """ Aggregate dark water fraction """
         LOGGER.info("aggregating dark fraction")
 
         pixc_classif = pixc['pixel_cloud']['classification']
         pixc_pixel_area = pixc['pixel_cloud']['pixel_area']
         pixc_water_fraction = pixc['pixel_cloud']['water_frac']
-        dark_mask = np.isin(pixc_classif, self.dark_water_classes)
+        pixc_dark_mask = np.isin(pixc_classif, self.dark_water_classes)
+
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
 
         self.dark_frac = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    good_dark = np.logical_and(
-                        dark_mask[self.proj_mapping[i][j]], good)
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
+                    dark_mask = np.logical_and(
+                        pixc_dark_mask[self.proj_mapping[i][j]], mask)
                     dark_area = ag.simple(
-                        pixc_pixel_area[self.proj_mapping[i][j]][good_dark],
+                        pixc_pixel_area[self.proj_mapping[i][j]][dark_mask],
                         metric='sum')
                     total_area, _ = ag.area_only(
                         pixc_pixel_area[self.proj_mapping[i][j]],
                         pixc_water_fraction[self.proj_mapping[i][j]],
                         pixc_classif[self.proj_mapping[i][j]],
-                        good,
+                        mask,
                         method=self.area_agg_method,
                         interior_water_klasses=self.interior_water_classes,
                         water_edge_klasses=self.water_edge_classes,
                         land_edge_klasses=self.land_edge_classes,
                         dark_water_klasses=self.dark_water_classes)
 
-                    if not np.any(good_dark) or total_area==0:
+                    if not np.any(dark_mask) or total_area==0:
                         self.dark_frac[i][j] = 0
                     else:
                         self.dark_frac[i][j] = dark_area/total_area
 
-    def aggregate_classification(self, pixc, mask):
-        """ Aggregate binary classification """
-        LOGGER.info("aggregating classification")
-
-        pixc_classif = pixc['pixel_cloud']['classification']
-
-        self.classification = np.ma.masked_all((self.size_y, self.size_x))
-
-        for i in range(0, self.size_y):
-            for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    self.classification[i][j] = ag.simple(
-                        pixc_classif[self.proj_mapping[i][j]][good], metric='mode')
-
-    def aggregate_illumination_time(self, pixc, mask):
+    def aggregate_illumination_time(self, pixc, good_mask, suspect_mask,
+                                    degraded_mask):
         """ Aggregate illumination time """
         LOGGER.info("aggregating illumination time")
 
         pixc_illumination_time = pixc['pixel_cloud']['illumination_time']
         pixc_illumination_time_tai = pixc['pixel_cloud']['illumination_time_tai']
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.illumination_time = np.ma.masked_all((self.size_y, self.size_x))
         self.illumination_time_tai = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     self.illumination_time[i][j] = ag.simple(
-                        pixc_illumination_time[self.proj_mapping[i][j]][good],
+                        pixc_illumination_time[self.proj_mapping[i][j]][mask],
                         metric='mean')
                     self.illumination_time_tai[i][j] = ag.simple(
-                        pixc_illumination_time_tai[self.proj_mapping[i][j]][good],
+                        pixc_illumination_time_tai[self.proj_mapping[i][j]][mask],
                         metric='mean')
 
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
-            self.time_coverage_start = SWOTRaster.products.EMPTY_DATETIME
-            self.time_coverage_end = SWOTRaster.products.EMPTY_DATETIME
+            self.time_coverage_start = products.EMPTY_DATETIME
+            self.time_coverage_end = products.EMPTY_DATETIME
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
-                (SWOTRaster.products.SWOT_EPOCH
-                 - SWOTRaster.products.UNIX_EPOCH).total_seconds() \
+                (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
                 + start_illumination_time)
             stop_time = datetime.utcfromtimestamp(
-                (SWOTRaster.products.SWOT_EPOCH
-                 - SWOTRaster.products.UNIX_EPOCH).total_seconds() \
+                (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(
-                SWOTRaster.products.DATETIME_FORMAT_STR)
+                products.DATETIME_FORMAT_STR)
             self.time_coverage_end = stop_time.strftime(
-                SWOTRaster.products.DATETIME_FORMAT_STR)
+                products.DATETIME_FORMAT_STR)
 
         # Set tai_utc_difference
         min_illumination_time_index = np.unravel_index(
@@ -554,49 +736,56 @@ class RasterProcessor(object):
             - self.illumination_time[min_illumination_time_index]
 
         # Set leap second
-        if pixc.leap_second == SWOTRaster.products.EMPTY_LEAPSEC:
-            self.leap_second = SWOTRaster.products.EMPTY_LEAPSEC
+        if pixc.leap_second == products.EMPTY_LEAPSEC:
+            self.leap_second = products.EMPTY_LEAPSEC
         else:
-            leap_second = datetime.strptime(pixc.leap_second,
-                SWOTRaster.products.LEAPSEC_FORMAT_STR)
+            leap_second = datetime.strptime(
+                pixc.leap_second, products.LEAPSEC_FORMAT_STR)
             if leap_second < start_time or leap_second > end_time:
-                leap_second = SWOTRaster.products.EMPTY_LEAPSEC
+                leap_second = products.EMPTY_LEAPSEC
 
             self.leap_second = leap_second.strftime(
-                SWOTRaster.products.LEAPSEC_FORMAT_STR)
+                products.LEAPSEC_FORMAT_STR)
 
-    def aggregate_ice_flags(self, pixc, mask):
+    def aggregate_ice_flags(self, pixc, good_mask, suspect_mask, degraded_mask):
         """ Aggregate ice flags """
         LOGGER.info("aggregating ice flags")
 
         pixc_ice_clim_flag = pixc['pixel_cloud']['ice_clim_flag']
         pixc_ice_dyn_flag = pixc['pixel_cloud']['ice_dyn_flag']
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.ice_clim_flag = np.ma.masked_all((self.size_y, self.size_x))
         self.ice_dyn_flag = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    good_ice_clim_flag = \
-                        pixc_ice_clim_flag[self.proj_mapping[i][j]][good]
-                    good_ice_dyn_flag = \
-                        pixc_ice_dyn_flag[self.proj_mapping[i][j]][good]
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
+                    valid_ice_clim_flag = \
+                        pixc_ice_clim_flag[self.proj_mapping[i][j]][mask]
+                    valid_ice_dyn_flag = \
+                        pixc_ice_dyn_flag[self.proj_mapping[i][j]][mask]
 
                     # If all flags are the same, then we return that flag value
-                    if np.all(good_ice_clim_flag == good_ice_clim_flag[0]):
-                        self.ice_clim_flag[i][j] = good_ice_clim_flag[0]
+                    if np.all(valid_ice_clim_flag == valid_ice_clim_flag[0]):
+                        self.ice_clim_flag[i][j] = valid_ice_clim_flag[0]
                     else: # otherwise, return a value of 1 (partially covered)
                         self.ice_clim_flag[i][j] = 1
 
                     # If all flags are the same, then we return that flag value
-                    if np.all(good_ice_dyn_flag == good_ice_dyn_flag[0]):
-                        self.ice_dyn_flag[i][j] = good_ice_dyn_flag[0]
+                    if np.all(valid_ice_dyn_flag == valid_ice_dyn_flag[0]):
+                        self.ice_dyn_flag[i][j] = valid_ice_dyn_flag[0]
                     else: # otherwise, return a value of 1 (partially covered)
                         self.ice_dyn_flag[i][j] = 1
 
-    def aggregate_layover_impact(self, pixc, mask):
+    def aggregate_layover_impact(self, pixc, good_mask, suspect_mask,
+                                 degraded_mask):
         """ Aggregate layover impact """
         LOGGER.info("aggregating layover impact")
 
@@ -612,102 +801,329 @@ class RasterProcessor(object):
         pixc_height_std[np.isinf(pixc_height_std)] = bad_num
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.layover_impact = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     self.layover_impact[i][j] = ag.height_only(
                         pixc_layover_impact[self.proj_mapping[i][j]],
-                        good,
+                        mask,
                         pixc_height_std[self.proj_mapping[i][j]],
                         method=self.height_agg_method)[0]
 
-    def aggregate_corrections(self, pixc, mask):
-        """ Aggregate geophysical corrections """
-        LOGGER.info("aggregating corrections")
+    def aggregate_wse_qual(self, good_mask, suspect_mask, degraded_mask,
+                           geo_qual, class_qual, bright_land_flag):
+        """ Aggregate wse qual """
+        LOGGER.info("aggregating wse qual")
 
-        pixc_sig0_cor_atmos_model = pixc['pixel_cloud']['sig0_cor_atmos_model']
-        pixc_height_cor_xover = pixc['pixel_cloud']['height_cor_xover']
-        pixc_geoid = pixc['pixel_cloud']['geoid']
-        pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
-        pixc_load_tide_fes = pixc['pixel_cloud']['load_tide_fes']
-        pixc_load_tide_got = pixc['pixel_cloud']['load_tide_got']
-        pixc_pole_tide = pixc['pixel_cloud']['pole_tide']
-        pixc_model_dry_tropo_cor = pixc['pixel_cloud']['model_dry_tropo_cor']
-        pixc_model_wet_tropo_cor = pixc['pixel_cloud']['model_wet_tropo_cor']
-        pixc_iono_cor_gim_ka = pixc['pixel_cloud']['iono_cor_gim_ka']
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
 
-        pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
-        pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
-        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # set bad pix height std to high number to deweight
-        # instead of giving infs/nans
-        bad_num = 1.0e5
-        pixc_height_std[pixc_height_std<=0] = bad_num
-        pixc_height_std[np.isinf(pixc_height_std)] = bad_num
-        pixc_height_std[np.isnan(pixc_height_std)] = bad_num
-
-        self.sig0_cor_atmos_model = np.ma.masked_all((self.size_y, self.size_x))
-        self.height_cor_xover = np.ma.masked_all((self.size_y, self.size_x))
-        self.geoid = np.ma.masked_all((self.size_y, self.size_x))
-        self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
-        self.load_tide_fes = np.ma.masked_all((self.size_y, self.size_x))
-        self.load_tide_got = np.ma.masked_all((self.size_y, self.size_x))
-        self.pole_tide = np.ma.masked_all((self.size_y, self.size_x))
-        self.model_dry_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
-        self.model_wet_tropo_cor = np.ma.masked_all((self.size_y, self.size_x))
-        self.iono_cor_gim_ka = np.ma.masked_all((self.size_y, self.size_x))
+        self.n_wse_pix = np.ma.zeros((self.size_y, self.size_x))
+        self.wse_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.wse_bit_qual = np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
-                    self.sig0_cor_atmos_model[i][j] = ag.simple(
-                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.height_cor_xover[i][j] = ag.height_only(
-                        pixc_height_cor_xover[self.proj_mapping[i][j]],
-                        good,
-                        pixc_height_std[self.proj_mapping[i][j]],
-                        method=self.height_agg_method)[0]
-                    self.geoid[i][j] = ag.simple(
-                        pixc_geoid[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.solid_earth_tide[i][j] = ag.simple(
-                        pixc_solid_earth_tide[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.load_tide_fes[i][j] = ag.simple(
-                        pixc_load_tide_fes[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.load_tide_got[i][j] = ag.simple(
-                        pixc_load_tide_got[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.pole_tide[i][j] = ag.simple(
-                        pixc_pole_tide[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.model_dry_tropo_cor[i][j] = ag.simple(
-                        pixc_model_dry_tropo_cor[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.model_wet_tropo_cor[i][j] = ag.simple(
-                        pixc_model_wet_tropo_cor[self.proj_mapping[i][j]][good],
-                        metric='mean')
-                    self.iono_cor_gim_ka[i][j] = ag.simple(
-                        pixc_iono_cor_gim_ka[self.proj_mapping[i][j]][good],
-                        metric='mean')
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
-    def apply_wse_corrections(self):
-        """ Apply geophysical corrections to wse """
-        LOGGER.info("applying wse corrections")
+                self.n_wse_pix[i][j] = ag.simple(mask, metric='sum')
 
-        self.wse -= (
-            self.geoid +
-            self.solid_earth_tide +
-            self.load_tide_fes +
-            self.pole_tide)
+                if self.n_wse_pix[i][j] <= 0:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_BAD)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_NO_PIXELS
+                    continue # If no pixels, don't check other flags
 
-    def aggregate_lat_lon(self, mask):
+                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
+                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
+                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
+
+                if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_SUSPECT
+
+                if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
+
+                if self.wse_u[i][j] > self.wse_uncert_suspect_thresh:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_LARGE_UNCERT_SUSPECT
+
+                if np.any(this_bright_land_flag):
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_BRIGHT_LAND
+
+                if self.n_wse_pix[i][j] < self.num_wse_pix_suspect_thresh:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_FEW_PIXELS
+
+                if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_FAR_RANGE_SUSPECT
+
+                if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_NEAR_RANGE_SUSPECT
+
+                if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_DEGRADED
+
+                if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
+
+                #TODO ADD NO_DATA_COLLECTED CHECK
+
+                if self.wse[i][j] < self.wse_bad_thresh_min \
+                   or self.wse[i][j] > self.wse_bad_thresh_max:
+                    self.wse_qual[i][j] = max(
+                        self.wse_qual[i][j], products.QUAL_IND_BAD)
+                    self.wse_bit_qual[i][j] += \
+                        products.QUAL_IND_VALUE_BAD
+
+    def aggregate_water_area_qual(self, good_mask, suspect_mask, degraded_mask,
+                                  geo_qual, class_qual, bright_land_flag,
+                                  pixc_water_frac):
+        """ Aggregate water area qual """
+        LOGGER.info("aggregating water area qual")
+
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
+        self.n_water_area_pix = np.ma.zeros((self.size_y, self.size_x))
+        self.water_area_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.water_area_bit_qual = np.ma.zeros((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_water_area:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                self.n_water_area_pix[i][j] = ag.simple(mask, metric='sum')
+
+                if self.n_water_area_pix[i][j] <= 0:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_BAD)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_NO_PIXELS
+                    continue # If no pixels, don't check other flags
+
+                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
+                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
+                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
+                this_pixc_water_frac = pixc_water_frac[self.proj_mapping[i][j]][mask]
+
+                if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_SUSPECT
+
+                if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
+
+                if np.any(this_pixc_water_frac>self.pixc_water_frac_suspect_thresh):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_WATER_FRACTION_SUSPECT
+
+                if self.water_frac_u[i][j] > self.water_frac_uncert_suspect_thresh:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_LARGE_UNCERT_SUSPECT
+
+                if np.any(this_bright_land_flag):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_BRIGHT_LAND
+
+                if self.n_water_area_pix[i][j] < self.num_water_area_pix_suspect_thresh:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_FEW_PIXELS
+
+                if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_FAR_RANGE_SUSPECT
+
+                if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_NEAR_RANGE_SUSPECT
+
+                if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_DEGRADED
+
+                if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
+
+                #TODO ADD NO_DATA_COLLECTED CHECK
+
+                if self.water_frac[i][j] < self.water_frac_bad_thresh_min \
+                   or self.water_frac[i][j] > self.water_frac_bad_thresh_max:
+                    self.water_area_qual[i][j] = max(
+                        self.water_area_qual[i][j], products.QUAL_IND_BAD)
+                    self.water_area_bit_qual[i][j] += \
+                        products.QUAL_IND_VALUE_BAD
+
+    def aggregate_sig0_qual(self, good_mask, suspect_mask, degraded_mask,
+                            geo_qual, class_qual, sig0_qual, bright_land_flag):
+        """ Aggregate sig0 qual """
+        LOGGER.info("aggregating sig0 qual")
+
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
+        self.n_sig0_pix = np.ma.zeros((self.size_y, self.size_x))
+        self.sig0_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.sig0_bit_qual = np.ma.zeros((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_water_area:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                self.n_sig0_pix[i][j] = ag.simple(mask, metric='sum')
+
+                if self.n_sig0_pix[i][j] <= 0:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_BAD)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_NO_PIXELS
+                    continue # If no pixels, don't check other flags
+
+                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
+                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
+                this_sig0_qual = sig0_qual[self.proj_mapping[i][j]][mask]
+                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
+
+                if np.any(this_sig0_qual==products.QUAL_IND_SUSPECT):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_SIG0_QUAL_SUSPECT
+
+                if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_SUSPECT
+
+                if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
+
+                if self.sig0_u[i][j] > self.sig0_uncert_suspect_thresh:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_LARGE_UNCERT_SUSPECT
+
+                if np.any(this_bright_land_flag):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_BRIGHT_LAND
+
+                if self.n_sig0_pix[i][j] < self.num_sig0_pix_suspect_thresh:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_FEW_PIXELS
+
+                if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_FAR_RANGE_SUSPECT
+
+                if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_NEAR_RANGE_SUSPECT
+
+                if np.any(this_sig0_qual==products.QUAL_IND_DEGRADED):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_SIG0_QUAL_DEGRADED
+
+                if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_CLASS_QUAL_DEGRADED
+
+                if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
+
+                #TODO ADD NO_DATA_COLLECTED CHECK
+
+                if self.sig0[i][j] < self.sig0_bad_thresh_min \
+                   or self.sig0[i][j] > self.sig0_bad_thresh_max:
+                    self.sig0_qual[i][j] = max(
+                        self.sig0_qual[i][j], products.QUAL_IND_BAD)
+                    self.sig0_bit_qual[i][j] += \
+                        products.QUAL_IND_VALUE_BAD
+
+    def aggregate_lat_lon(self, good_mask, suspect_mask,
+                          degraded_mask):
         """ Aggregate latitude and longitude """
         LOGGER.info("aggregating latitude and longitude")
 
@@ -717,18 +1133,46 @@ class RasterProcessor(object):
         transf = osr.CoordinateTransformation(self.output_crs,
                                               self.input_crs)
 
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
         self.latitude = np.ma.masked_all((self.size_y, self.size_x))
         self.longitude = np.ma.masked_all((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                good = mask[self.proj_mapping[i][j]]
-                if np.any(good):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
                     # get the lat and lon if there are any good pixels at all
-                    if np.any(good):
-                        lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
-                        self.latitude[i][j] = lon
-                        self.longitude[i][j] = lat
+                    lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
+                    self.latitude[i][j] = lon
+                    self.longitude[i][j] = lat
+
+    def aggregate_classification(self, pixc, good_mask, suspect_mask,
+                                 degraded_mask):
+        """ Aggregate binary classification """
+        LOGGER.info("aggregating classification")
+
+        pixc_classif = pixc['pixel_cloud']['classification']
+
+        good_sus_mask = np.logical_or(good_mask, suspect_mask)
+        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+
+        self.classification = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = good_sus_mask[self.proj_mapping[i][j]]
+                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                    mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
+
+                if np.any(mask):
+                    self.classification[i][j] = ag.simple(
+                        pixc_classif[self.proj_mapping[i][j]][mask],
+                        metric='mode')
 
     def build_product(self, populate_values=True, polygon_points=None):
         """ Assemble the product """
@@ -736,14 +1180,14 @@ class RasterProcessor(object):
 
         if self.projection_type == 'utm':
             if self.debug_flag:
-                product = SWOTRaster.products.RasterUTMDebug()
+                product = products.RasterUTMDebug()
             else:
-                product = SWOTRaster.products.RasterUTM()
+                product = products.RasterUTM()
         elif self.projection_type == 'geo':
             if self.debug_flag:
-                product = SWOTRaster.products.RasterGeoDebug()
+                product = products.RasterGeoDebug()
             else:
-                product = SWOTRaster.products.RasterGeo()
+                product = products.RasterGeo()
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
@@ -805,7 +1249,7 @@ class RasterProcessor(object):
             product['latitude'] = np.linspace(self.y_min,
                                               self.y_max,
                                               self.size_y)
-            coordinate_system = SWOTRaster.raster_crs.wgs84_crs()
+            coordinate_system = raster_crs.wgs84_crs()
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
@@ -835,8 +1279,11 @@ class RasterProcessor(object):
             product['sig0'] = self.sig0
             product['sig0_uncert'] = self.sig0_u
             product['inc'] = self.inc
+            product['wse_bit_qual'] = self.wse_bit_qual
             product['wse_qual'] = self.wse_qual
+            product['water_area_bit_qual'] = self.water_area_bit_qual
             product['water_area_qual'] = self.water_area_qual
+            product['sig0_bit_qual'] = self.sig0_bit_qual
             product['sig0_qual'] = self.sig0_qual
             product['n_wse_pix'] = self.n_wse_pix
             product['n_water_area_pix'] = self.n_water_area_pix
