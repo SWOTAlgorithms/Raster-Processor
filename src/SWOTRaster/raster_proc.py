@@ -846,7 +846,8 @@ class RasterProcessor(object):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_BAD)
                     self.wse_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS
+                        products.QUAL_IND_NO_PIXELS \
+                        + products.QUAL_IND_FEW_PIXELS
                     continue # If no pixels, don't check other flags
 
                 this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
@@ -941,7 +942,8 @@ class RasterProcessor(object):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_BAD)
                     self.water_area_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS
+                        products.QUAL_IND_NO_PIXELS \
+                        + products.QUAL_IND_FEW_PIXELS
                     continue # If no pixels, don't check other flags
 
                 this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
@@ -1042,7 +1044,8 @@ class RasterProcessor(object):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_BAD)
                     self.sig0_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS
+                        products.QUAL_IND_NO_PIXELS \
+                        + products.QUAL_IND_FEW_PIXELS
                     continue # If no pixels, don't check other flags
 
                 this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]

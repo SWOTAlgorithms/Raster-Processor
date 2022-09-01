@@ -1128,7 +1128,8 @@ class RasterUTM(Product):
         for var in self.variables:
             if var in ['wse_bit_qual', 'water_area_bit_qual', 'sig0_bit_qual']:
                 self.variables[var][np.logical_not(mask)] = \
-                    QUAL_IND_OUTSIDE_SCENE_BOUNDS
+                    QUAL_IND_OUTSIDE_SCENE_BOUNDS + QUAL_IND_NO_PIXELS \
+                    + QUAL_IND_FEW_PIXELS
             elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
                 self.variables[var][np.logical_not(mask)] = \
                     QUAL_IND_BAD
@@ -1373,7 +1374,8 @@ class RasterGeo(Product):
         for var in self.variables:
             if var in ['wse_bit_qual', 'water_area_bit_qual', 'sig0_bit_qual']:
                 self.variables[var][np.logical_not(mask)] = \
-                    QUAL_IND_OUTSIDE_SCENE_BOUNDS
+                    QUAL_IND_OUTSIDE_SCENE_BOUNDS + QUAL_IND_NO_PIXELS \
+                    + QUAL_IND_FEW_PIXELS
             elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
                 self.variables[var][np.logical_not(mask)] = \
                     QUAL_IND_BAD
