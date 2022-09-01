@@ -374,7 +374,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_all:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
