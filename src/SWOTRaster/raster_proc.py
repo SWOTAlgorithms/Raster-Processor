@@ -74,6 +74,9 @@ class RasterProcessor(object):
         self.num_good_sus_pix_thresh_wse = num_good_sus_pix_thresh_wse
         self.num_good_sus_pix_thresh_water_area = num_good_sus_pix_thresh_water_area
         self.num_good_sus_pix_thresh_sig0 = num_good_sus_pix_thresh_sig0
+        self.num_good_sus_pix_thresh_all = max(
+            num_good_sus_pix_thresh_wse, num_good_sus_pix_thresh_water_area,
+            num_good_sus_pix_thresh_sig0)
 
         self.pixc_water_frac_suspect_thresh = pixc_water_frac_suspect_thresh
         self.num_wse_pix_suspect_thresh = num_wse_pix_suspect_thresh
@@ -371,7 +374,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -532,7 +535,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_water_area:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -584,7 +587,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_sig0:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -610,7 +613,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -633,7 +636,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -657,7 +660,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -699,7 +702,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -763,7 +766,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -1030,7 +1033,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_water_area:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_sig0:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 self.n_sig0_pix[i][j] = ag.simple(mask, metric='sum')
@@ -1142,7 +1145,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
@@ -1166,7 +1169,7 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = good_sus_mask[self.proj_mapping[i][j]]
-                if np.sum(mask) < self.num_good_sus_pix_thresh_wse:
+                if np.sum(mask) < self.num_good_sus_pix_thresh_all:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
 
                 if np.any(mask):
