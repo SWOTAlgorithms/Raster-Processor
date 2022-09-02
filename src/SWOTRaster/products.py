@@ -412,6 +412,22 @@ COMMON_VARIABLES = odict([
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
         ])],
+    ['wse_qual',
+     odict([['dtype', 'u1'],
+            ['long_name', 'summary quality indicator for the water surface elevation'],
+            ['standard_name', 'status_flag'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', 'good suspect degraded bad'],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
+            ['valid_min', 0],
+            ['valid_max', 3],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Summary quality indicator for the WSE quantities.
+                Value of 0 indicates a nominal measurement, 1 indicates a
+                suspect measurement, 2 indicates a degraded quality
+                measurement, and 3 indicates a bad measurement.""")],
+        ])],
     ['wse_bit_qual',
      odict([['dtype', 'u4'],
             ['long_name', 'bitwise quality indicator for the water surface elevation'],
@@ -457,9 +473,9 @@ COMMON_VARIABLES = odict([
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
         ])],
-    ['wse_qual',
+    ['water_area_qual',
      odict([['dtype', 'u1'],
-            ['long_name', 'summary quality indicator for the water surface elevation'],
+            ['long_name', 'summary quality indicator for the water surface area'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
@@ -468,7 +484,7 @@ COMMON_VARIABLES = odict([
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Summary quality indicator for the WSE quantities.
+                Summary quality indicator for the water surface area quantities.
                 Value of 0 indicates a nominal measurement, 1 indicates a
                 suspect measurement, 2 indicates a degraded quality
                 measurement, and 3 indicates a bad measurement.""")],
@@ -481,6 +497,7 @@ COMMON_VARIABLES = odict([
             ['flag_meanings', textjoin("""
                 classification_qual_suspect
                 geolocation_qual_suspect
+                water_fraction_suspect
                 large_uncert_suspect
                 bright_land
                 few_pixels
@@ -519,9 +536,9 @@ COMMON_VARIABLES = odict([
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
         ])],
-    ['water_area_qual',
+    ['sig0_qual',
      odict([['dtype', 'u1'],
-            ['long_name', 'summary quality indicator for the water surface area'],
+            ['long_name', 'summary quality indicator for the sigma0'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
@@ -530,7 +547,7 @@ COMMON_VARIABLES = odict([
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Summary quality indicator for the water surfacenarea quantities.
+                Summary quality indicator for the sigma0 quantities.
                 Value of 0 indicates a nominal measurement, 1 indicates a
                 suspect measurement, 2 indicates a degraded quality
                 measurement, and 3 indicates a bad measurement.""")],
@@ -583,22 +600,6 @@ COMMON_VARIABLES = odict([
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
-        ])],
-    ['sig0_qual',
-     odict([['dtype', 'u1'],
-            ['long_name', 'summary quality indicator for the sigma0'],
-            ['standard_name', 'status_flag'],
-            ['grid_mapping', 'crs'],
-            ['flag_meanings', 'good suspect degraded bad'],
-            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
-            ['valid_min', 0],
-            ['valid_max', 3],
-            ['coordinates', '[Raster coordinates]'],
-            ['comment', textjoin("""
-                Summary quality indicator for the sigma0 quantities.
-                Value of 0 indicates a nominal measurement, 1 indicates a
-                suspect measurement, 2 indicates a degraded quality
-                measurement, and 3 indicates a bad measurement.""")],
         ])],
     ['n_wse_pix',
      odict([['dtype', 'u4'],
@@ -1022,12 +1023,12 @@ class RasterUTM(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
-        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
+        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
-        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
+        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
         ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
+        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
@@ -1290,12 +1291,12 @@ class RasterGeo(Product):
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
         ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
-        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['wse_qual', COMMON_VARIABLES['wse_qual'].copy()],
-        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
+        ['wse_bit_qual', COMMON_VARIABLES['wse_bit_qual'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
-        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
+        ['water_area_bit_qual', COMMON_VARIABLES['water_area_bit_qual'].copy()],
         ['sig0_qual', COMMON_VARIABLES['sig0_qual'].copy()],
+        ['sig0_bit_qual', COMMON_VARIABLES['sig0_bit_qual'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
