@@ -176,7 +176,8 @@ class RasterProcessor(object):
                 geo_qual_pixc_flag, class_qual_pixc_flag,
                 sig0_qual_pixc_flag)
 
-        self.aggregate_corrections(pixc, all_mask)
+        self.aggregate_sig0_corrections(pixc, sig0_mask)
+        self.aggregate_wse_corrections(pixc, wse_mask)
         self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
         self.aggregate_water_area(pixc, water_area_mask)
         self.aggregate_sig0(pixc, sig0_mask)
@@ -359,11 +360,26 @@ class RasterProcessor(object):
 
         return rasterization_mask
 
-    def aggregate_corrections(self, pixc, rasterization_mask):
-        """ Aggregate geophysical corrections """
-        LOGGER.info("aggregating corrections")
+    def aggregate_sig0_corrections(self, pixc, rasterization_mask):
+        """ Aggregate sig0 geophysical corrections """
+        LOGGER.info("aggregating sig0 corrections")
 
         pixc_sig0_cor_atmos_model = pixc['pixel_cloud']['sig0_cor_atmos_model']
+
+        self.sig0_cor_atmos_model = np.ma.masked_all((self.size_y, self.size_x))
+
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                mask = rasterization_mask[self.proj_mapping[i][j]]
+                if np.any(mask):
+                    self.sig0_cor_atmos_model[i][j] = ag.simple(
+                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][mask],
+                        metric='mean')
+
+    def aggregate_wse_corrections(self, pixc, rasterization_mask):
+        """ Aggregate wse geophysical corrections """
+        LOGGER.info("aggregating wse corrections")
+
         pixc_height_cor_xover = pixc['pixel_cloud']['height_cor_xover']
         pixc_geoid = pixc['pixel_cloud']['geoid']
         pixc_solid_earth_tide = pixc['pixel_cloud']['solid_earth_tide']
@@ -384,7 +400,6 @@ class RasterProcessor(object):
         pixc_height_std[np.isinf(pixc_height_std)] = bad_num
         pixc_height_std[np.isnan(pixc_height_std)] = bad_num
 
-        self.sig0_cor_atmos_model = np.ma.masked_all((self.size_y, self.size_x))
         self.height_cor_xover = np.ma.masked_all((self.size_y, self.size_x))
         self.geoid = np.ma.masked_all((self.size_y, self.size_x))
         self.solid_earth_tide = np.ma.masked_all((self.size_y, self.size_x))
@@ -399,9 +414,6 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
-                    self.sig0_cor_atmos_model[i][j] = ag.simple(
-                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][mask],
-                        metric='mean')
                     self.height_cor_xover[i][j] = ag.height_only(
                         pixc_height_cor_xover[self.proj_mapping[i][j]],
                         mask,
