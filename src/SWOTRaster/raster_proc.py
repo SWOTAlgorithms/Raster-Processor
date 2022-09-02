@@ -151,6 +151,17 @@ class RasterProcessor(object):
             all_classes_mask = np.logical_and(all_classes_mask,
                                               np.logical_not(bright_land_flag))
 
+        # Get pixc summary quality flags
+        geo_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'geolocation_qual', self.geo_qual_suspect,
+            self.geo_qual_degraded,self.geo_qual_bad)
+        class_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'classification_qual', self.class_qual_suspect,
+            self.class_qual_degraded, self.class_qual_bad)
+        sig0_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'sig0_qual', self.sig0_qual_suspect,
+            self.sig0_qual_degraded, self.sig0_qual_bad)
+
         # Create an empty Raster
         empty_product = self.build_product(populate_values=False)
         # Return empty product if pixc is empty
@@ -161,67 +172,12 @@ class RasterProcessor(object):
         self.proj_mapping = empty_product.get_raster_mapping(
             pixc, all_classes_mask, use_improved_geoloc)
 
-        # Get good/suspect/degraded masks for wse/water_area/sig0
-        geo_qual_pixc_flag = pixc.get_summary_qual_flag(
-            'geolocation_qual', self.geo_qual_suspect, self.geo_qual_degraded,
-            self.geo_qual_bad)
-        class_qual_pixc_flag = pixc.get_summary_qual_flag(
-            'classification_qual', self.class_qual_suspect,
-            self.class_qual_degraded, self.class_qual_bad)
-        sig0_qual_pixc_flag = pixc.get_summary_qual_flag(
-            'sig0_qual', self.sig0_qual_suspect,
-            self.sig0_qual_degraded, self.sig0_qual_bad)
-
-        common_qual_flag = [max(x, y) for x, y
-                            in zip(geo_qual_pixc_flag, class_qual_pixc_flag)]
-        common_good_qual_mask = \
-            [x==products.QUAL_IND_GOOD for x in common_qual_flag]
-        common_suspect_qual_mask = \
-            [x==products.QUAL_IND_SUSPECT for x in common_qual_flag]
-        common_degraded_qual_mask = \
-            [x==products.QUAL_IND_DEGRADED for x in common_qual_flag]
-
-        sig0_qual_flag = [max(x, y) for x,y \
-                          in zip(common_qual_flag, sig0_qual_pixc_flag)]
-        sig0_good_qual_mask = \
-            [x==products.QUAL_IND_GOOD for x in sig0_qual_flag]
-        sig0_suspect_qual_mask = \
-            [x==products.QUAL_IND_SUSPECT for x in sig0_qual_flag]
-        sig0_degraded_qual_mask = \
-            [x==products.QUAL_IND_DEGRADED for x in sig0_qual_flag]
-
-        wse_good_mask = np.logical_and(
-            water_classes_mask, common_good_qual_mask)
-        wse_suspect_mask = np.logical_and(
-            water_classes_mask, common_suspect_qual_mask)
-        wse_degraded_mask = np.logical_and(
-            water_classes_mask, common_degraded_qual_mask)
-
-        water_area_good_mask = np.logical_and(
-            all_classes_mask, common_good_qual_mask)
-        water_area_suspect_mask = np.logical_and(
-            all_classes_mask, common_suspect_qual_mask)
-        water_area_degraded_mask = np.logical_and(
-            all_classes_mask, common_degraded_qual_mask)
-
-        sig0_good_mask = np.logical_and(
-            water_classes_mask, sig0_good_qual_mask)
-        sig0_suspect_mask = np.logical_and(
-            water_classes_mask, sig0_suspect_qual_mask)
-        sig0_degraded_mask = np.logical_and(
-            water_classes_mask, sig0_degraded_qual_mask)
-
-        # Get rasterization masks using good/suspect/degraded thresholds
-        wse_mask = self.get_rasterization_mask(
-            wse_good_mask, wse_suspect_mask, wse_degraded_mask,
-            self.num_good_sus_pix_thresh_wse)
-        water_area_mask = self.get_rasterization_mask(
-            water_area_good_mask, water_area_suspect_mask, water_area_degraded_mask,
-            self.num_good_sus_pix_thresh_water_area)
-        sig0_mask = self.get_rasterization_mask(
-            sig0_good_mask, sig0_suspect_mask, sig0_degraded_mask,
-            self.num_good_sus_pix_thresh_sig0)
-        all_mask = np.logical_or.reduce((wse_mask, water_area_mask, sig0_mask))
+        # Get rasterization masks for wse/water_area/sig0/all
+        wse_mask, water_area_mask, sig0_mask, all_mask = \
+            self.get_rasterization_masks(
+                pixc, water_classes_mask, all_classes_mask,
+                geo_qual_pixc_flag, class_qual_pixc_flag,
+                sig0_qual_pixc_flag)
 
         self.aggregate_corrections(pixc, all_mask)
         self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
@@ -326,6 +282,64 @@ class RasterProcessor(object):
                      'y_min': self.y_min,
                      'y_max': self.y_max,
                      'size_y': self.size_y})
+
+    def get_rasterization_masks(self, pixc, water_classes_mask, all_classes_mask,
+                                geo_qual_pixc_flag, class_qual_pixc_flag,
+                                sig0_qual_pixc_flag):
+        """ Get masks of pixels to rasterize for wse/water_area/sig0/all"""
+        LOGGER.info('getting rasterization masks for wse/water_area/sig0/all')
+
+        common_qual_flag = [max(x, y) for x, y
+                            in zip(geo_qual_pixc_flag, class_qual_pixc_flag)]
+        common_good_qual_mask = \
+            [x==products.QUAL_IND_GOOD for x in common_qual_flag]
+        common_suspect_qual_mask = \
+            [x==products.QUAL_IND_SUSPECT for x in common_qual_flag]
+        common_degraded_qual_mask = \
+            [x==products.QUAL_IND_DEGRADED for x in common_qual_flag]
+
+        sig0_qual_flag = [max(x, y) for x,y \
+                          in zip(common_qual_flag, sig0_qual_pixc_flag)]
+        sig0_good_qual_mask = \
+            [x==products.QUAL_IND_GOOD for x in sig0_qual_flag]
+        sig0_suspect_qual_mask = \
+            [x==products.QUAL_IND_SUSPECT for x in sig0_qual_flag]
+        sig0_degraded_qual_mask = \
+            [x==products.QUAL_IND_DEGRADED for x in sig0_qual_flag]
+
+        wse_good_mask = np.logical_and(
+            water_classes_mask, common_good_qual_mask)
+        wse_suspect_mask = np.logical_and(
+            water_classes_mask, common_suspect_qual_mask)
+        wse_degraded_mask = np.logical_and(
+            water_classes_mask, common_degraded_qual_mask)
+
+        water_area_good_mask = np.logical_and(
+            all_classes_mask, common_good_qual_mask)
+        water_area_suspect_mask = np.logical_and(
+            all_classes_mask, common_suspect_qual_mask)
+        water_area_degraded_mask = np.logical_and(
+            all_classes_mask, common_degraded_qual_mask)
+
+        sig0_good_mask = np.logical_and(
+            water_classes_mask, sig0_good_qual_mask)
+        sig0_suspect_mask = np.logical_and(
+            water_classes_mask, sig0_suspect_qual_mask)
+        sig0_degraded_mask = np.logical_and(
+            water_classes_mask, sig0_degraded_qual_mask)
+
+        wse_mask = self.get_rasterization_mask(
+            wse_good_mask, wse_suspect_mask, wse_degraded_mask,
+            self.num_good_sus_pix_thresh_wse)
+        water_area_mask = self.get_rasterization_mask(
+            water_area_good_mask, water_area_suspect_mask, water_area_degraded_mask,
+            self.num_good_sus_pix_thresh_water_area)
+        sig0_mask = self.get_rasterization_mask(
+            sig0_good_mask, sig0_suspect_mask, sig0_degraded_mask,
+            self.num_good_sus_pix_thresh_sig0)
+        all_mask = np.logical_or.reduce((wse_mask, water_area_mask, sig0_mask))
+
+        return wse_mask, water_area_mask, sig0_mask, all_mask
 
     def get_rasterization_mask(self, good_mask, suspect_mask, degraded_mask,
                                num_good_sus_pix_thresh):
@@ -781,25 +795,29 @@ class RasterProcessor(object):
         LOGGER.info("aggregating wse qual")
 
         self.n_wse_pix = np.ma.zeros((self.size_y, self.size_x))
-        self.wse_qual = np.ma.zeros((self.size_y, self.size_x))
-        self.wse_bit_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.wse_qual = \
+            products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
+        self.wse_bit_qual = \
+            products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
+            + np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
+                if not np.any(mask):
+                    continue
+
                 self.n_wse_pix[i][j] = ag.simple(mask, metric='sum')
 
-                if self.n_wse_pix[i][j] <= 0:
-                    self.wse_qual[i][j] = max(
-                        self.wse_qual[i][j], products.QUAL_IND_BAD)
-                    self.wse_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS \
-                        + products.QUAL_IND_FEW_PIXELS
-                    continue # If no pixels, don't check other flags
+                # Default qual flags are no_pixels, if we have pixels reset them
+                self.wse_qual[i][j] = products.QUAL_IND_GOOD
+                self.wse_bit_qual[i][j] = products.QUAL_IND_GOOD
 
-                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
-                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
-                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
+                these_idxs = [idx for idx,valid
+                                  in zip(self.proj_mapping[i][j], mask) if valid]
+                this_geo_qual = geo_qual[these_idxs]
+                this_class_qual = class_qual[these_idxs]
+                this_bright_land_flag = bright_land_flag[these_idxs]
 
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.wse_qual[i][j] = max(
@@ -871,26 +889,33 @@ class RasterProcessor(object):
         LOGGER.info("aggregating water area qual")
 
         self.n_water_area_pix = np.ma.zeros((self.size_y, self.size_x))
-        self.water_area_qual = np.ma.zeros((self.size_y, self.size_x))
-        self.water_area_bit_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.water_area_qual = \
+            products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
+        self.water_area_bit_qual = \
+            products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
+            + np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
+                if not np.any(mask):
+                    continue
+
                 self.n_water_area_pix[i][j] = ag.simple(mask, metric='sum')
 
                 if self.n_water_area_pix[i][j] <= 0:
-                    self.water_area_qual[i][j] = max(
-                        self.water_area_qual[i][j], products.QUAL_IND_BAD)
-                    self.water_area_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS \
-                        + products.QUAL_IND_FEW_PIXELS
                     continue # If no pixels, don't check other flags
 
-                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
-                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
-                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
-                this_pixc_water_frac = pixc_water_frac[self.proj_mapping[i][j]][mask]
+                # Default qual flags are no_pixels, if we have pixels reset them
+                self.water_area_qual[i][j] = products.QUAL_IND_GOOD
+                self.water_area_bit_qual[i][j] = products.QUAL_IND_GOOD
+
+                these_idxs = [idx for idx,valid
+                                  in zip(self.proj_mapping[i][j], mask) if valid]
+                this_geo_qual = geo_qual[these_idxs]
+                this_class_qual = class_qual[these_idxs]
+                this_bright_land_flag = bright_land_flag[these_idxs]
+                this_pixc_water_frac = pixc_water_frac[these_idxs]
 
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.water_area_qual[i][j] = max(
@@ -967,26 +992,33 @@ class RasterProcessor(object):
         LOGGER.info("aggregating sig0 qual")
 
         self.n_sig0_pix = np.ma.zeros((self.size_y, self.size_x))
-        self.sig0_qual = np.ma.zeros((self.size_y, self.size_x))
-        self.sig0_bit_qual = np.ma.zeros((self.size_y, self.size_x))
+        self.sig0_qual = \
+            products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
+        self.sig0_bit_qual = \
+            products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
+            + np.ma.zeros((self.size_y, self.size_x))
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
+                if not np.any(mask):
+                    continue
+
                 self.n_sig0_pix[i][j] = ag.simple(mask, metric='sum')
 
                 if self.n_sig0_pix[i][j] <= 0:
-                    self.sig0_qual[i][j] = max(
-                        self.sig0_qual[i][j], products.QUAL_IND_BAD)
-                    self.sig0_bit_qual[i][j] += \
-                        products.QUAL_IND_NO_PIXELS \
-                        + products.QUAL_IND_FEW_PIXELS
                     continue # If no pixels, don't check other flags
 
-                this_geo_qual = geo_qual[self.proj_mapping[i][j]][mask]
-                this_class_qual = class_qual[self.proj_mapping[i][j]][mask]
-                this_sig0_qual = sig0_qual[self.proj_mapping[i][j]][mask]
-                this_bright_land_flag = bright_land_flag[self.proj_mapping[i][j]][mask]
+                # Default qual flags are no_pixels, if we have pixels reset them
+                self.sig0_qual[i][j] = products.QUAL_IND_GOOD
+                self.sig0_bit_qual[i][j] = products.QUAL_IND_GOOD
+
+                these_idxs = [idx for idx,valid
+                                  in zip(self.proj_mapping[i][j], mask) if valid]
+                this_geo_qual = geo_qual[these_idxs]
+                this_class_qual = class_qual[these_idxs]
+                this_sig0_qual = sig0_qual[these_idxs]
+                this_bright_land_flag = bright_land_flag[these_idxs]
 
                 if np.any(this_sig0_qual==products.QUAL_IND_SUSPECT):
                     self.sig0_qual[i][j] = max(
