@@ -46,7 +46,6 @@ QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
-QUAL_IND_NO_DATA_COLLECTED = 1073741824         # bit 30
 
 LOGGER = logging.getLogger(__name__)
 
@@ -445,8 +444,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds
-                no_data_collected""")],
+                outside_scene_bounds""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -459,11 +457,10 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
-                QUAL_IND_NO_DATA_COLLECTED,
-            ]).astype('i4')],
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+            ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896640678],
+            ['valid_max', 822898854],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the WSE quantities.
@@ -507,8 +504,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds
-                no_data_collected""")],
+                outside_scene_bounds""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -522,11 +518,10 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
-                QUAL_IND_NO_DATA_COLLECTED,
-            ]).astype('i4')],
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+            ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896640686],
+            ['valid_max', 822898862],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area quantities.
@@ -571,8 +566,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds
-                no_data_collected""")],
+                outside_scene_bounds""")],
             ['flag_masks', np.array([
                 QUAL_IND_SIG0_QUAL_SUSPECT,
                 QUAL_IND_CLASS_QUAL_SUSPECT,
@@ -587,11 +581,10 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
-                QUAL_IND_NO_DATA_COLLECTED,
-            ]).astype('i4')],
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+            ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896771751],
+            ['valid_max', 823029927],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.

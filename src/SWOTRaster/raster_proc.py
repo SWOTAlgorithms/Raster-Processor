@@ -882,8 +882,6 @@ class RasterProcessor(object):
                     self.wse_bit_qual[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
 
-                #TODO ADD NO_DATA_COLLECTED CHECK
-
                 if self.wse[i][j] < self.wse_bad_thresh_min \
                    or self.wse[i][j] > self.wse_bad_thresh_max:
                     self.wse_qual[i][j] = max(
@@ -985,8 +983,6 @@ class RasterProcessor(object):
                         self.water_area_qual[i][j], products.QUAL_IND_DEGRADED)
                     self.water_area_bit_qual[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
-
-                #TODO ADD NO_DATA_COLLECTED CHECK
 
                 if self.water_frac[i][j] < self.water_frac_bad_thresh_min \
                    or self.water_frac[i][j] > self.water_frac_bad_thresh_max:
@@ -1094,8 +1090,6 @@ class RasterProcessor(object):
                         self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
                     self.sig0_bit_qual[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
-
-                #TODO ADD NO_DATA_COLLECTED CHECK
 
                 if self.sig0[i][j] < self.sig0_bad_thresh_min \
                    or self.sig0[i][j] > self.sig0_bad_thresh_max:
