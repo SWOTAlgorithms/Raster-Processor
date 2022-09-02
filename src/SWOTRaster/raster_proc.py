@@ -175,7 +175,7 @@ class RasterProcessor(object):
         # Get rasterization masks for wse/water_area/sig0/all
         wse_mask, water_area_mask, sig0_mask, all_mask = \
             self.get_rasterization_masks(
-                pixc, water_classes_mask, all_classes_mask,
+                water_classes_mask, all_classes_mask,
                 geo_qual_pixc_flag, class_qual_pixc_flag,
                 sig0_qual_pixc_flag)
 
@@ -283,7 +283,7 @@ class RasterProcessor(object):
                      'y_max': self.y_max,
                      'size_y': self.size_y})
 
-    def get_rasterization_masks(self, pixc, water_classes_mask, all_classes_mask,
+    def get_rasterization_masks(self, water_classes_mask, all_classes_mask,
                                 geo_qual_pixc_flag, class_qual_pixc_flag,
                                 sig0_qual_pixc_flag):
         """ Get masks of pixels to rasterize for wse/water_area/sig0/all"""
