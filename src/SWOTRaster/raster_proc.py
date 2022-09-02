@@ -74,9 +74,6 @@ class RasterProcessor(object):
         self.num_good_sus_pix_thresh_wse = num_good_sus_pix_thresh_wse
         self.num_good_sus_pix_thresh_water_area = num_good_sus_pix_thresh_water_area
         self.num_good_sus_pix_thresh_sig0 = num_good_sus_pix_thresh_sig0
-        self.num_good_sus_pix_thresh_all = max(
-            num_good_sus_pix_thresh_wse, num_good_sus_pix_thresh_water_area,
-            num_good_sus_pix_thresh_sig0)
 
         self.pixc_water_frac_suspect_thresh = pixc_water_frac_suspect_thresh
         self.num_wse_pix_suspect_thresh = num_wse_pix_suspect_thresh
