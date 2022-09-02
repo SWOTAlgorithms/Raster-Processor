@@ -1133,6 +1133,9 @@ class RasterUTM(Product):
             elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
                 self.variables[var][np.logical_not(mask)] = \
                     QUAL_IND_BAD
+            elif var in ['n_wse_pix', 'n_water_area_pix', 'n_sig0_pix',
+                         'n_other_pix']:
+                self.variables[var][np.logical_not(mask)] = 0
             elif var not in ['crs', 'x', 'y']:
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
@@ -1379,6 +1382,9 @@ class RasterGeo(Product):
             elif var in ['wse_qual', 'water_area_qual', 'sig0_qual']:
                 self.variables[var][np.logical_not(mask)] = \
                     QUAL_IND_BAD
+            elif var in ['n_wse_pix', 'n_water_area_pix', 'n_sig0_pix',
+                         'n_other_pix']:
+                self.variables[var][np.logical_not(mask)] = 0
             elif var not in ['crs', 'longitude', 'latitude']:
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
