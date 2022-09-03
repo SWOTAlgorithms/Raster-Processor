@@ -806,7 +806,7 @@ class RasterProcessor(object):
         self.n_wse_pix = np.ma.zeros((self.size_y, self.size_x))
         self.wse_qual = \
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
-        self.wse_bit_qual = \
+        self.wse_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
             + np.ma.zeros((self.size_y, self.size_x))
 
@@ -820,7 +820,7 @@ class RasterProcessor(object):
 
                 # Default qual flags are no_pixels, if we have pixels reset them
                 self.wse_qual[i][j] = products.QUAL_IND_GOOD
-                self.wse_bit_qual[i][j] = products.QUAL_IND_GOOD
+                self.wse_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
                 these_idxs = [idx for idx,valid
                                   in zip(self.proj_mapping[i][j], mask) if valid]
@@ -831,62 +831,62 @@ class RasterProcessor(object):
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_SUSPECT
 
                 if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
 
                 if self.wse_u[i][j] > self.wse_uncert_suspect_thresh:
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_LARGE_UNCERT_SUSPECT
 
                 if np.any(this_bright_land_flag):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_BRIGHT_LAND
 
                 if self.n_wse_pix[i][j] < self.num_wse_pix_suspect_thresh:
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_FEW_PIXELS
 
                 if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_FAR_RANGE_SUSPECT
 
                 if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_NEAR_RANGE_SUSPECT
 
                 if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_DEGRADED
 
                 if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
 
                 if self.wse[i][j] < self.wse_bad_thresh_min \
                    or self.wse[i][j] > self.wse_bad_thresh_max:
                     self.wse_qual[i][j] = max(
                         self.wse_qual[i][j], products.QUAL_IND_BAD)
-                    self.wse_bit_qual[i][j] += \
+                    self.wse_qual_bitwise[i][j] += \
                         products.QUAL_IND_VALUE_BAD
 
     def aggregate_water_area_qual(self, rasterization_mask,
@@ -898,7 +898,7 @@ class RasterProcessor(object):
         self.n_water_area_pix = np.ma.zeros((self.size_y, self.size_x))
         self.water_area_qual = \
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
-        self.water_area_bit_qual = \
+        self.water_area_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
             + np.ma.zeros((self.size_y, self.size_x))
 
@@ -915,7 +915,7 @@ class RasterProcessor(object):
 
                 # Default qual flags are no_pixels, if we have pixels reset them
                 self.water_area_qual[i][j] = products.QUAL_IND_GOOD
-                self.water_area_bit_qual[i][j] = products.QUAL_IND_GOOD
+                self.water_area_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
                 these_idxs = [idx for idx,valid
                                   in zip(self.proj_mapping[i][j], mask) if valid]
@@ -927,68 +927,68 @@ class RasterProcessor(object):
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_SUSPECT
 
                 if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
 
                 if np.any(this_pixc_water_frac>self.pixc_water_frac_suspect_thresh):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_WATER_FRACTION_SUSPECT
 
                 if self.water_frac_u[i][j] > self.water_frac_uncert_suspect_thresh:
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_LARGE_UNCERT_SUSPECT
 
                 if np.any(this_bright_land_flag):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_BRIGHT_LAND
 
                 if self.n_water_area_pix[i][j] < self.num_water_area_pix_suspect_thresh:
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_FEW_PIXELS
 
                 if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_FAR_RANGE_SUSPECT
 
                 if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_NEAR_RANGE_SUSPECT
 
                 if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_DEGRADED
 
                 if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
 
                 if self.water_frac[i][j] < self.water_frac_bad_thresh_min \
                    or self.water_frac[i][j] > self.water_frac_bad_thresh_max:
                     self.water_area_qual[i][j] = max(
                         self.water_area_qual[i][j], products.QUAL_IND_BAD)
-                    self.water_area_bit_qual[i][j] += \
+                    self.water_area_qual_bitwise[i][j] += \
                         products.QUAL_IND_VALUE_BAD
 
     def aggregate_sig0_qual(self, rasterization_mask,
@@ -999,7 +999,7 @@ class RasterProcessor(object):
         self.n_sig0_pix = np.ma.zeros((self.size_y, self.size_x))
         self.sig0_qual = \
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
-        self.sig0_bit_qual = \
+        self.sig0_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
             + np.ma.zeros((self.size_y, self.size_x))
 
@@ -1016,7 +1016,7 @@ class RasterProcessor(object):
 
                 # Default qual flags are no_pixels, if we have pixels reset them
                 self.sig0_qual[i][j] = products.QUAL_IND_GOOD
-                self.sig0_bit_qual[i][j] = products.QUAL_IND_GOOD
+                self.sig0_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
                 these_idxs = [idx for idx,valid
                                   in zip(self.proj_mapping[i][j], mask) if valid]
@@ -1028,74 +1028,74 @@ class RasterProcessor(object):
                 if np.any(this_sig0_qual==products.QUAL_IND_SUSPECT):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_SIG0_QUAL_SUSPECT
 
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_SUSPECT
 
                 if np.any(this_geo_qual==products.QUAL_IND_SUSPECT):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
 
                 if self.sig0_u[i][j] > self.sig0_uncert_suspect_thresh:
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_LARGE_UNCERT_SUSPECT
 
                 if np.any(this_bright_land_flag):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_BRIGHT_LAND
 
                 if self.n_sig0_pix[i][j] < self.num_sig0_pix_suspect_thresh:
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_FEW_PIXELS
 
                 if abs(self.cross_track[i][j]) > self.far_range_suspect_thresh:
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_FAR_RANGE_SUSPECT
 
                 if abs(self.cross_track[i][j]) < self.near_range_suspect_thresh:
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_SUSPECT)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_NEAR_RANGE_SUSPECT
 
                 if np.any(this_sig0_qual==products.QUAL_IND_DEGRADED):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_SIG0_QUAL_DEGRADED
 
                 if np.any(this_class_qual==products.QUAL_IND_DEGRADED):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_CLASS_QUAL_DEGRADED
 
                 if np.any(this_geo_qual==products.QUAL_IND_DEGRADED):
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_DEGRADED)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
 
                 if self.sig0[i][j] < self.sig0_bad_thresh_min \
                    or self.sig0[i][j] > self.sig0_bad_thresh_max:
                     self.sig0_qual[i][j] = max(
                         self.sig0_qual[i][j], products.QUAL_IND_BAD)
-                    self.sig0_bit_qual[i][j] += \
+                    self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_VALUE_BAD
 
     def aggregate_lat_lon(self, rasterization_mask):
@@ -1232,21 +1232,21 @@ class RasterProcessor(object):
             product.VARIABLES['illumination_time']['leap_second'] = \
                 self.leap_second
             product['wse'] = self.wse
+            product['wse_qual_bitwise'] = self.wse_qual_bitwise
+            product['wse_qual'] = self.wse_qual
             product['wse_uncert'] = self.wse_u
             product['water_area'] = self.water_area
+            product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
+            product['water_area_qual'] = self.water_area_qual
             product['water_area_uncert'] = self.water_area_u
             product['water_frac'] = self.water_frac
             product['water_frac_uncert'] = self.water_frac_u
-            product['cross_track'] = self.cross_track
             product['sig0'] = self.sig0
+            product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
+            product['sig0_qual'] = self.sig0_qual
             product['sig0_uncert'] = self.sig0_u
             product['inc'] = self.inc
-            product['wse_bit_qual'] = self.wse_bit_qual
-            product['wse_qual'] = self.wse_qual
-            product['water_area_bit_qual'] = self.water_area_bit_qual
-            product['water_area_qual'] = self.water_area_qual
-            product['sig0_bit_qual'] = self.sig0_bit_qual
-            product['sig0_qual'] = self.sig0_qual
+            product['cross_track'] = self.cross_track
             product['n_wse_pix'] = self.n_wse_pix
             product['n_water_area_pix'] = self.n_water_area_pix
             product['n_sig0_pix'] = self.n_sig0_pix
