@@ -197,6 +197,7 @@ class RasterProcessor(object):
             sig0_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
             sig0_qual_pixc_flag, bright_land_flag)
         self.flag_large_karin_gaps(pixc)
+        self.flag_inner_swath(pixc)
 
         if self.projection_type == 'utm':
             self.aggregate_lat_lon(all_mask)
@@ -1176,26 +1177,25 @@ class RasterProcessor(object):
                 poly_points_rad = [
                     raster_crs.terminal_loc_spherical(
                         start_llh[0], start_llh[1],
-                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        products.POLYGON_EXTENT_DIST,
                         start_minus_y_antenna_bearing),
                     raster_crs.terminal_loc_spherical(
                         start_llh[0], start_llh[1],
-                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        products.POLYGON_EXTENT_DIST,
                         start_plus_y_antenna_bearing),
                     raster_crs.terminal_loc_spherical(
                         end_llh[0], end_llh[1],
-                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        products.POLYGON_EXTENT_DIST,
                         end_plus_y_antenna_bearing),
                     raster_crs.terminal_loc_spherical(
                         end_llh[0], end_llh[1],
-                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        products.POLYGON_EXTENT_DIST,
                         end_minus_y_antenna_bearing)]
 
 
                 poly_points_deg = [np.rad2deg(point) for point in poly_points_rad]
                 transf_poly_points = [point[:2] for point in
                                       transf.TransformPoints(poly_points_deg)]
-
                 large_karin_gap_polygons.append(transf_poly_points)
 
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
@@ -1205,6 +1205,99 @@ class RasterProcessor(object):
             poly = Polygon(this_polygon_points)
             for i in range(0, self.size_y):
                 for j in range(0, self.size_x):
+                    if self.projection_type == 'geo': # Geo y coord is first
+                        if Point((y_vec[i], x_vec[j])).within(poly):
+                            mask[i][j] = True
+                    else:
+                        if Point((x_vec[j], y_vec[i])).within(poly):
+                            mask[i][j] = True
+
+        # Mask the datasets and flag
+        wse_mask = np.logical_and(self.wse.mask, mask)
+        water_area_mask = np.logical_and(self.water_area.mask, mask)
+        sig0_mask = np.logical_and(self.sig0.mask, mask)
+
+        self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+
+    def flag_inner_swath(self, pixc):
+        """ Flag inner swath"""
+        LOGGER.info("flagging inner swath")
+
+        tvp_velocity_heading = pixc['tvp']['velocity_heading']
+        tvp_x = pixc['tvp']['x']
+        tvp_y = pixc['tvp']['y']
+        tvp_z = pixc['tvp']['z']
+        tvp_plus_y_antenna_x = pixc['tvp']['plus_y_antenna_x']
+        tvp_plus_y_antenna_y = pixc['tvp']['plus_y_antenna_y']
+        tvp_plus_y_antenna_z = pixc['tvp']['plus_y_antenna_z']
+        tvp_minus_y_antenna_x = pixc['tvp']['minus_y_antenna_x']
+        tvp_minus_y_antenna_y = pixc['tvp']['minus_y_antenna_y']
+        tvp_minus_y_antenna_z = pixc['tvp']['minus_y_antenna_z']
+
+        transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
+        inner_swath_polygon_minus = []
+        inner_swath_polygon_plus = []
+        for idx in range(len(tvp_x)):
+            llh = raster_crs.xyz2llh((
+                tvp_x[idx],
+                tvp_y[idx],
+                tvp_z[idx]))
+            minus_y_antenna_llh = raster_crs.xyz2llh((
+                tvp_minus_y_antenna_x[idx],
+                tvp_minus_y_antenna_y[idx],
+                tvp_minus_y_antenna_z[idx]))
+            plus_y_antenna_llh = raster_crs.xyz2llh((
+                tvp_plus_y_antenna_x[idx],
+                tvp_plus_y_antenna_y[idx],
+                tvp_plus_y_antenna_z[idx]))
+            minus_y_antenna_bearing = raster_crs.llh2bearing(
+                llh, minus_y_antenna_llh)
+            plus_y_antenna_bearing = raster_crs.llh2bearing(
+                llh, plus_y_antenna_llh)
+
+            if idx == 0:
+                llh = raster_crs.terminal_loc_spherical(
+                    llh[0], llh[1],
+                    products.POLYGON_EXTENT_DIST,
+                    np.deg2rad(np.mod(tvp_velocity_heading[idx]-180, 360)))
+            elif idx == len(tvp_x)-1:
+                llh = raster_crs.terminal_loc_spherical(
+                    llh[0], llh[1],
+                    products.POLYGON_EXTENT_DIST,
+                    np.deg2rad(np.mod(tvp_velocity_heading[idx], 360)))
+
+            poly_points_rad = [
+                raster_crs.terminal_loc_spherical(
+                    llh[0], llh[1],
+                    self.near_range_suspect_thresh, # TODO: make this a different threshold?
+                    minus_y_antenna_bearing),
+                raster_crs.terminal_loc_spherical(
+                    llh[0], llh[1],
+                    self.near_range_suspect_thresh,
+                    plus_y_antenna_bearing)]
+
+
+            poly_points_deg = [np.rad2deg(point) for point in poly_points_rad]
+            transf_poly_points = [point[:2] for point in
+                                  transf.TransformPoints(poly_points_deg)]
+            inner_swath_polygon_minus.append(transf_poly_points[0])
+            inner_swath_polygon_plus.append(transf_poly_points[1])
+
+        inner_swath_polygon = inner_swath_polygon_minus \
+                              + inner_swath_polygon_plus[::-1]
+
+        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
+        y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
+        mask = np.zeros((self.size_y, self.size_x))
+        poly = Polygon(inner_swath_polygon)
+        for i in range(0, self.size_y):
+            for j in range(0, self.size_x):
+                if self.projection_type == 'geo': # Geo y coord is first
+                    if Point((y_vec[i], x_vec[j])).within(poly):
+                        mask[i][j] = True
+                else:
                     if Point((x_vec[j], y_vec[i])).within(poly):
                         mask[i][j] = True
 
@@ -1212,9 +1305,10 @@ class RasterProcessor(object):
         wse_mask = np.logical_and(self.wse.mask, mask)
         water_area_mask = np.logical_and(self.water_area.mask, mask)
         sig0_mask = np.logical_and(self.sig0.mask, mask)
-        self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
-        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
-        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+
+        self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
+        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
+        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
 
     def aggregate_lat_lon(self, rasterization_mask):
         """ Aggregate latitude and longitude """

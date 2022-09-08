@@ -47,9 +47,10 @@ QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
-QUAL_IND_LARGE_KARIN_GAP = 1073741824           # bit 30
+QUAL_IND_INNER_SWATH = 1073741824               # bit 30
+QUAL_IND_LARGE_KARIN_GAP = 2147483648           # bit 31
 
-LARGE_KARIN_GAP_POLY_CT_DIST = 100000
+POLYGON_EXTENT_DIST = 200000
 
 LOGGER = logging.getLogger(__name__)
 
@@ -312,6 +313,7 @@ COMMON_VARIABLES = odict([
                 value_bad
                 no_pixels
                 outside_scene_bounds
+                inner_swath
                 large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
@@ -326,10 +328,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_INNER_SWATH,
                 QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896640678],
+            ['valid_max', 4044124326],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
@@ -398,6 +401,7 @@ COMMON_VARIABLES = odict([
                 value_bad
                 no_pixels
                 outside_scene_bounds
+                inner_swath
                 large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
@@ -413,10 +417,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_INNER_SWATH,
                 QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896640686],
+            ['valid_max', 4044124334],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -511,6 +516,7 @@ COMMON_VARIABLES = odict([
                 value_bad
                 no_pixels
                 outside_scene_bounds
+                inner_swath
                 large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_SIG0_QUAL_SUSPECT,
@@ -527,10 +533,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_INNER_SWATH,
                 QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 1896771751],
+            ['valid_max', 4044255399],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
@@ -1875,22 +1882,13 @@ class ScenePixelCloud(Product):
         """ Add other to self """
         klass = ScenePixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
-        time = np.ma.concatenate((self.illumination_time, other.illumination_time))
-        indx = np.argsort(time)
         for key in klass.VARIABLES:
-            if key in ['pixc_line_qual', 'pixc_line_to_tvp']:
-                if self.illumination_time[0] <= other.illumination_time[0]:
-                    setattr(klass, key, np.ma.concatenate((
-                        getattr(self, key), getattr(other, key))))
-                else:
-                    setattr(klass, key, np.ma.concatenate((
-                        getattr(other, key), getattr(self, key))))
-            elif key in ['azimuth_index']:
+            if key in ['azimuth_index']:
                 setattr(klass, key, np.ma.concatenate((
-                    getattr(self, key), len(self.pixc_line_qual) + getattr(other, key)))[indx])
+                    getattr(self, key), len(self.pixc_line_qual) + getattr(other, key))))
             else:
                 setattr(klass, key, np.ma.concatenate((
-                    getattr(self, key), getattr(other, key)))[indx])
+                    getattr(self, key), getattr(other, key))))
 
         return klass
 
@@ -1907,6 +1905,7 @@ class SceneTVP(Product):
     DIMENSIONS = odict([['num_tvps', 0]])
     VARIABLES = odict([
         ['time', odict([])],
+        ['velocity_heading', odict([])],
         ['x', odict([])],
         ['y', odict([])],
         ['z', odict([])],
