@@ -217,6 +217,7 @@ def llh2xyz(llh):
     warnings.resetwarnings()
     return xyz
 
+
 def llh2bearing(llh0, llh1):
     # Returns the bearing from one set of LLH coordinates to another set of LLH
     # coordinates
@@ -224,6 +225,7 @@ def llh2bearing(llh0, llh1):
     y = np.cos(llh0[0])*np.sin(llh1[0]) \
         - np.sin(llh0[0])*np.cos(llh1[0])*np.cos(llh1[1]-llh0[1])
     return np.arctan2(x,y)
+
 
 def terminal_loc_spherical(latitude, longitude, distance, bearing):
     # Returns the latitude and longitude of a location at a given distance and
