@@ -16,6 +16,7 @@ from datetime import datetime
 from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product
+from SWOTRaster.raster_crs import ELLIPSOID_SEMI_MAJOR_AXIS, ELLIPSOID_INVERSE_FLATTENING
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
@@ -46,6 +47,9 @@ QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
+QUAL_IND_LARGE_KARIN_GAP = 1073741824           # bit 30
+
+LARGE_KARIN_GAP_POLY_CT_DIST = 100000
 
 LOGGER = logging.getLogger(__name__)
 
@@ -307,7 +311,8 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds""")],
+                outside_scene_bounds
+                large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -320,10 +325,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 822898854],
+            ['valid_max', 1896640678],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
@@ -391,7 +397,8 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds""")],
+                outside_scene_bounds
+                large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -405,10 +412,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 822898862],
+            ['valid_max', 1896640686],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -502,7 +510,8 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 value_bad
                 no_pixels
-                outside_scene_bounds""")],
+                outside_scene_bounds
+                large_karin_gap""")],
             ['flag_masks', np.array([
                 QUAL_IND_SIG0_QUAL_SUSPECT,
                 QUAL_IND_CLASS_QUAL_SUSPECT,
@@ -517,10 +526,11 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
-                QUAL_IND_OUTSIDE_SCENE_BOUNDS
+                QUAL_IND_OUTSIDE_SCENE_BOUNDS,
+                QUAL_IND_LARGE_KARIN_GAP
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 823029927],
+            ['valid_max', 1896771751],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
@@ -957,8 +967,8 @@ class RasterUTM(Product):
                 ['longitude_of_prime_meridian', 0.],
                 ['latitude_of_projection_origin', 0.],
                 ['scale_factor_at_central_meridian', 0.9996],
-                ['semi_major_axis', 6378137.],
-                ['inverse_flattening', 298.257223563],
+                ['semi_major_axis', ELLIPSOID_SEMI_MAJOR_AXIS],
+                ['inverse_flattening', ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'UTM zone coordinate reference system.'],
@@ -1248,8 +1258,8 @@ class RasterGeo(Product):
                 ['horizontal_datum_name', 'WGS_1984'],
                 ['prime_meridian_name', 'Greenwich'],
                 ['longitude_of_prime_meridian', 0.],
-                ['semi_major_axis', 6378137.],
-                ['inverse_flattening', 298.257223563],
+                ['semi_major_axis', ELLIPSOID_SEMI_MAJOR_AXIS],
+                ['inverse_flattening', ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'Geodetic lat/lon coordinate reference system.'],
@@ -1741,10 +1751,15 @@ class ScenePixc(Product):
 
     def __add__(self, other):
         """ Add other to self """
-
         klass = ScenePixc()
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
+        tvp_time = np.ma.concatenate((self.tvp.time, other.tvp.time))
+        [junk, rev_indx] = np.unique(tvp_time, return_inverse=True)
+        unsorted_pixc_line_to_tvp = np.ma.concatenate((
+            self.pixel_cloud.pixc_line_to_tvp,
+            len(self.tvp.time) + other.pixel_cloud.pixc_line_to_tvp)).astype(int)
+        klass.pixel_cloud.pixc_line_to_tvp = rev_indx[unsorted_pixc_line_to_tvp]
         return klass
 
 
@@ -1807,6 +1822,7 @@ class ScenePixelCloud(Product):
         ['geolocation_qual', odict([])],
         ['sig0_qual', odict([])],
         ['pixc_line_qual', odict([])],
+        ['pixc_line_to_tvp', odict([])]
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['points', 0]])
@@ -1859,9 +1875,23 @@ class ScenePixelCloud(Product):
         """ Add other to self """
         klass = ScenePixelCloud()
         klass.looks_to_efflooks = self.looks_to_efflooks
+        time = np.ma.concatenate((self.illumination_time, other.illumination_time))
+        indx = np.argsort(time)
         for key in klass.VARIABLES:
-            setattr(klass, key, np.ma.concatenate((
-                getattr(self, key), getattr(other, key))))
+            if key in ['pixc_line_qual', 'pixc_line_to_tvp']:
+                if self.illumination_time[0] <= other.illumination_time[0]:
+                    setattr(klass, key, np.ma.concatenate((
+                        getattr(self, key), getattr(other, key))))
+                else:
+                    setattr(klass, key, np.ma.concatenate((
+                        getattr(other, key), getattr(self, key))))
+            elif key in ['azimuth_index']:
+                setattr(klass, key, np.ma.concatenate((
+                    getattr(self, key), len(self.pixc_line_qual) + getattr(other, key)))[indx])
+            else:
+                setattr(klass, key, np.ma.concatenate((
+                    getattr(self, key), getattr(other, key)))[indx])
+
         return klass
 
 
@@ -1917,11 +1947,9 @@ class SceneTVP(Product):
 
     def __add__(self, other):
         """ Add other to self """
-
-        # discard overlapping TVP records
+        klass = SceneTVP()
         time = np.ma.concatenate((self.time, other.time))
         [junk, indx] = np.unique(time, return_index=True)
-        klass = SceneTVP()
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])

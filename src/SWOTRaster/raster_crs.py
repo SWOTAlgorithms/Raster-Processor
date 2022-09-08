@@ -8,6 +8,7 @@ Author(s): Alexander Corben
 
 import logging
 import argparse
+import warnings
 import numpy as np
 
 from osgeo import osr
@@ -15,6 +16,11 @@ from osgeo import osr
 WGS84_ID = 4326
 UTM_NUM_ZONES = 60
 MGRS_VALID_BANDS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+ELLIPSOID_SEMI_MAJOR_AXIS = 6378137.0
+ELLIPSOID_INVERSE_FLATTENING = 298.257223563
+ELLIPSOID_FLATTENING = 1.0/ELLIPSOID_INVERSE_FLATTENING
+ELLIPSOID_SEMI_MINOR_AXIS = ELLIPSOID_SEMI_MAJOR_AXIS*(1-ELLIPSOID_FLATTENING)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -148,4 +154,97 @@ def wgs84_crs():
 
 
 def lon_360to180(longitude):
+    # Converts 0-360 degree longitude to -180-180 degree longitude
     return np.mod(longitude + 180, 360) - 180
+
+
+def xyz2llh(xyz):
+    # Converts ECEF XYZ coordinates into LLH coordinates (in radians)
+    warnings.simplefilter("ignore")
+    llh = np.zeros_like(xyz)
+    def cbrt(x):
+        '''The cube root with negative handling.'''
+        sign = x/np.abs(x)
+        cbrt = sign*np.power(np.abs(x), 1.0/3)
+        return cbrt
+    # Use the WGS84 ellipsoid
+    f = ELLIPSOID_FLATTENING
+    e2 = f * (2.0 - f)
+    e4 = e2**2
+    a2 = (ELLIPSOID_SEMI_MAJOR_AXIS)**2
+
+    # This is the algorithm described in
+    # Vermeille H (2002) Direct transformation from geocentric
+    # coordinates to geodetic coordinates. J Geodesy 76: 451-454
+    # which is an exact solution and stable at the poles.
+    x = xyz[0]
+    y = xyz[1]
+    z = xyz[2]
+    hxy = np.hypot(x, y)
+    p = hxy**2 / a2
+    q = (1.0 - e2) * (z**2) / a2
+    r = (p + q - e4) / 6.0
+    s = e4 * p * q / (4.0 * r**3)
+    t = cbrt(1.0 + s + np.sqrt(s * (2.0 + s)))
+    u = r * (1.0 + t + 1.0/t)
+    v = np.sqrt(u**2 + e4*q)
+    w = e2 * (u + v - q) / (2.0 * v)
+    k = np.sqrt(u + v + w**2) - w
+    d = k * hxy / (k + e2)
+    hdz = np.hypot(d, z)
+
+    llh[0] = 2.0 * np.arctan(z / (d + hdz))
+    llh[1] = 2.0 * np.arctan2(y, (x + hxy))
+    llh[2] = (k + e2 - 1.0) / k * hdz
+
+    warnings.resetwarnings()
+    return llh
+
+
+def llh2xyz(llh):
+    # Converts LLH coordinates (in radians) into ECEF XYZ coordinates
+    warnings.simplefilter("ignore")
+    xyz = np.zeros_like(llh)
+    radius = ELLIPSOID_SEMI_MAJOR_AXIS
+    f = ELLIPSOID_FLATTENING
+    e2 = f * (2.0 - f)
+    sin_lat = np.sin(llh[0]);
+    cos_lat = np.cos(llh[0]);
+    radius_east = radius/np.sqrt(1.0 - e2*sin_lat**2)
+    xyz[0] = (radius_east + llh[2])*cos_lat*np.cos(llh[1])
+    xyz[1] = (radius_east + llh[2])*cos_lat*np.sin(llh[1])
+    xyz[2] = (radius_east*(1.0-e2) + llh[2])*sin_lat
+    warnings.resetwarnings()
+    return xyz
+
+def llh2bearing(llh0, llh1):
+    # Returns the bearing from one set of LLH coordinates to another set of LLH
+    # coordinates
+    x = np.cos(llh1[0])*np.sin(llh1[1]-llh0[1])
+    y = np.cos(llh0[0])*np.sin(llh1[0]) \
+        - np.sin(llh0[0])*np.cos(llh1[0])*np.cos(llh1[1]-llh0[1])
+    return np.arctan2(x,y)
+
+def terminal_loc_spherical(latitude, longitude, distance, bearing):
+    # Returns the latitude and longitude of a location at a given distance and
+    # bearing from the original point using a local spherical approximation to
+    # the ellipsoid
+
+    llh = np.row_stack((latitude, longitude, np.zeros_like(latitude)))
+    xyz = llh2xyz(llh)
+
+    alpha = distance/ELLIPSOID_SEMI_MAJOR_AXIS
+    ueast = np.row_stack((-np.sin(llh[1]), np.cos(llh[1]), 0))
+    unorth = np.row_stack((-np.sin(llh[0])*np.cos(llh[1]),
+                           -np.sin(llh[0])*np.sin(llh[1]),
+                           np.cos(llh[0])))
+    ub = unorth*np.cos(bearing)+ueast*np.sin(bearing)
+    uh = np.row_stack((np.cos(llh[0])*np.cos(llh[1]),
+                       np.cos(llh[0])*np.sin(llh[1]),
+                       np.sin(llh[0])))
+    sphere_center_pos = xyz-ELLIPSOID_SEMI_MAJOR_AXIS*uh
+    new_xyz = sphere_center_pos + ELLIPSOID_SEMI_MAJOR_AXIS \
+              * (uh*np.cos(alpha)+ub*np.sin(alpha))
+    new_llh = xyz2llh(new_xyz)
+    return new_llh[0][0], new_llh[1][0]
+

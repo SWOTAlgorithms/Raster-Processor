@@ -11,12 +11,12 @@ import numpy as np
 import SWOTWater.aggregate as ag
 import SWOTRaster.products as products
 import SWOTRaster.raster_crs as raster_crs
-import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from osgeo import osr
 from datetime import datetime
+from itertools import groupby
+from shapely.geometry import Point, Polygon
 from SWOTRaster.errors import RasterUsageException
-from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -196,6 +196,8 @@ class RasterProcessor(object):
         self.aggregate_sig0_qual(
             sig0_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
             sig0_qual_pixc_flag, bright_land_flag)
+        self.flag_large_karin_gaps(pixc)
+
         if self.projection_type == 'utm':
             self.aggregate_lat_lon(all_mask)
 
@@ -482,18 +484,16 @@ class RasterProcessor(object):
 
         if use_improved_geoloc:
             # Flatten ifgram with improved geoloc and height
-            target_xyz = geoloc.convert_llh2ecef(
-                pixc['pixel_cloud']['improved_latitude'],
-                pixc['pixel_cloud']['improved_longitude'],
-                pixc['pixel_cloud']['improved_height'],
-                GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+            target_xyz = raster_crs.llh2xyz((
+                np.deg2rad(pixc['pixel_cloud']['improved_latitude']),
+                np.deg2rad(pixc['pixel_cloud']['improved_longitude']),
+                pixc['pixel_cloud']['improved_height']))
         else:
             # Flatten ifgram with original geoloc and improved height
-            target_xyz = geoloc.convert_llh2ecef(
-                pixc['pixel_cloud']['latitude'],
-                pixc['pixel_cloud']['longitude'],
-                pixc['pixel_cloud']['improved_height'],
-                GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+            target_xyz = raster_crs.llh2xyz((
+                np.deg2rad(pixc['pixel_cloud']['latitude']),
+                np.deg2rad(pixc['pixel_cloud']['longitude']),
+                pixc['pixel_cloud']['improved_height']))
 
         pixc_ifgram = pixc['pixel_cloud']['interferogram']
         tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
@@ -1098,6 +1098,124 @@ class RasterProcessor(object):
                     self.sig0_qual_bitwise[i][j] += \
                         products.QUAL_IND_VALUE_BAD
 
+    def flag_large_karin_gaps(self, pixc):
+        """ Flag large karin gaps"""
+        LOGGER.info("flagging large karin gaps")
+
+        pixc_line_qual_meanings = \
+            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_meanings'].split()
+        pixc_line_qual_masks = \
+            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_masks']
+
+        pixc_line_qual_ind_large_karin_gap = pixc_line_qual_masks[
+            pixc_line_qual_meanings.index('large_karin_gap')]
+
+        pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual']
+        pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
+
+        tvp_x = pixc['tvp']['x']
+        tvp_y = pixc['tvp']['y']
+        tvp_z = pixc['tvp']['z']
+        tvp_plus_y_antenna_x = pixc['tvp']['plus_y_antenna_x']
+        tvp_plus_y_antenna_y = pixc['tvp']['plus_y_antenna_y']
+        tvp_plus_y_antenna_z = pixc['tvp']['plus_y_antenna_z']
+        tvp_minus_y_antenna_x = pixc['tvp']['minus_y_antenna_x']
+        tvp_minus_y_antenna_y = pixc['tvp']['minus_y_antenna_y']
+        tvp_minus_y_antenna_z = pixc['tvp']['minus_y_antenna_z']
+
+        tvp_qual_mask = np.ma.zeros(tvp_x.shape, dtype=bool)
+        # Flag tvp qual as a gap if it is outside the pixc tvp index range
+        # TODO: Check that this isn't going to just flag pixels on every first and last line...
+        tvp_qual_mask[:min(pixc_tvp_index)] = True
+        tvp_qual_mask[max(pixc_tvp_index)+1:] = True
+        tvp_qual_mask[pixc_tvp_index[
+            (pixc_line_qual & pixc_line_qual_ind_large_karin_gap) > 0]] = True
+
+        transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
+        large_karin_gap_polygons = []
+        for k, g in groupby(pixc_tvp_index, lambda x: tvp_qual_mask[x]==True):
+            if k:
+                poly = []
+                group_idxs = list(g)
+                start_idx = group_idxs[0]
+                end_idx = group_idxs[-1]
+                start_llh = raster_crs.xyz2llh((
+                    tvp_x[start_idx],
+                    tvp_y[start_idx],
+                    tvp_z[start_idx]))
+                start_minus_y_antenna_llh = raster_crs.xyz2llh((
+                    tvp_minus_y_antenna_x[start_idx],
+                    tvp_minus_y_antenna_y[start_idx],
+                    tvp_minus_y_antenna_z[start_idx]))
+                start_plus_y_antenna_llh = raster_crs.xyz2llh((
+                    tvp_plus_y_antenna_x[start_idx],
+                    tvp_plus_y_antenna_y[start_idx],
+                    tvp_plus_y_antenna_z[start_idx]))
+                start_minus_y_antenna_bearing = raster_crs.llh2bearing(
+                    start_llh, start_minus_y_antenna_llh)
+                start_plus_y_antenna_bearing = raster_crs.llh2bearing(
+                    start_llh, start_plus_y_antenna_llh)
+
+                end_llh = raster_crs.xyz2llh((
+                    tvp_x[end_idx],
+                    tvp_y[end_idx],
+                    tvp_z[end_idx]))
+                end_minus_y_antenna_llh = raster_crs.xyz2llh((
+                    tvp_minus_y_antenna_x[end_idx],
+                    tvp_minus_y_antenna_y[end_idx],
+                    tvp_minus_y_antenna_z[end_idx]))
+                end_plus_y_antenna_llh = raster_crs.xyz2llh((
+                    tvp_plus_y_antenna_x[end_idx],
+                    tvp_plus_y_antenna_y[end_idx],
+                    tvp_plus_y_antenna_z[end_idx]))
+                end_minus_y_antenna_bearing = raster_crs.llh2bearing(
+                    end_llh, end_minus_y_antenna_llh)
+                end_plus_y_antenna_bearing = raster_crs.llh2bearing(
+                    end_llh, end_plus_y_antenna_llh)
+
+                poly_points_rad = [
+                    raster_crs.terminal_loc_spherical(
+                        start_llh[0], start_llh[1],
+                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        start_minus_y_antenna_bearing),
+                    raster_crs.terminal_loc_spherical(
+                        start_llh[0], start_llh[1],
+                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        start_plus_y_antenna_bearing),
+                    raster_crs.terminal_loc_spherical(
+                        end_llh[0], end_llh[1],
+                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        end_plus_y_antenna_bearing),
+                    raster_crs.terminal_loc_spherical(
+                        end_llh[0], end_llh[1],
+                        products.LARGE_KARIN_GAP_POLY_CT_DIST,
+                        end_minus_y_antenna_bearing)]
+
+
+                poly_points_deg = [np.rad2deg(point) for point in poly_points_rad]
+                transf_poly_points = [point[:2] for point in
+                                      transf.TransformPoints(poly_points_deg)]
+
+                large_karin_gap_polygons.append(transf_poly_points)
+
+        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
+        y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
+        mask = np.zeros((self.size_y, self.size_x))
+        for this_polygon_points in large_karin_gap_polygons:
+            poly = Polygon(this_polygon_points)
+            for i in range(0, self.size_y):
+                for j in range(0, self.size_x):
+                    if Point((x_vec[j], y_vec[i])).within(poly):
+                        mask[i][j] = True
+
+        # Mask the datasets and flag
+        wse_mask = np.logical_and(self.wse.mask, mask)
+        water_area_mask = np.logical_and(self.water_area.mask, mask)
+        sig0_mask = np.logical_and(self.sig0.mask, mask)
+        self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+
     def aggregate_lat_lon(self, rasterization_mask):
         """ Aggregate latitude and longitude """
         LOGGER.info("aggregating latitude and longitude")
@@ -1105,8 +1223,7 @@ class RasterProcessor(object):
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
 
-        transf = osr.CoordinateTransformation(self.output_crs,
-                                              self.input_crs)
+        transf = osr.CoordinateTransformation(self.output_crs, self.input_crs)
 
         self.latitude = np.ma.masked_all((self.size_y, self.size_x))
         self.longitude = np.ma.masked_all((self.size_y, self.size_x))
