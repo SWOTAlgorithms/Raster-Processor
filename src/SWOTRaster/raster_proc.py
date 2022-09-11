@@ -1213,8 +1213,8 @@ class RasterProcessor(object):
         sig0_mask = np.logical_and(self.sig0.mask, mask)
 
         self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
-        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
-        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.water_area_qual_bitwise[water_area_mask] += products.QUAL_IND_LARGE_KARIN_GAP
+        self.sig0_qual_bitwise[sig0_mask] += products.QUAL_IND_LARGE_KARIN_GAP
 
     def flag_inner_swath(self, pixc):
         """ Flag inner swath"""
@@ -1254,8 +1254,8 @@ class RasterProcessor(object):
         sig0_mask = np.logical_and(self.sig0.mask, mask)
 
         self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
-        self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
-        self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
+        self.water_area_qual_bitwise[water_area_mask] += products.QUAL_IND_INNER_SWATH
+        self.sig0_qual_bitwise[sig0_mask] += products.QUAL_IND_INNER_SWATH
 
     def get_polygon_from_tvp(self, sc_xyz, minus_y_antenna_xyz,
                              plus_y_antenna_xyz, sc_velocity_heading,
