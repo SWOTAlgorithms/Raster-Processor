@@ -1107,96 +1107,91 @@ class RasterProcessor(object):
             pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_meanings'].split()
         pixc_line_qual_masks = \
             pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_masks']
-
         pixc_line_qual_ind_large_karin_gap = pixc_line_qual_masks[
             pixc_line_qual_meanings.index('large_karin_gap')]
 
         pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual']
         pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
 
-        tvp_x = pixc['tvp']['x']
-        tvp_y = pixc['tvp']['y']
-        tvp_z = pixc['tvp']['z']
-        tvp_plus_y_antenna_x = pixc['tvp']['plus_y_antenna_x']
-        tvp_plus_y_antenna_y = pixc['tvp']['plus_y_antenna_y']
-        tvp_plus_y_antenna_z = pixc['tvp']['plus_y_antenna_z']
-        tvp_minus_y_antenna_x = pixc['tvp']['minus_y_antenna_x']
-        tvp_minus_y_antenna_y = pixc['tvp']['minus_y_antenna_y']
-        tvp_minus_y_antenna_z = pixc['tvp']['minus_y_antenna_z']
+        tvp_velocity_heading = pixc['tvp']['velocity_heading']
+        tvp_xyz = np.row_stack((
+            pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
+        tvp_minus_y_antenna_xyz = np.row_stack((
+            pixc['tvp']['minus_y_antenna_x'], pixc['tvp']['minus_y_antenna_y'],
+            pixc['tvp']['minus_y_antenna_z']))
+        tvp_plus_y_antenna_xyz = np.row_stack((
+            pixc['tvp']['plus_y_antenna_x'], pixc['tvp']['plus_y_antenna_y'],
+            pixc['tvp']['plus_y_antenna_z']))
 
-        tvp_qual_mask = np.ma.zeros(tvp_x.shape, dtype=bool)
+        tvp_qual_mask = np.ma.zeros(tvp_velocity_heading.shape, dtype=bool)
         # Flag tvp qual as a gap if it is outside the pixc tvp index range
-        # TODO: Check that this isn't going to just flag pixels on every first and last line...
+        # TODO: Check flagging at edges
         tvp_qual_mask[:min(pixc_tvp_index)] = True
         tvp_qual_mask[max(pixc_tvp_index)+1:] = True
         tvp_qual_mask[pixc_tvp_index[
             (pixc_line_qual & pixc_line_qual_ind_large_karin_gap) > 0]] = True
 
         transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
+
         large_karin_gap_polygons = []
+
+        # Always flag the areas before and after tvp as karin gaps
+        idx = 0
+        group_tvp_xyz = np.column_stack([tvp_xyz[:,idx], tvp_xyz[:,idx]])
+        group_tvp_minus_y_antenna_xyz = np.column_stack(
+            [tvp_minus_y_antenna_xyz[:,idx],
+             tvp_minus_y_antenna_xyz[:,idx]])
+        group_tvp_plus_y_antenna_xyz = np.column_stack(
+            [tvp_plus_y_antenna_xyz[:,idx],
+             tvp_plus_y_antenna_xyz[:,idx]])
+        group_tvp_velocity_heading = np.array(
+            [tvp_velocity_heading[idx],
+             tvp_velocity_heading[idx]])
+        large_karin_gap_polygons.append(self.get_polygon_from_tvp(
+            group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
+            group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
+            products.POLYGON_EXTENT_DIST,
+            alongtrack_start_buffer_dist=products.POLYGON_EXTENT_DIST))
+
+        idx = len(tvp_velocity_heading)-1
+        group_tvp_xyz = np.column_stack([tvp_xyz[:,idx], tvp_xyz[:,idx]])
+        group_tvp_minus_y_antenna_xyz = np.column_stack(
+            [tvp_minus_y_antenna_xyz[:,idx],
+             tvp_minus_y_antenna_xyz[:,idx]])
+        group_tvp_plus_y_antenna_xyz = np.column_stack(
+            [tvp_plus_y_antenna_xyz[:,idx],
+             tvp_plus_y_antenna_xyz[:,idx]])
+        group_tvp_velocity_heading = np.array(
+            [tvp_velocity_heading[idx],
+             tvp_velocity_heading[idx]])
+        large_karin_gap_polygons.append(self.get_polygon_from_tvp(
+            group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
+            group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
+            products.POLYGON_EXTENT_DIST,
+            alongtrack_end_buffer_dist=products.POLYGON_EXTENT_DIST))
+
+        # Flag any areas flagged as large gaps in the pixc_line qual
         for k, g in groupby(pixc_tvp_index, lambda x: tvp_qual_mask[x]==True):
             if k:
-                poly = []
                 group_idxs = list(g)
                 start_idx = group_idxs[0]
                 end_idx = group_idxs[-1]
-                start_llh = raster_crs.xyz2llh((
-                    tvp_x[start_idx],
-                    tvp_y[start_idx],
-                    tvp_z[start_idx]))
-                start_minus_y_antenna_llh = raster_crs.xyz2llh((
-                    tvp_minus_y_antenna_x[start_idx],
-                    tvp_minus_y_antenna_y[start_idx],
-                    tvp_minus_y_antenna_z[start_idx]))
-                start_plus_y_antenna_llh = raster_crs.xyz2llh((
-                    tvp_plus_y_antenna_x[start_idx],
-                    tvp_plus_y_antenna_y[start_idx],
-                    tvp_plus_y_antenna_z[start_idx]))
-                start_minus_y_antenna_bearing = raster_crs.llh2bearing(
-                    start_llh, start_minus_y_antenna_llh)
-                start_plus_y_antenna_bearing = raster_crs.llh2bearing(
-                    start_llh, start_plus_y_antenna_llh)
-
-                end_llh = raster_crs.xyz2llh((
-                    tvp_x[end_idx],
-                    tvp_y[end_idx],
-                    tvp_z[end_idx]))
-                end_minus_y_antenna_llh = raster_crs.xyz2llh((
-                    tvp_minus_y_antenna_x[end_idx],
-                    tvp_minus_y_antenna_y[end_idx],
-                    tvp_minus_y_antenna_z[end_idx]))
-                end_plus_y_antenna_llh = raster_crs.xyz2llh((
-                    tvp_plus_y_antenna_x[end_idx],
-                    tvp_plus_y_antenna_y[end_idx],
-                    tvp_plus_y_antenna_z[end_idx]))
-                end_minus_y_antenna_bearing = raster_crs.llh2bearing(
-                    end_llh, end_minus_y_antenna_llh)
-                end_plus_y_antenna_bearing = raster_crs.llh2bearing(
-                    end_llh, end_plus_y_antenna_llh)
-
-                poly_points_rad = [
-                    raster_crs.terminal_loc_spherical(
-                        start_llh[0], start_llh[1],
-                        products.POLYGON_EXTENT_DIST,
-                        start_minus_y_antenna_bearing),
-                    raster_crs.terminal_loc_spherical(
-                        start_llh[0], start_llh[1],
-                        products.POLYGON_EXTENT_DIST,
-                        start_plus_y_antenna_bearing),
-                    raster_crs.terminal_loc_spherical(
-                        end_llh[0], end_llh[1],
-                        products.POLYGON_EXTENT_DIST,
-                        end_plus_y_antenna_bearing),
-                    raster_crs.terminal_loc_spherical(
-                        end_llh[0], end_llh[1],
-                        products.POLYGON_EXTENT_DIST,
-                        end_minus_y_antenna_bearing)]
-
-
-                poly_points_deg = [np.rad2deg(point) for point in poly_points_rad]
-                transf_poly_points = [point[:2] for point in
-                                      transf.TransformPoints(poly_points_deg)]
-                large_karin_gap_polygons.append(transf_poly_points)
+                group_tvp_xyz = np.column_stack(
+                    [tvp_xyz[:,start_idx],
+                     tvp_xyz[:,end_idx]])
+                group_tvp_minus_y_antenna_xyz = np.column_stack(
+                    [tvp_minus_y_antenna_xyz[:,start_idx],
+                     tvp_minus_y_antenna_xyz[:,end_idx]])
+                group_tvp_plus_y_antenna_xyz = np.column_stack(
+                    [tvp_plus_y_antenna_xyz[:,start_idx],
+                     tvp_plus_y_antenna_xyz[:,end_idx]])
+                group_tvp_velocity_heading = np.array(
+                    [tvp_velocity_heading[start_idx],
+                     tvp_velocity_heading[end_idx]])
+                large_karin_gap_polygons.append(self.get_polygon_from_tvp(
+                    group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
+                    group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
+                    products.POLYGON_EXTENT_DIST))
 
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
@@ -1206,10 +1201,10 @@ class RasterProcessor(object):
             for i in range(0, self.size_y):
                 for j in range(0, self.size_x):
                     if self.projection_type == 'geo': # Geo y coord is first
-                        if Point((y_vec[i], x_vec[j])).within(poly):
+                        if Point((y_vec[i], x_vec[j])).intersects(poly):
                             mask[i][j] = True
                     else:
-                        if Point((x_vec[j], y_vec[i])).within(poly):
+                        if Point((x_vec[j], y_vec[i])).intersects(poly):
                             mask[i][j] = True
 
         # Mask the datasets and flag
@@ -1226,67 +1221,19 @@ class RasterProcessor(object):
         LOGGER.info("flagging inner swath")
 
         tvp_velocity_heading = pixc['tvp']['velocity_heading']
-        tvp_x = pixc['tvp']['x']
-        tvp_y = pixc['tvp']['y']
-        tvp_z = pixc['tvp']['z']
-        tvp_plus_y_antenna_x = pixc['tvp']['plus_y_antenna_x']
-        tvp_plus_y_antenna_y = pixc['tvp']['plus_y_antenna_y']
-        tvp_plus_y_antenna_z = pixc['tvp']['plus_y_antenna_z']
-        tvp_minus_y_antenna_x = pixc['tvp']['minus_y_antenna_x']
-        tvp_minus_y_antenna_y = pixc['tvp']['minus_y_antenna_y']
-        tvp_minus_y_antenna_z = pixc['tvp']['minus_y_antenna_z']
+        tvp_xyz = np.row_stack((
+            pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
+        tvp_minus_y_antenna_xyz = np.row_stack((
+            pixc['tvp']['minus_y_antenna_x'], pixc['tvp']['minus_y_antenna_y'],
+            pixc['tvp']['minus_y_antenna_z']))
+        tvp_plus_y_antenna_xyz = np.row_stack((
+            pixc['tvp']['plus_y_antenna_x'], pixc['tvp']['plus_y_antenna_y'],
+            pixc['tvp']['plus_y_antenna_z']))
 
-        transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
-        inner_swath_polygon_minus = []
-        inner_swath_polygon_plus = []
-        for idx in range(len(tvp_x)):
-            llh = raster_crs.xyz2llh((
-                tvp_x[idx],
-                tvp_y[idx],
-                tvp_z[idx]))
-            minus_y_antenna_llh = raster_crs.xyz2llh((
-                tvp_minus_y_antenna_x[idx],
-                tvp_minus_y_antenna_y[idx],
-                tvp_minus_y_antenna_z[idx]))
-            plus_y_antenna_llh = raster_crs.xyz2llh((
-                tvp_plus_y_antenna_x[idx],
-                tvp_plus_y_antenna_y[idx],
-                tvp_plus_y_antenna_z[idx]))
-            minus_y_antenna_bearing = raster_crs.llh2bearing(
-                llh, minus_y_antenna_llh)
-            plus_y_antenna_bearing = raster_crs.llh2bearing(
-                llh, plus_y_antenna_llh)
-
-            if idx == 0:
-                llh = raster_crs.terminal_loc_spherical(
-                    llh[0], llh[1],
-                    products.POLYGON_EXTENT_DIST,
-                    np.deg2rad(np.mod(tvp_velocity_heading[idx]-180, 360)))
-            elif idx == len(tvp_x)-1:
-                llh = raster_crs.terminal_loc_spherical(
-                    llh[0], llh[1],
-                    products.POLYGON_EXTENT_DIST,
-                    np.deg2rad(np.mod(tvp_velocity_heading[idx], 360)))
-
-            poly_points_rad = [
-                raster_crs.terminal_loc_spherical(
-                    llh[0], llh[1],
-                    self.near_range_suspect_thresh, # TODO: make this a different threshold?
-                    minus_y_antenna_bearing),
-                raster_crs.terminal_loc_spherical(
-                    llh[0], llh[1],
-                    self.near_range_suspect_thresh,
-                    plus_y_antenna_bearing)]
-
-
-            poly_points_deg = [np.rad2deg(point) for point in poly_points_rad]
-            transf_poly_points = [point[:2] for point in
-                                  transf.TransformPoints(poly_points_deg)]
-            inner_swath_polygon_minus.append(transf_poly_points[0])
-            inner_swath_polygon_plus.append(transf_poly_points[1])
-
-        inner_swath_polygon = inner_swath_polygon_minus \
-                              + inner_swath_polygon_plus[::-1]
+        inner_swath_polygon = self.get_polygon_from_tvp(
+            tvp_xyz, tvp_minus_y_antenna_xyz, tvp_plus_y_antenna_xyz,
+            tvp_velocity_heading, self.near_range_suspect_thresh,
+            products.POLYGON_EXTENT_DIST, products.POLYGON_EXTENT_DIST)
 
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
@@ -1295,10 +1242,10 @@ class RasterProcessor(object):
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
                 if self.projection_type == 'geo': # Geo y coord is first
-                    if Point((y_vec[i], x_vec[j])).within(poly):
+                    if Point((y_vec[i], x_vec[j])).intersects(poly):
                         mask[i][j] = True
                 else:
-                    if Point((x_vec[j], y_vec[i])).within(poly):
+                    if Point((x_vec[j], y_vec[i])).intersects(poly):
                         mask[i][j] = True
 
         # Mask the datasets and flag
@@ -1309,6 +1256,82 @@ class RasterProcessor(object):
         self.wse_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
         self.water_area_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
         self.sig0_qual_bitwise[wse_mask] += products.QUAL_IND_INNER_SWATH
+
+    def get_polygon_from_tvp(self, sc_xyz, minus_y_antenna_xyz,
+                             plus_y_antenna_xyz, sc_velocity_heading,
+                             crosstrack_dist,
+                             alongtrack_start_buffer_dist=None,
+                             alongtrack_end_buffer_dist=None):
+        """ Get polygon points from tvp points """
+        LOGGER.info("getting polyon from tvp")
+
+        transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
+
+        polygon_minus_y = []
+        polygon_plus_y = []
+        for idx in range(sc_xyz.shape[1]):
+            sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
+            minus_y_antenna_llh = raster_crs.xyz2llh(
+                minus_y_antenna_xyz[:,idx])
+            plus_y_antenna_llh = raster_crs.xyz2llh(
+                plus_y_antenna_xyz[:,idx])
+            minus_y_antenna_bearing = raster_crs.llh2bearing(
+                sc_llh, minus_y_antenna_llh)
+            plus_y_antenna_bearing = raster_crs.llh2bearing(
+                sc_llh, plus_y_antenna_llh)
+
+            minus_y_points_rad = \
+                [raster_crs.terminal_loc_spherical(
+                    sc_llh[0], sc_llh[1], crosstrack_dist,
+                    minus_y_antenna_bearing)]
+            plus_y_points_rad = \
+                [raster_crs.terminal_loc_spherical(
+                    sc_llh[0], sc_llh[1], crosstrack_dist,
+                    plus_y_antenna_bearing)]
+
+            if idx == 0 and alongtrack_start_buffer_dist is not None:
+                sc_llh_buffer = raster_crs.terminal_loc_spherical(
+                    sc_llh[0], sc_llh[1], alongtrack_start_buffer_dist,
+                    np.deg2rad(np.mod(sc_velocity_heading[idx]-180, 360)))
+                minus_y_points_rad = \
+                    [raster_crs.terminal_loc_spherical(
+                        sc_llh_buffer[0], sc_llh_buffer[1], crosstrack_dist,
+                        minus_y_antenna_bearing)] + minus_y_points_rad
+                plus_y_points_rad = \
+                    [raster_crs.terminal_loc_spherical(
+                        sc_llh_buffer[0], sc_llh_buffer[1], crosstrack_dist,
+                        plus_y_antenna_bearing)] + plus_y_points_rad
+
+            if idx == sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
+                sc_llh_buffer = raster_crs.terminal_loc_spherical(
+                    sc_llh[0], sc_llh[1], alongtrack_end_buffer_dist,
+                    np.deg2rad(np.mod(sc_velocity_heading[idx], 360)))
+                minus_y_points_rad = \
+                    minus_y_points_rad \
+                    + [raster_crs.terminal_loc_spherical(
+                        sc_llh_buffer[0], sc_llh_buffer[1], crosstrack_dist,
+                        minus_y_antenna_bearing)]
+                plus_y_points_rad = \
+                    plus_y_points_rad \
+                    + [raster_crs.terminal_loc_spherical(
+                        sc_llh_buffer[0], sc_llh_buffer[1], crosstrack_dist,
+                        plus_y_antenna_bearing)]
+
+            minus_y_points_deg = [
+                np.rad2deg(point) for point in minus_y_points_rad]
+            plus_y_points_deg = [
+                np.rad2deg(point) for point in plus_y_points_rad]
+
+            transf_minus_y_points = [point[:2] for point in
+                                     transf.TransformPoints(minus_y_points_deg)]
+            transf_plus_y_points = [point[:2] for point in
+                                    transf.TransformPoints(plus_y_points_deg)]
+
+            polygon_minus_y.extend(transf_minus_y_points)
+            polygon_plus_y.extend(transf_plus_y_points)
+
+        polygon = polygon_minus_y + polygon_plus_y[::-1]
+        return polygon
 
     def aggregate_lat_lon(self, rasterization_mask):
         """ Aggregate latitude and longitude """

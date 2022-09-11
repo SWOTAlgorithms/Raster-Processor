@@ -1131,11 +1131,11 @@ class RasterUTM(Product):
         swath_polygon_points_utm = [point[:2] for point in transf_points]
         poly = Polygon(swath_polygon_points_utm)
 
-        # Check whether each pixel center is within the polygon
+        # Check whether each pixel center intersects with the polygon
         mask = np.zeros((self.dimensions['y'], self.dimensions['x']))
         for i in range(0, self.dimensions['y']):
             for j in range(0, self.dimensions['x']):
-                if Point((self.x[j], self.y[i])).within(poly):
+                if Point((self.x[j], self.y[i])).intersects(poly):
                     mask[i][j] = True
 
         # Mask the datasets
@@ -1380,12 +1380,12 @@ class RasterGeo(Product):
 
         poly = Polygon(swath_polygon_points)
 
-        # Check whether each pixel center is within the polygon
+        # Check whether each pixel center intersects with the polygon
         mask = np.zeros((self.dimensions['latitude'],
                          self.dimensions['longitude']))
         for i in range(0, self.dimensions['latitude']):
             for j in range(0, self.dimensions['longitude']):
-                if Point((self.latitude[i], self.longitude[j])).within(poly):
+                if Point((self.latitude[i], self.longitude[j])).intersects(poly):
                     mask[i][j] = True
 
         # Mask the datasets
