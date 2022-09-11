@@ -1200,12 +1200,8 @@ class RasterProcessor(object):
             poly = Polygon(this_polygon_points)
             for i in range(0, self.size_y):
                 for j in range(0, self.size_x):
-                    if self.projection_type == 'geo': # Geo y coord is first
-                        if Point((y_vec[i], x_vec[j])).intersects(poly):
-                            mask[i][j] = True
-                    else:
-                        if Point((x_vec[j], y_vec[i])).intersects(poly):
-                            mask[i][j] = True
+                    if Point((x_vec[j], y_vec[i])).intersects(poly):
+                        mask[i][j] = True
 
         # Mask the datasets and flag
         wse_mask = np.logical_and(self.wse.mask, mask)
@@ -1233,7 +1229,8 @@ class RasterProcessor(object):
         inner_swath_polygon = self.get_polygon_from_tvp(
             tvp_xyz, tvp_minus_y_antenna_xyz, tvp_plus_y_antenna_xyz,
             tvp_velocity_heading, self.near_range_suspect_thresh,
-            products.POLYGON_EXTENT_DIST, products.POLYGON_EXTENT_DIST)
+            products.POLYGON_EXTENT_DIST, products.POLYGON_EXTENT_DIST,
+            products.TVP_POLYGON_DOWNSAMPLE_RATE)
 
         x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
@@ -1241,12 +1238,8 @@ class RasterProcessor(object):
         poly = Polygon(inner_swath_polygon)
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
-                if self.projection_type == 'geo': # Geo y coord is first
-                    if Point((y_vec[i], x_vec[j])).intersects(poly):
-                        mask[i][j] = True
-                else:
-                    if Point((x_vec[j], y_vec[i])).intersects(poly):
-                        mask[i][j] = True
+                if Point((x_vec[j], y_vec[i])).intersects(poly):
+                    mask[i][j] = True
 
         # Mask the datasets and flag
         wse_mask = np.logical_and(self.wse.mask, mask)
@@ -1261,7 +1254,8 @@ class RasterProcessor(object):
                              plus_y_antenna_xyz, sc_velocity_heading,
                              crosstrack_dist,
                              alongtrack_start_buffer_dist=None,
-                             alongtrack_end_buffer_dist=None):
+                             alongtrack_end_buffer_dist=None,
+                             downsample_rate=None):
         """ Get polygon points from tvp points """
         LOGGER.info("getting polyon from tvp")
 
@@ -1269,7 +1263,13 @@ class RasterProcessor(object):
 
         polygon_minus_y = []
         polygon_plus_y = []
-        for idx in range(sc_xyz.shape[1]):
+        if downsample_rate is not None:
+            idx_vec = np.arange(0, sc_xyz.shape[1], downsample_rate)
+            if idx_vec[-1] != sc_xyz.shape[1]-1:
+                idx_vec = np.append(idx_vec, sc_xyz.shape[1]-1)
+        else:
+            idx_vec = np.arange(sc_xyz.shape[1])
+        for idx in idx_vec:
             sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
             minus_y_antenna_llh = raster_crs.xyz2llh(
                 minus_y_antenna_xyz[:,idx])
@@ -1331,6 +1331,12 @@ class RasterProcessor(object):
             polygon_plus_y.extend(transf_plus_y_points)
 
         polygon = polygon_minus_y + polygon_plus_y[::-1]
+
+        # if geodetic, swap lat and lon so that the e/w and n/s coords are
+        # always in the same order regardless of projection
+        if self.projection_type == 'geo':
+            polygon = [(point[1], point[0])for point in polygon]
+
         return polygon
 
     def aggregate_lat_lon(self, rasterization_mask):
