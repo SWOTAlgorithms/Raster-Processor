@@ -1130,7 +1130,7 @@ class RasterProcessor(object):
             pixc['tvp']['plus_y_antenna_x'], pixc['tvp']['plus_y_antenna_y'],
             pixc['tvp']['plus_y_antenna_z']))
 
-        tvp_qual_mask = np.ma.zeros(tvp_velocity_heading.shape, dtype=bool)
+        tvp_qual_mask = np.ma.zeros(tvp_time.shape, dtype=bool)
         # Flag tvp qual as a gap if it is outside the pixc tvp index range
         tvp_qual_mask[:min(pixc_tvp_index)] = True
         tvp_qual_mask[max(pixc_tvp_index)+1:] = True
@@ -1141,7 +1141,7 @@ class RasterProcessor(object):
 
         no_gap_polygons = []
         # Create polygons for areas that have no gaps in the pixc_line qual
-        for k, g in groupby(pixc_tvp_index, lambda x: tvp_qual_mask[x]==True):
+        for k, g in groupby(np.arange(len(tvp_time)), lambda x: tvp_qual_mask[x]):
             if not k:
                 group_idxs = list(g)
                 group_times = tvp_time[group_idxs]
