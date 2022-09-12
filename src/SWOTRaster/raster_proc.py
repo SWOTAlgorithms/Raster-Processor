@@ -8,6 +8,8 @@ Author (s): Shuai Zhang (UNC) and Alexander Corben (JPL)
 
 import logging
 import numpy as np
+import rasterio.features
+import rasterio.transform
 import SWOTWater.aggregate as ag
 import SWOTRaster.products as products
 import SWOTRaster.raster_crs as raster_crs
@@ -15,8 +17,9 @@ import SWOTRaster.raster_crs as raster_crs
 from osgeo import osr
 from datetime import datetime
 from itertools import groupby
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
 from SWOTRaster.errors import RasterUsageException
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,7 @@ class RasterProcessor(object):
                  wse_bad_thresh_min, wse_bad_thresh_max,
                  water_frac_bad_thresh_min, water_frac_bad_thresh_max,
                  sig0_bad_thresh_min, sig0_bad_thresh_max,
+                 large_karin_gap_time_thresh,
                  utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
 
         self.projection_type = projection_type
@@ -91,6 +95,8 @@ class RasterProcessor(object):
         self.water_frac_bad_thresh_max = water_frac_bad_thresh_max
         self.sig0_bad_thresh_min = sig0_bad_thresh_min
         self.sig0_bad_thresh_max = sig0_bad_thresh_max
+
+        self.large_karin_gap_time_thresh = large_karin_gap_time_thresh
 
         self.debug_flag = debug_flag
 
@@ -1113,6 +1119,7 @@ class RasterProcessor(object):
         pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual']
         pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
 
+        tvp_time = pixc['tvp']['time']
         tvp_velocity_heading = pixc['tvp']['velocity_heading']
         tvp_xyz = np.row_stack((
             pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
@@ -1125,7 +1132,6 @@ class RasterProcessor(object):
 
         tvp_qual_mask = np.ma.zeros(tvp_velocity_heading.shape, dtype=bool)
         # Flag tvp qual as a gap if it is outside the pixc tvp index range
-        # TODO: Check flagging at edges
         tvp_qual_mask[:min(pixc_tvp_index)] = True
         tvp_qual_mask[max(pixc_tvp_index)+1:] = True
         tvp_qual_mask[pixc_tvp_index[
@@ -1133,75 +1139,43 @@ class RasterProcessor(object):
 
         transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
 
-        large_karin_gap_polygons = []
-
-        # Always flag the areas before and after tvp as karin gaps
-        idx = 0
-        group_tvp_xyz = np.column_stack([tvp_xyz[:,idx], tvp_xyz[:,idx]])
-        group_tvp_minus_y_antenna_xyz = np.column_stack(
-            [tvp_minus_y_antenna_xyz[:,idx],
-             tvp_minus_y_antenna_xyz[:,idx]])
-        group_tvp_plus_y_antenna_xyz = np.column_stack(
-            [tvp_plus_y_antenna_xyz[:,idx],
-             tvp_plus_y_antenna_xyz[:,idx]])
-        group_tvp_velocity_heading = np.array(
-            [tvp_velocity_heading[idx],
-             tvp_velocity_heading[idx]])
-        large_karin_gap_polygons.append(self.get_polygon_from_tvp(
-            group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
-            group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
-            products.POLYGON_EXTENT_DIST,
-            alongtrack_start_buffer_dist=products.POLYGON_EXTENT_DIST))
-
-        idx = len(tvp_velocity_heading)-1
-        group_tvp_xyz = np.column_stack([tvp_xyz[:,idx], tvp_xyz[:,idx]])
-        group_tvp_minus_y_antenna_xyz = np.column_stack(
-            [tvp_minus_y_antenna_xyz[:,idx],
-             tvp_minus_y_antenna_xyz[:,idx]])
-        group_tvp_plus_y_antenna_xyz = np.column_stack(
-            [tvp_plus_y_antenna_xyz[:,idx],
-             tvp_plus_y_antenna_xyz[:,idx]])
-        group_tvp_velocity_heading = np.array(
-            [tvp_velocity_heading[idx],
-             tvp_velocity_heading[idx]])
-        large_karin_gap_polygons.append(self.get_polygon_from_tvp(
-            group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
-            group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
-            products.POLYGON_EXTENT_DIST,
-            alongtrack_end_buffer_dist=products.POLYGON_EXTENT_DIST))
-
-        # Flag any areas flagged as large gaps in the pixc_line qual
+        no_gap_polygons = []
+        # Create polygons for areas that have no gaps in the pixc_line qual
         for k, g in groupby(pixc_tvp_index, lambda x: tvp_qual_mask[x]==True):
-            if k:
+            if not k:
                 group_idxs = list(g)
-                start_idx = group_idxs[0]
-                end_idx = group_idxs[-1]
-                group_tvp_xyz = np.column_stack(
-                    [tvp_xyz[:,start_idx],
-                     tvp_xyz[:,end_idx]])
-                group_tvp_minus_y_antenna_xyz = np.column_stack(
-                    [tvp_minus_y_antenna_xyz[:,start_idx],
-                     tvp_minus_y_antenna_xyz[:,end_idx]])
-                group_tvp_plus_y_antenna_xyz = np.column_stack(
-                    [tvp_plus_y_antenna_xyz[:,start_idx],
-                     tvp_plus_y_antenna_xyz[:,end_idx]])
-                group_tvp_velocity_heading = np.array(
-                    [tvp_velocity_heading[start_idx],
-                     tvp_velocity_heading[end_idx]])
-                large_karin_gap_polygons.append(self.get_polygon_from_tvp(
-                    group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
-                    group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
-                    products.POLYGON_EXTENT_DIST))
+                group_times = tvp_time[group_idxs]
+                for segment, _ in self._group_by_diff(
+                        group_idxs, self.large_karin_gap_time_thresh,
+                        key=group_times):
+                    start_idx = segment[0]
+                    end_idx = segment[-1]
+                    group_tvp_xyz = np.column_stack(
+                        [tvp_xyz[:,start_idx],
+                         tvp_xyz[:,end_idx]])
+                    group_tvp_minus_y_antenna_xyz = np.column_stack(
+                        [tvp_minus_y_antenna_xyz[:,start_idx],
+                         tvp_minus_y_antenna_xyz[:,end_idx]])
+                    group_tvp_plus_y_antenna_xyz = np.column_stack(
+                        [tvp_plus_y_antenna_xyz[:,start_idx],
+                         tvp_plus_y_antenna_xyz[:,end_idx]])
+                    group_tvp_velocity_heading = np.array(
+                        [tvp_velocity_heading[start_idx],
+                         tvp_velocity_heading[end_idx]])
+                    no_gap_polygons.append(self.get_polygon_from_tvp(
+                        group_tvp_xyz, group_tvp_minus_y_antenna_xyz,
+                        group_tvp_plus_y_antenna_xyz, group_tvp_velocity_heading,
+                        products.POLYGON_EXTENT_DIST))
 
-        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
-        y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
-        mask = np.zeros((self.size_y, self.size_x))
-        for this_polygon_points in large_karin_gap_polygons:
-            poly = Polygon(this_polygon_points)
-            for i in range(0, self.size_y):
-                for j in range(0, self.size_x):
-                    if Point((x_vec[j], y_vec[i])).intersects(poly):
-                        mask[i][j] = True
+        polys = []
+        for this_polygon_points in no_gap_polygons:
+            polys.append(Polygon(this_polygon_points))
+        raster_transform = rasterio.transform.from_bounds(
+            self.x_min, self.y_min, self.x_max, self.y_max, self.size_x,
+            self.size_y)
+        mask = np.flipud(rasterio.features.geometry_mask(
+            polys, out_shape=(self.size_y, self.size_x),
+            transform=raster_transform, all_touched=True))
 
         # Mask the datasets and flag
         wse_mask = np.logical_and(self.wse.mask, mask)
@@ -1229,17 +1203,15 @@ class RasterProcessor(object):
         inner_swath_polygon = self.get_polygon_from_tvp(
             tvp_xyz, tvp_minus_y_antenna_xyz, tvp_plus_y_antenna_xyz,
             tvp_velocity_heading, self.near_range_suspect_thresh,
-            products.POLYGON_EXTENT_DIST, products.POLYGON_EXTENT_DIST,
-            products.TVP_POLYGON_DOWNSAMPLE_RATE)
+            products.POLYGON_EXTENT_DIST, products.POLYGON_EXTENT_DIST)
 
-        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
-        y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
-        mask = np.zeros((self.size_y, self.size_x))
         poly = Polygon(inner_swath_polygon)
-        for i in range(0, self.size_y):
-            for j in range(0, self.size_x):
-                if Point((x_vec[j], y_vec[i])).intersects(poly):
-                    mask[i][j] = True
+        raster_transform = rasterio.transform.from_bounds(
+            self.x_min, self.y_min, self.x_max, self.y_max, self.size_x,
+            self.size_y)
+        mask = np.flipud(rasterio.features.geometry_mask(
+            [poly], out_shape=(self.size_y, self.size_x),
+            transform=raster_transform, all_touched=True, invert=True))
 
         # Mask the datasets and flag
         wse_mask = np.logical_and(self.wse.mask, mask)
@@ -1338,6 +1310,16 @@ class RasterProcessor(object):
             polygon = [(point[1], point[0])for point in polygon]
 
         return polygon
+
+    @staticmethod
+    def _group_by_diff(data, diff, key=None):
+        if key is None: key = data
+        split_idxs = [i+1 for x, y, i in zip(key[:-1], key[1:], range(len(key)))
+                      if abs(y-x) > diff]
+        split_idxs = [0] + split_idxs + [len(key)]
+        groups = [data[i:j] for i, j in zip(split_idxs[:-1], split_idxs[1:])]
+        idxs = [np.arange(i, j) for i, j in zip(split_idxs[:-1], split_idxs[1:])]
+        return zip(groups, idxs)
 
     def aggregate_lat_lon(self, rasterization_mask):
         """ Aggregate latitude and longitude """

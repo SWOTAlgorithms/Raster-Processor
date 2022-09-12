@@ -51,7 +51,6 @@ QUAL_IND_INNER_SWATH = 1073741824               # bit 30
 QUAL_IND_LARGE_KARIN_GAP = 2147483648           # bit 31
 
 POLYGON_EXTENT_DIST = 200000
-TVP_POLYGON_DOWNSAMPLE_RATE = 10
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1124,20 +1123,20 @@ class RasterUTM(Product):
 
         # Convert polygon points to UTM
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
-        output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
-                                        self.mgrs_latitude_band)
+        output_crs = SWOTRaster.raster_crs.utm_crs(
+            self.utm_zone_num, self.mgrs_latitude_band)
 
         transf = osr.CoordinateTransformation(input_crs, output_crs)
         transf_points = transf.TransformPoints(swath_polygon_points)
         swath_polygon_points_utm = [point[:2] for point in transf_points]
+
         poly = Polygon(swath_polygon_points_utm)
 
         # Check whether each pixel center intersects with the polygon
         mask = np.zeros((self.dimensions['y'], self.dimensions['x']))
         for i in range(0, self.dimensions['y']):
             for j in range(0, self.dimensions['x']):
-                if Point((self.x[j], self.y[i])).intersects(poly):
-                    mask[i][j] = True
+                mask[i][j] = Point((self.x[j], self.y[i])).intersects(poly)
 
         # Mask the datasets
         for var in self.variables:
@@ -1386,8 +1385,8 @@ class RasterGeo(Product):
                          self.dimensions['longitude']))
         for i in range(0, self.dimensions['latitude']):
             for j in range(0, self.dimensions['longitude']):
-                if Point((self.latitude[i], self.longitude[j])).intersects(poly):
-                    mask[i][j] = True
+                mask[i][j] = Point((self.latitude[i],
+                                    self.longitude[j])).intersects(poly)
 
         # Mask the datasets
         for var in self.variables:
