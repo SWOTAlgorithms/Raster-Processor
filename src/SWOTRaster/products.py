@@ -1583,8 +1583,8 @@ class ScenePixc(Product):
 
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
-            pixc_tile['pixel_cloud'], pixcvec_tile)
-        scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile['tvp'])
+            pixc_tile, pixcvec_tile)
+        scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
 
         return scene_pixc
 
@@ -1831,6 +1831,7 @@ class ScenePixelCloud(Product):
         ['pixc_line_qual', odict([])],
         ['pixc_line_to_tvp', odict([])]
     ])
+
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['points', 0]])
     VARIABLES['pixc_line_qual']['dimensions'] = odict([['num_pixc_lines',0],])
@@ -1845,10 +1846,10 @@ class ScenePixelCloud(Product):
         # Copy common pixc variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
         for field in pixel_cloud_vars.intersection(
-                pixc_tile.VARIABLES.keys()):
+                pixc_tile['pixel_cloud'].VARIABLES.keys()):
             scene_pixel_cloud.VARIABLES[field] = \
-                pixc_tile.VARIABLES[field]
-            scene_pixel_cloud[field] = pixc_tile[field]
+                pixc_tile['pixel_cloud'].VARIABLES[field]
+            scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
 
         # Copy pixcvec variables (set improved llh to pixcvec llh here)
         if pixcvec_tile is not None:
@@ -1872,8 +1873,8 @@ class ScenePixelCloud(Product):
         # Copy common pixc attributes
         pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
         for field in pixel_cloud_attr.intersection(
-                pixc_tile.ATTRIBUTES):
-            attr_val = getattr(pixc_tile, field)
+                pixc_tile['pixel_cloud'].ATTRIBUTES):
+            attr_val = getattr(pixc_tile['pixel_cloud'], field)
             setattr(scene_pixel_cloud, field, attr_val)
 
         return scene_pixel_cloud
@@ -1918,6 +1919,7 @@ class SceneTVP(Product):
         ['minus_y_antenna_x', odict([])],
         ['minus_y_antenna_y', odict([])],
         ['minus_y_antenna_z', odict([])],
+        ['polarization', odict([])],
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = DIMENSIONS
@@ -1932,15 +1934,19 @@ class SceneTVP(Product):
         # Copy common variables
         tvp_vars = set(scene_tvp.VARIABLES.keys())
         for field in tvp_vars.intersection(
-                pixc_tile.VARIABLES.keys()):
-            scene_tvp[field] = pixc_tile[field]
+                pixc_tile['tvp'].VARIABLES.keys()):
+            scene_tvp[field] = pixc_tile['tvp'][field]
 
         # Copy common attributes
         tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
         for field in tvp_attr.intersection(
-                pixc_tile.ATTRIBUTES):
-            attr_val = getattr(pixc_tile, field)
+                pixc_tile['tvp'].ATTRIBUTES):
+            attr_val = getattr(pixc_tile['tvp'], field)
             setattr(scene_tvp, field, attr_val)
+
+        # Get polarization
+        scene_tvp['polarization'] = np.full((scene_tvp.dimensions['num_tvps']),
+                                            pixc_tile.polarization)
 
         return scene_tvp
 

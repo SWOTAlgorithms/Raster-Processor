@@ -101,7 +101,7 @@ class GeolocRaster(object):
         self.out_lon_corr = np.zeros(nb_pix)  # Improved longitudes
         self.out_height_corr = np.zeros(nb_pix)  # Improved heights
 
-        # Remap illumnation time to nearest sensor index
+        # Remap illumination time to nearest sensor index
         sensor_s = ag.get_sensor_index(self.pixc)
 
         # Loop over each pixel (could be vectorized)
