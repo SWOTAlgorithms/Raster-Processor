@@ -1185,33 +1185,24 @@ class RasterProcessor(object):
         """ Flag inner swath"""
         LOGGER.info("flagging inner swath")
 
-        # Create polygons for inner swath areas
-        # Handle the different sides separately
-        inner_swath_polygons = []
-        for swath_side in ['L', 'R']:
-            tvp_side_mask = pixc['tvp']['swath_side'] == swath_side
+        # Create polygon for inner swath area (full swath)
+        swath_side = 'F'
+        tvp_velocity_heading = pixc['tvp']['velocity_heading']
+        tvp_xyz = np.row_stack((
+            pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
-            tvp_velocity_heading = \
-                pixc['tvp']['velocity_heading'][tvp_side_mask]
-            tvp_xyz = np.row_stack((
-                pixc['tvp']['x'][tvp_side_mask],
-                pixc['tvp']['y'][tvp_side_mask],
-                pixc['tvp']['z'][tvp_side_mask]))
+        inner_swath_polygon = self.get_swath_polygon_from_tvp(
+            tvp_xyz, tvp_velocity_heading, swath_side,
+            self.inner_swath_distance_thresh,
+            products.POLYGON_EXTENT_DIST,
+            products.POLYGON_EXTENT_DIST)
 
-            inner_swath_polygons.append(self.get_swath_polygon_from_tvp(
-                tvp_xyz, tvp_velocity_heading, swath_side,
-                self.inner_swath_distance_thresh,
-                products.POLYGON_EXTENT_DIST,
-                products.POLYGON_EXTENT_DIST))
-
-        polys = []
-        for this_polygon_points in inner_swath_polygons:
-            polys.append(Polygon(this_polygon_points))
+        poly = Polygon(inner_swath_polygon)
         raster_transform = rasterio.transform.from_bounds(
             self.x_min, self.y_min, self.x_max, self.y_max, self.size_x,
             self.size_y)
         mask = np.flipud(rasterio.features.geometry_mask(
-            polys, out_shape=(self.size_y, self.size_x),
+            [poly], out_shape=(self.size_y, self.size_x),
             transform=raster_transform, all_touched=True, invert=True))
 
         # Mask the datasets and flag
@@ -1236,13 +1227,6 @@ class RasterProcessor(object):
 
         transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
 
-        if swath_side == 'L':
-            crosstrack_angle = np.deg2rad(np.mod(sc_velocity_heading-90, 360))
-        elif swath_side == 'R':
-            crosstrack_angle = np.deg2rad(np.mod(sc_velocity_heading+90, 360))
-        else:
-            raise ValueError("Invalid Swath Side: {}".format(swath_side))
-
         if downsample_rate is not None:
             idx_vec = np.arange(0, sc_xyz.shape[1], downsample_rate)
             if idx_vec[-1] != sc_xyz.shape[1]-1:
@@ -1250,61 +1234,69 @@ class RasterProcessor(object):
         else:
             idx_vec = np.arange(sc_xyz.shape[1])
 
-        polygon_sc_points = []
-        polygon_far_range_points = []
-        for idx in idx_vec:
-            sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
-            sc_points_rad = [sc_llh]
-            far_range_ll = raster_crs.terminal_loc_spherical(
-                sc_llh[0], sc_llh[1], crosstrack_dist, crosstrack_angle[idx])
-            far_range_points_rad = [[far_range_ll[0], far_range_ll[1], sc_llh[2]]]
+        polygon = []
+        for polygon_side in [0, 1]:
+            reverse_side = polygon_side*2 - 1
+            if swath_side == 'L':
+                this_side_crosstrack_angle = np.deg2rad(
+                    np.mod(sc_velocity_heading-90, 360))
+                this_side_crosstrack_dist = polygon_side*crosstrack_dist
+            elif swath_side == 'R':
+                this_side_crosstrack_angle = np.deg2rad(
+                    np.mod(sc_velocity_heading+90, 360))
+                this_side_crosstrack_dist = polygon_side*crosstrack_dist
+            elif swath_side == 'F':
+                if polygon_side==0:
+                    this_side_crosstrack_angle = np.deg2rad(
+                        np.mod(sc_velocity_heading-90, 360))
+                    this_side_crosstrack_dist = crosstrack_dist
+                else:
+                    this_side_crosstrack_angle = np.deg2rad(
+                        np.mod(sc_velocity_heading+90, 360))
+                    this_side_crosstrack_dist = crosstrack_dist
+            else:
+                raise ValueError("Invalid Swath Side: {}".format(swath_side))
 
-            if idx == 0 and alongtrack_start_buffer_dist is not None:
-                sc_ll_buffer = raster_crs.terminal_loc_spherical(
-                    sc_llh[0], sc_llh[1], alongtrack_start_buffer_dist,
-                    np.deg2rad(np.mod(sc_velocity_heading[idx]-180, 360)))
-                far_range_ll_buffer = raster_crs.terminal_loc_spherical(
-                    sc_ll_buffer[0], sc_ll_buffer[1], crosstrack_dist,
-                    crosstrack_angle[idx])
-                sc_points_rad = \
-                    [[sc_ll_buffer[0], sc_ll_buffer[1], sc_llh[2]]] \
-                    + sc_points_rad
-                far_range_points_rad = \
-                    [[far_range_ll_buffer[0], far_range_ll_buffer[1], sc_llh[2]]] \
-                    + far_range_points_rad
+            for idx in idx_vec:
+                sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
+                this_side_ll = raster_crs.terminal_loc_spherical(
+                    sc_llh[0], sc_llh[1], this_side_crosstrack_dist,
+                    this_side_crosstrack_angle)
+                this_side_points_rad = [
+                    [this_side_ll[0], this_side_ll[1], sc_llh[2]]]
 
-            if idx == sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
-                sc_ll_buffer = raster_crs.terminal_loc_spherical(
-                    sc_llh[0], sc_llh[1], alongtrack_end_buffer_dist,
-                    np.deg2rad(np.mod(sc_velocity_heading[idx], 360)))
-                far_range_ll_buffer = raster_crs.terminal_loc_spherical(
-                    sc_ll_buffer[0], sc_ll_buffer[1], crosstrack_dist,
-                    crosstrack_angle[idx])
-                sc_points_rad = \
-                    sc_points_rad \
-                    + [[sc_ll_buffer[0], sc_ll_buffer[1], sc_llh[2]]]
-                far_range_points_rad = \
-                    far_range_points_rad \
-                    + [[far_range_ll_buffer[0], far_range_ll_buffer[1], sc_llh[2]]]
+                if idx == 0 and alongtrack_start_buffer_dist is not None:
+                    sc_ll_buffer = raster_crs.terminal_loc_spherical(
+                        sc_llh[0], sc_llh[1], alongtrack_start_buffer_dist,
+                        np.deg2rad(np.mod(sc_velocity_heading[idx]-180, 360)))
+                    this_side_ll_buffer = raster_crs.terminal_loc_spherical(
+                        sc_ll_buffer[0], sc_ll_buffer[1],
+                        this_side_crosstrack_dist, this_side_crosstrack_angle)
+                    this_side_points_rad = \
+                        [[this_side_ll_buffer[0], this_side_ll_buffer[1],
+                          sc_llh[2]]] \
+                        + this_side_points_rad
 
-            sc_points_deg = \
-                [[np.rad2deg(point[0]), np.rad2deg(point[1]), point[2]]
-                 for point in sc_points_rad]
-            far_range_points_deg = \
-                [[np.rad2deg(point[0]), np.rad2deg(point[1]), point[2]]
-                 for point in far_range_points_rad]
+                if idx == sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
+                    sc_ll_buffer = raster_crs.terminal_loc_spherical(
+                        sc_llh[0], sc_llh[1], alongtrack_end_buffer_dist,
+                        np.deg2rad(np.mod(sc_velocity_heading[idx], 360)))
+                    this_side_ll_buffer = raster_crs.terminal_loc_spherical(
+                        sc_ll_buffer[0], sc_ll_buffer[1],
+                        this_side_crosstrack_dist, this_side_crosstrack_angle)
+                    this_side_points_rad = \
+                        this_side_points_rad \
+                        + [[this_side_ll_buffer[0], this_side_ll_buffer[1],
+                            sc_llh[2]]]
 
-            transf_sc_points = \
-                [point[:2]
-                 for point in transf.TransformPoints(sc_points_deg)]
-            transf_far_range_points = \
-                [point[:2]
-                 for point in transf.TransformPoints(far_range_points_deg)]
+                this_side_points_deg = \
+                    [[np.rad2deg(point[0]), np.rad2deg(point[1]), point[2]]
+                     for point in this_side_points_rad]
+                transf_this_side_points = \
+                    [point[:2]
+                     for point in transf.TransformPoints(this_side_points_deg)]
 
-            polygon_sc_points.extend(transf_sc_points)
-            polygon_far_range_points.extend(transf_far_range_points)
-
-        polygon = polygon_sc_points + polygon_far_range_points[::-1]
+            polygon.extend(transf_this_side_points[::reverse_side])
 
         # if geodetic, swap lat and lon so that the e/w and n/s coords are
         # always in the same order regardless of projection
