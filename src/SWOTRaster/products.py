@@ -285,7 +285,7 @@ COMMON_VARIABLES = odict([
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
-            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('u1')],
             ['valid_min', 0],
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
@@ -371,7 +371,7 @@ COMMON_VARIABLES = odict([
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
-            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('u1')],
             ['valid_min', 0],
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
@@ -486,7 +486,7 @@ COMMON_VARIABLES = odict([
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
-            ['flag_values', np.array([0, 1, 2, 3]).astype('i1')],
+            ['flag_values', np.array([0, 1, 2, 3]).astype('u1')],
             ['valid_min', 0],
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
@@ -1451,7 +1451,7 @@ class RasterUTMDebug(RasterUTM):
                         for key in RasterUTM.VARIABLES})
     VARIABLES.update(odict([
         ['classification',
-         odict([['dtype', 'i1']])],
+         odict([['dtype', 'u1']])],
     ]))
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'x y'
@@ -1472,7 +1472,7 @@ class RasterGeoDebug(RasterGeo):
                         for key in RasterGeo.VARIABLES})
     VARIABLES.update(odict([
         ['classification',
-         odict([['dtype', 'i1']])],
+         odict([['dtype', 'u1']])],
     ]))
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
