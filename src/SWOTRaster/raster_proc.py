@@ -1266,7 +1266,7 @@ class RasterProcessor(object):
                     this_side_crosstrack_angle[idx])
                 this_side_point_deg = [np.rad2deg(this_side_ll[0]),
                                        np.rad2deg(this_side_ll[1]),
-                                       sc_llh[2]]]
+                                       sc_llh[2]]
 
                 if idx==0 and alongtrack_start_buffer_dist is not None:
                     this_side_ll_buffer = raster_crs.terminal_loc_spherical(
@@ -1278,7 +1278,7 @@ class RasterProcessor(object):
                         np.rad2deg(this_side_ll_buffer[1]),
                         sc_llh[2]]
                     this_side_polygon_points.append(
-                        transf.TransformPoint(this_side_point_buffer_deg)][:2])
+                        transf.TransformPoint(this_side_point_buffer_deg)[:2])
 
                 this_side_polygon_points.append(
                     transf.TransformPoint(this_side_point_deg)[:2])
@@ -1293,7 +1293,7 @@ class RasterProcessor(object):
                         np.rad2deg(this_side_ll_buffer[1]),
                         sc_llh[2]]
                     this_side_polygon_points.append(
-                        transf.TransformPoint(this_side_point_buffer_deg)][:2])
+                        transf.TransformPoint(this_side_point_buffer_deg)[:2])
 
             polygon.extend(this_side_polygon_points[::reverse_side])
 
