@@ -116,7 +116,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['sig0_bad_thresh_min'],
                 self.algorithmic_config['sig0_bad_thresh_max'],
                 self.algorithmic_config['inner_swath_distance_thresh'],
-                self.algorithmic_config['large_karin_gap_time_thresh'],
+                self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
                 debug_flag=self.algorithmic_config['debug_flag'])
@@ -183,7 +183,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['sig0_bad_thresh_min'],
                 self.algorithmic_config['sig0_bad_thresh_max'],
                 self.algorithmic_config['inner_swath_distance_thresh'],
-                self.algorithmic_config['large_karin_gap_time_thresh'],
+                self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
                 debug_flag=self.algorithmic_config['debug_flag'])
@@ -246,7 +246,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['sig0_bad_thresh_min'],
             self.algorithmic_config['sig0_bad_thresh_max'],
             self.algorithmic_config['inner_swath_distance_thresh'],
-            self.algorithmic_config['large_karin_gap_time_thresh'],
+            self.algorithmic_config['missing_karin_data_time_thresh'],
             utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
             mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
             debug_flag=self.algorithmic_config['debug_flag'])

@@ -48,7 +48,7 @@ QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
 QUAL_IND_INNER_SWATH = 1073741824               # bit 30
-QUAL_IND_LARGE_KARIN_GAP = 2147483648           # bit 31
+QUAL_IND_MISSING_KARIN_DATA = 2147483648        # bit 31
 
 POLYGON_EXTENT_DIST = 200000
 
@@ -314,7 +314,7 @@ COMMON_VARIABLES = odict([
                 no_pixels
                 outside_scene_bounds
                 inner_swath
-                large_karin_gap""")],
+                missing_karin_data""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -329,7 +329,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
-                QUAL_IND_LARGE_KARIN_GAP
+                QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
             ['valid_max', 4044124326],
@@ -402,7 +402,7 @@ COMMON_VARIABLES = odict([
                 no_pixels
                 outside_scene_bounds
                 inner_swath
-                large_karin_gap""")],
+                missing_karin_data""")],
             ['flag_masks', np.array([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
@@ -418,7 +418,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
-                QUAL_IND_LARGE_KARIN_GAP
+                QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
             ['valid_max', 4044124334],
@@ -517,7 +517,7 @@ COMMON_VARIABLES = odict([
                 no_pixels
                 outside_scene_bounds
                 inner_swath
-                large_karin_gap""")],
+                missing_karin_data""")],
             ['flag_masks', np.array([
                 QUAL_IND_SIG0_QUAL_SUSPECT,
                 QUAL_IND_CLASS_QUAL_SUSPECT,
@@ -534,7 +534,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
-                QUAL_IND_LARGE_KARIN_GAP
+                QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
             ['valid_max', 4044255399],
@@ -1762,7 +1762,11 @@ class ScenePixc(Product):
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
         tvp_time = np.ma.concatenate((self.tvp.time, other.tvp.time))
-        [junk, rev_indx] = np.unique(tvp_time, return_inverse=True)
+        tvp_swath_side = np.ma.concatenate(
+            (self.tvp.swath_side, other.tvp.swath_side))
+        [junk, rev_indx] = np.unique(
+            np.column_stack((tvp_time, tvp_swath_side=='R')),
+            axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
             self.pixel_cloud.pixc_line_to_tvp,
             len(self.tvp.time) + other.pixel_cloud.pixc_line_to_tvp)).astype(int)
@@ -1919,7 +1923,7 @@ class SceneTVP(Product):
         ['minus_y_antenna_x', odict([])],
         ['minus_y_antenna_y', odict([])],
         ['minus_y_antenna_z', odict([])],
-        ['polarization', odict([])],
+        ['swath_side', odict([])],
     ])
     for name, reference in VARIABLES.items():
         reference['dimensions'] = DIMENSIONS
@@ -1944,17 +1948,20 @@ class SceneTVP(Product):
             attr_val = getattr(pixc_tile['tvp'], field)
             setattr(scene_tvp, field, attr_val)
 
-        # Get polarization
-        scene_tvp['polarization'] = np.full((scene_tvp.dimensions['num_tvps']),
-                                            pixc_tile.polarization)
+        # Get swath side
+        scene_tvp['swath_side'] = np.full((scene_tvp.dimensions['num_tvps']),
+                                          pixc_tile.swath_side)
 
         return scene_tvp
 
     def __add__(self, other):
         """ Add other to self """
         klass = SceneTVP()
+        # Discard TVP overlap for each side separately
         time = np.ma.concatenate((self.time, other.time))
-        [junk, indx] = np.unique(time, return_index=True)
+        swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
+        [junk, indx] = np.unique(
+            np.column_stack((time, swath_side=='R')), axis=0, return_index=True)
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
