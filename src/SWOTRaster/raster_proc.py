@@ -1258,42 +1258,42 @@ class RasterProcessor(object):
                 raise ValueError("Invalid Swath Side: {}".format(swath_side))
 
             this_side_polygon_points = []
-
             for idx in idx_vec:
                 sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
                 this_side_ll = raster_crs.terminal_loc_spherical(
                     sc_llh[0], sc_llh[1], this_side_crosstrack_dist,
                     this_side_crosstrack_angle[idx])
-                this_side_point_deg = [np.rad2deg(this_side_ll[0]),
-                                       np.rad2deg(this_side_ll[1]),
-                                       sc_llh[2]]
+                this_side_points_deg = [[np.rad2deg(this_side_ll[0]),
+                                         np.rad2deg(this_side_ll[1]),
+                                         sc_llh[2]]]
 
                 if idx==0 and alongtrack_start_buffer_dist is not None:
                     this_side_ll_buffer = raster_crs.terminal_loc_spherical(
                         this_side_ll[0], this_side_ll[1],
                         alongtrack_start_buffer_dist,
                         np.deg2rad(np.mod(sc_velocity_heading[idx]-180, 360)))
-                    this_side_point_buffer_deg = [
+                    this_side_point_buffer_deg = [[
                         np.rad2deg(this_side_ll_buffer[0]),
                         np.rad2deg(this_side_ll_buffer[1]),
-                        sc_llh[2]]
-                    this_side_polygon_points.append(
-                        transf.TransformPoint(this_side_point_buffer_deg)[:2])
-
-                this_side_polygon_points.append(
-                    transf.TransformPoint(this_side_point_deg)[:2])
+                        sc_llh[2]]]
+                    this_side_points_deg = this_side_point_buffer_deg \
+                                           + this_side_points_deg
 
                 if idx == sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
                     this_side_ll_buffer = raster_crs.terminal_loc_spherical(
                         this_side_ll[0], this_side_ll[1],
                         alongtrack_start_buffer_dist,
                         np.deg2rad(np.mod(sc_velocity_heading[idx], 360)))
-                    this_side_point_buffer_deg = [
+                    this_side_point_buffer_deg = [[
                         np.rad2deg(this_side_ll_buffer[0]),
                         np.rad2deg(this_side_ll_buffer[1]),
-                        sc_llh[2]]
-                    this_side_polygon_points.append(
-                        transf.TransformPoint(this_side_point_buffer_deg)[:2])
+                        sc_llh[2]]]
+                    this_side_points_deg = this_side_points_deg \
+                                           + this_side_point_buffer_deg
+
+                this_side_polygon_points.extend(
+                    [point[:2] for point in
+                     transf.TransformPoints(this_side_points_deg)])
 
             polygon.extend(this_side_polygon_points[::reverse_side])
 
