@@ -1152,6 +1152,16 @@ class RasterProcessor(object):
                             key=group_times):
                         group_tvp_xyz = tvp_xyz[:,idxs]
                         group_tvp_velocity_heading = tvp_velocity_heading[idxs]
+
+                        # If there is only one line in group,
+                        # repeat it so that we can still make a polygon
+                        if len(group_tvp_velocity_heading) == 1:
+                            group_tvp_xyz = np.column_stack((
+                                group_tvp_xyz, group_tvp_xyz))
+                            group_tvp_velocity_heading = np.append(
+                                group_tvp_velocity_heading,
+                                group_tvp_velocity_heading)
+
                         extant_data_polygons.append(
                             self.get_swath_polygon_from_tvp(
                                 group_tvp_xyz,
