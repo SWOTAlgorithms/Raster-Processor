@@ -1136,32 +1136,19 @@ class RasterProcessor(object):
                 pixc['tvp']['y'][tvp_side_mask],
                 pixc['tvp']['z'][tvp_side_mask]))
 
-            tvp_extant_data_mask = np.ma.zeros(pixc['tvp']['time'].shape,
-                                               dtype=bool)
-            tvp_extant_data_mask[pixc_tvp_index[
-                (pixc_line_qual & pixc_line_qual_ind_large_karin_gap)==0]] = True
-            tvp_extant_data_mask = tvp_extant_data_mask[tvp_side_mask]
+            pixc_extant_data_mask = \
+                (pixc_line_qual & pixc_line_qual_ind_large_karin_gap)==0
 
-            for k, g in groupby(np.arange(len(tvp_time)),
-                                lambda x: tvp_extant_data_mask[x]):
+            for k, g in groupby(np.arange(len(pixc_extant_data_mask)),
+                                lambda x: pixc_extant_data_mask[x]):
                 if k:
-                    group_idxs = list(g)
+                    group_idxs = pixc_tvp_index[list(g)]
                     group_times = tvp_time[group_idxs]
                     for idxs, _ in self._group_by_diff(
                             group_idxs, self.missing_karin_data_time_thresh,
                             key=group_times):
                         group_tvp_xyz = tvp_xyz[:,idxs]
                         group_tvp_velocity_heading = tvp_velocity_heading[idxs]
-
-                        # If there is only one line in group,
-                        # repeat it so that we can still make a polygon
-                        if len(group_tvp_velocity_heading) == 1:
-                            group_tvp_xyz = np.column_stack((
-                                group_tvp_xyz, group_tvp_xyz))
-                            group_tvp_velocity_heading = np.append(
-                                group_tvp_velocity_heading,
-                                group_tvp_velocity_heading)
-
                         extant_data_polygons.append(
                             self.get_swath_polygon_from_tvp(
                                 group_tvp_xyz,
@@ -1234,6 +1221,12 @@ class RasterProcessor(object):
                                    downsample_rate=None):
         """ Get swath polygon from tvp points """
         LOGGER.info("getting swath polyon from tvp")
+
+        # If there is only one line, repeat it to make a polygon
+        if len(sc_velocity_heading) == 1:
+            sc_xyz = np.column_stack((sc_xyz, sc_xyz))
+            sc_velocity_heading = np.append(
+                sc_velocity_heading, sc_velocity_heading)
 
         transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
 
