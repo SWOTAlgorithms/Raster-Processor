@@ -1121,20 +1121,15 @@ class RasterProcessor(object):
         extant_data_polygons = []
         for swath_side in ['L', 'R']:
             tvp_side_mask = pixc['tvp']['swath_side'] == swath_side
-
             pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
             pixc_side_mask = tvp_side_mask[pixc_tvp_index]
-            pixc_line_qual = \
-                pixc['pixel_cloud']['pixc_line_qual'][pixc_side_mask]
+            pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual'][pixc_side_mask]
             pixc_tvp_index = pixc_tvp_index[pixc_side_mask]
 
-            tvp_time = pixc['tvp']['time'][tvp_side_mask]
-            tvp_velocity_heading = \
-                pixc['tvp']['velocity_heading'][tvp_side_mask]
+            tvp_time = pixc['tvp']['time']
+            tvp_velocity_heading = pixc['tvp']['velocity_heading']
             tvp_xyz = np.row_stack((
-                pixc['tvp']['x'][tvp_side_mask],
-                pixc['tvp']['y'][tvp_side_mask],
-                pixc['tvp']['z'][tvp_side_mask]))
+                pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
             pixc_extant_data_mask = \
                 (pixc_line_qual & pixc_line_qual_ind_large_karin_gap)==0
