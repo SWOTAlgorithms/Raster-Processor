@@ -49,7 +49,6 @@ from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
 LOGGER = logging.getLogger(__name__)
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__)
@@ -66,7 +65,16 @@ def main():
     parser.add_argument("-id", "--internal_files_dir", type=str,
                         help='directory to write out internal files',
                         default=None)
+    parser.add_argument('-l', '--log-level', type=str,
+                        help="logging level, one of: debug info warning error",
+                        default="info")
     args = parser.parse_args()
+
+    level = {'debug': logging.DEBUG, 'info': logging.INFO,
+             'warning': logging.WARNING,
+             'error': logging.ERROR}[args.log_level]
+    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=level, format=format)
 
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
                                           args.runtime_config_file)
