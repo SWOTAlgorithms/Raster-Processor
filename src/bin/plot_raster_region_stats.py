@@ -140,7 +140,7 @@ def main():
             sim_tile = proc_raster_obj.tile_names
             if isinstance(sim_tile, list):
                 sim_tile = '_'.join(sim_tile)
-            print('Aggregating stats for {} {}'.format(sim_scene, sim_tile))
+            print('Aggregating stats for {} - {}'.format(sim_scene, sim_tile))
 
             tile_river_metrics, tile_lake_metrics = single_tile_stats(
                 proc_raster, truth_raster,

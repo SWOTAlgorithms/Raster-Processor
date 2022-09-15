@@ -23,6 +23,7 @@ import os
 import glob
 import argparse
 import numpy as np
+import SWOTRaster.products
 import matplotlib.pyplot as plt
 import SWOTRiver.analysis.tabley
 
@@ -122,6 +123,12 @@ def main():
                     print('Not analyzing sim scene: {}'.format(sim_scene))
                     continue
 
+                proc_raster_obj = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster)
+                sim_tile = proc_raster_obj.tile_names
+                if isinstance(sim_tile, list):
+                    sim_tile = '_'.join(sim_tile)
+                print('Aggregating stats for {} - {}'.format(sim_scene, sim_tile))
+
                 # call the function to do the work
                 tile_metrics = load_data(
                     proc_raster, truth_raster, sim_scene=sim_scene,
@@ -196,17 +203,13 @@ def load_data(
     and accumulate the data, truth and metrics (if input)
     '''
 
-    truth_tmp = MutableProduct.from_ncfile(truth_raster_file)
-    data_tmp = MutableProduct.from_ncfile(proc_raster_file)
+    truth_tmp = SWOTRaster.products.RasterUTM.from_ncfile(truth_raster_file)
+    data_tmp = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster_file)
 
     tile_metrics = {}
     tile_metrics['sim_scene'] = str(sim_scene)
     tile_metrics['cycle'] = str(data_tmp.cycle_number)
     tile_metrics['tile_names'] = data_tmp.tile_names
-    print('Loading data for sim_scene: {}, cycle: {}, tiles: {}'.format(
-        tile_metrics['sim_scene'],
-        tile_metrics['cycle'],
-        tile_metrics['tile_names']))
 
     # handle potentially empty files
     if data_tmp['wse'].size==0 or truth_tmp['wse'].size==0:
