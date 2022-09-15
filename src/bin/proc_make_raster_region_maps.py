@@ -100,23 +100,42 @@ def main():
         slant_region_map_files = []
         gdem_files = []
         for pixc_file in pixc_files:
-            if flavor_is_truth or Path(pixc_file).parts[-2] == 'pixc_data':
-                dir_idx = -3
-            elif args.pixc_errors_basename is None:
-                dir_idx = -4
-            else:
-                dir_idx = -5
 
-            slant_region_map_file = os.path.join(
-                *Path(pixc_file).parts[:dir_idx], args.slant_region_map_basename,
-                'region_map_data', 'region_map.nc')
-            slc_dir = os.path.join(
-                *Path(pixc_file).parts[:dir_idx-1], args.slc_basename, 'slc_data')
+            if flavor_is_truth:
+                pixc_basename = os.path.splitext(os.path.basename(pixc_file))[0]
+                pixc_file_parts = pixc_basename.split('_')
+                cycle_pass_tile = '_'.join(pixc_file_parts[2:])
+                slant_region_map_file = os.path.join(
+                    *Path(pixc_file).parts[:-5],
+                    cycle_pass_tile,
+                    args.slc_basename,
+                    args.slant_region_map_basename,
+                    'region_map_data', 'region_map.nc')
+                slc_dir = os.path.join(
+                    *Path(pixc_file).parts[:-5],
+                    cycle_pass_tile,
+                    args.slc_basename,
+                    'slc_data')
+            elif args.pixc_errors_basename is None:
+                slant_region_map_file = os.path.join(
+                    *Path(pixc_file).parts[:-3],
+                    args.slant_region_map_basename,
+                    'region_map_data', 'region_map.nc')
+                slc_dir = os.path.join(
+                    *Path(pixc_file).parts[:-4], args.slc_basename,
+                    'slc_data')
+            else:
+                slant_region_map_file = os.path.join(
+                    *Path(pixc_file).parts[:-4],
+                    args.slant_region_map_basename,
+                    'region_map_data', 'region_map.nc')
+                slc_dir = os.path.join(
+                    *Path(pixc_file).parts[:-5], args.slc_basename,
+                    'slc_data')
 
             gdem_file = os.path.join(slc_dir, 'gdem_truth.RightSwath.nc')
             if not os.path.isfile(gdem_file):
                 gdem_file = os.path.join(slc_dir, 'gdem_truth.LeftSwath.nc')
-
             slant_region_map_files.append(slant_region_map_file)
             gdem_files.append(gdem_file)
 

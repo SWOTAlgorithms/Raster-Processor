@@ -103,6 +103,19 @@ def make_truth_region_maps(raster_file, output_raster_region_maps_file, pixc_fil
             gr_region_map_river = fin['region_map_river'][:]
             gr_region_map_lake = fin['region_map_lake'][:]
 
+        # Handle possibly latitude-flipped data
+        if gr_lat[-1] < gr_lat[0]:
+            gr_lat = gr_lat[::-1]
+            gr_region_map_river = gr_region_map_river[::-1]
+            gr_region_map_lake = gr_region_map_lake[::-1]
+
+        f_river = RegularGridInterpolator(
+            (gr_lat, gr_lon), gr_region_map_river, method='nearest',
+            bounds_error=False)
+        f_lake = RegularGridInterpolator(
+            (gr_lat, gr_lon), gr_region_map_lake, method='nearest',
+            bounds_error=False)
+
         gdem_region_maps_river = []
         gdem_region_maps_lake = []
         for gdem_file in gdem_files:
@@ -110,18 +123,6 @@ def make_truth_region_maps(raster_file, output_raster_region_maps_file, pixc_fil
                 gdem_lat = fin['latitude'][:]
                 gdem_lon = fin['longitude'][:]
 
-            # Handle possibly latitude-flipped data
-            if gr_lat[-1] < gr_lat[0]:
-                gr_lat = gr_lat[::-1]
-                gr_region_map_river = gr_region_map_river[::-1]
-                gr_region_map_lake = gr_region_map_lake[::-1]
-
-            f_river = RegularGridInterpolator(
-                (gr_lat, gr_lon), gr_region_map_river, method='nearest',
-                bounds_error=False)
-            f_lake = RegularGridInterpolator(
-                (gr_lat, gr_lon), gr_region_map_lake, method='nearest',
-                bounds_error=False)
             gdem_region_map_river = f_river((gdem_lat, gdem_lon))
             gdem_region_map_lake = f_lake((gdem_lat, gdem_lon))
 
