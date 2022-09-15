@@ -10,7 +10,6 @@ Rasterizes a given pixelcloud using configuration parameters in algorithmic
 and runtime config files
 
 example algorithmic config parameters:
-    max_cross_track_distance                        (-) = 64e3
     padding                                         (-) = 0
     interior_water_classes                          (-) = [4, 7]
     water_edge_classes                              (-) = [3, 6]
@@ -21,12 +20,38 @@ example algorithmic config parameters:
     height_constrained_geoloc_source                (-) = lowres_raster
     lowres_raster_height_constrained_geoloc_method  (-) = taylor
     lowres_raster_scale_factor                      (-) = 0.2
-    wse_uncert_qual_thresh                          (-) = 5
-    water_frac_uncert_qual_thresh                   (-) = 0.5
-    sig0_uncert_qual_thresh                         (-) = 20
-    num_pixels_qual_thresh                          (-) = 5
+    use_bright_land                                 (-) = True
     debug_flag                                      (-) = False
     write_internal_files                            (-) = False
+    geo_qual_suspect                                (-) = 0x0000ffff
+    geo_qual_degraded                               (-) = 0x01ff0000
+    geo_qual_bad                                    (-) = 0xfe000000
+    class_qual_suspect                              (-) = 0x0000ffff
+    class_qual_degraded                             (-) = 0x01ff0000
+    class_qual_bad                                  (-) = 0xfe000000
+    sig0_qual_suspect                               (-) = 0x0000ffff
+    sig0_qual_degraded                              (-) = 0x01ff0000
+    sig0_qual_bad                                   (-) = 0xfe000000
+    num_good_sus_pix_thresh_wse                     (-) = 1
+    num_good_sus_pix_thresh_water_area              (-) = 1
+    num_good_sus_pix_thresh_sig0                    (-) = 1
+    pixc_water_frac_suspect_thresh                  (-) = 3
+    num_wse_pix_suspect_thresh                      (-) = 5
+    num_water_area_pix_suspect_thresh               (-) = 5
+    num_sig0_pix_suspect_thresh                     (-) = 5
+    near_range_suspect_thresh                       (-) = 10000
+    far_range_suspect_thresh                        (-) = 60000
+    wse_uncert_suspect_thresh                       (-) = 5
+    water_frac_uncert_suspect_thresh                (-) = 0.5
+    sig0_uncert_suspect_thresh                      (-) = 20
+    wse_bad_thresh_min                              (-) = -500
+    wse_bad_thresh_max                              (-) = 8000
+    water_frac_bad_thresh_min                       (-) = -2
+    water_frac_bad_thresh_max                       (-) = 3
+    sig0_bad_thresh_min                             (-) = -100
+    sig0_bad_thresh_max                             (-) = 1000000
+    inner_swath_distance_thresh                     (-) = 10000
+    missing_karin_data_time_thresh                  (-) = 0.1
 
 example runtime config parameters:
     raster_resolution           (-) = 100
@@ -58,7 +83,7 @@ def main():
                         help='raster algorithmic config file')
     parser.add_argument("runtime_config_file", type=str,
                         help='raster runtime config file')
-    parser.add_argument("out_file", type=str,
+    parser.add_argument("output_file", type=str,
                         help='output raster file')
     parser.add_argument("-pv", "--pixcvec_file", type=str,
                         help='pixcvec input file', default=None)
@@ -97,7 +122,7 @@ def main():
         proc.pixc.to_ncfile(os.path.join(args.internal_files_dir,
                                          'internal_scene_pixc.nc'))
 
-    product.to_ncfile(args.out_file)
+    product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
     alg_cfg = RDF.RDF()

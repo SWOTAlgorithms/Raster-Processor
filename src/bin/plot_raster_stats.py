@@ -5,6 +5,18 @@ Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
+
+Plot raster statistics for single raster or bulk directory structure
+
+Assumed bulk directory structure:
+sim_scene_base_directory
+└── tile_base_directory
+    └── slc_base_directory
+        ├── pixc_base_directory
+        │   ├── pixc_systematic_errors_base_directory
+        │   │   └── proc_raster_systematic_errors_base_directory
+        │   └── proc_raster_base_directory
+        └── truth_raster_base_directory
 '''
 
 import os
@@ -36,28 +48,28 @@ def main():
     parser.add_argument('-eb','--pixc_errors_basename', type=str, default=None,
                         help = "pixc systematic errors basename")
     parser.add_argument('-df', '--dark_frac_thresh', type=float, default=None,
-                        help='Dark water fraction threshold for extra metric')
+                        help='dark water fraction threshold for extra metric')
     parser.add_argument('-wf', '--water_frac_thresh', type=float, default=None,
-                        help='Water fraction threshold to use as valid data')
+                        help='water fraction threshold to use as valid data')
     parser.add_argument('-hu', '--wse_uncert_thresh', type=float, default=None,
-                        help='WSE uncertainty threshold to use as valid data')
+                        help='wse uncertainty threshold to use as valid data')
     parser.add_argument('-au', '--area_uncert_thresh', type=float, default=None,
-                        help='Area uncertainty threshold to use as valid data')
+                        help='area uncertainty threshold to use as valid data')
     parser.add_argument('-ct', '--cross_track_bounds', type=float, default=None,
-                        help='Crosstrack bounds to use as valid data', nargs=2)
+                        help='crosstrack bounds to use as valid data', nargs=2)
     parser.add_argument('-mwp', '--min_wse_pixels', type=int, default=None,
-                        help='Minimum number of wse pixels to use as valid data')
+                        help='minimum number of wse pixels to use as valid data')
     parser.add_argument('-map', '--min_area_pixels', type=int, default=None,
-                        help='Minimum number of area pixels to use as valid data')
+                        help='minimum number of area pixels to use as valid data')
     parser.add_argument('-w', '--weighted', action='store_true',
-                        help='Flag to enable weighting of wse and area ' \
+                        help='flag to enable weighting of wse and area ' \
                         'metrics by uncertainties')
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
-                        help='List of sim scenes to exclude')
+                        help='list of sim scenes to exclude')
     parser.add_argument('-o', '--outdir', type=str, default=None,
-                        help='List of sim scenes to exclude')
+                        help='list of sim scenes to exclude')
     parser.add_argument('--scatter_plot', action='store_true',
-                        help='Flag for plotting old scatterplots')
+                        help='flag for plotting old scatterplots')
     args = vars(parser.parse_args())
 
     metrics = []
@@ -67,8 +79,6 @@ def main():
                   + 'if aggregating stats')
             return
 
-        # TODO: Right now it's hardcoded that the truth data lives under the slc
-        # base directory, and the proc data lives under the pixc base directory
         if args['pixc_errors_basename'] is not None:
             proc_raster_list = glob.glob(os.path.join(
                 args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
@@ -78,11 +88,11 @@ def main():
                 args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
                 args['proc_raster']))
 
-        # Get only unique rasters
+        # get only unique rasters
         proc_raster_list = np.unique([os.path.realpath(filename)
                                       for filename in proc_raster_list])
 
-        # If proc_raster input is a basename, get the actual raster
+        # if proc_raster input is a basename, get the actual raster
         proc_raster_list = [os.path.join(proc_raster, 'raster_data', 'raster.nc')
                             if os.path.isdir(proc_raster) else proc_raster
                             for proc_raster in proc_raster_list]
@@ -96,10 +106,11 @@ def main():
                 [os.path.join(*Path(proc_raster).parts[:-4], args['truth_raster'])
                  for proc_raster in proc_raster_list]
 
-        # If truth_raster input is a basename, get the actual raster
+        # if truth_raster input is a basename, get the actual raster
         truth_raster_list = [os.path.join(truth_raster, 'raster_data', 'raster.nc')
                              if os.path.isdir(truth_raster) else truth_raster
                              for truth_raster in truth_raster_list]
+
         for proc_raster, truth_raster in zip(proc_raster_list, truth_raster_list):
             if os.path.isfile(proc_raster) and os.path.isfile(truth_raster):
                 if args['pixc_errors_basename'] is not None:
@@ -123,7 +134,7 @@ def main():
                     min_area_pixels=args['min_area_pixels'])
                 metrics.append(tile_metrics)
     else:
-        # Inputs can be either raster files, or basenames
+        # inputs can be either raster files, or basenames
         proc_raster = args['proc_raster']
         truth_raster = args['truth_raster']
         if os.path.isdir(proc_raster):
@@ -176,7 +187,6 @@ def main():
                   scatter_plot=args['scatter_plot'],
                   outdir=args['outdir'], preamble=preamble)
 
-
 def load_data(
         proc_raster_file, truth_raster_file, sim_scene='', dark_frac_thresh=None,
         water_frac_thresh=None, wse_uncert_thresh=None, area_uncert_thresh=None,
@@ -198,7 +208,7 @@ def load_data(
         tile_metrics['cycle'],
         tile_metrics['tile_names']))
 
-    # Handle potentially empty files
+    # handle potentially empty files
     if data_tmp['wse'].size==0 or truth_tmp['wse'].size==0:
         tile_metrics['wse_err'] = np.array([np.nan])
         tile_metrics['wse_uncert'] = np.array([np.nan])
@@ -241,7 +251,7 @@ def load_data(
         area_data_not_in_truth_mask = np.logical_and(
             ~data_tmp['water_area'].mask, truth_tmp['water_area'].mask)
 
-        # Use additional filters to update masks
+        # use additional filters to update masks
         tmp_mask = np.ones_like(wse_common_mask)
         if dark_frac_thresh is not None:
             tmp_mask = np.logical_and(
@@ -314,7 +324,6 @@ def load_data(
 
     return tile_metrics
 
-
 def print_metrics(metrics, weighted=False, scatter_plot=False,
                   outdir=None, preamble=None):
     # setup output fnames
@@ -336,10 +345,10 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
         table_area_g_fname = os.path.join(outdir,'table_area_global.txt')
         table_wse_g_norm_fname = os.path.join(outdir,'table_wse_global_norm.txt')
         table_area_g_norm_fname = os.path.join(outdir,'table_area_global_norm.txt')
-    # Get pass/fail bounds
+    # get pass/fail bounds
     passfail = get_passfail()
 
-    # Tile-by-Tile metrics
+    # tile-by-tile metrics
     tile_table = {}
     tile_table_normalized = {}
     for tile_metrics in metrics:
@@ -397,7 +406,7 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
                                           passfail=passfail, fname=table_area_norm_fname,
                                           preamble=preamble+'\n'+ttl)
 
-    # Concatenate tiles for global metrics
+    # concatenate tiles for global metrics
     all_dark_frac = np.ma.concatenate(tuple(tile_metrics['dark_frac'] for tile_metrics in metrics))
     all_dark_frac_err = np.ma.concatenate(tuple(tile_metrics['dark_frac_err'] for tile_metrics in metrics))
     all_water_frac = np.ma.concatenate(tuple(tile_metrics['water_frac'] for tile_metrics in metrics))
@@ -419,7 +428,7 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
     all_sim_scenes = np.array([tile_metrics['sim_scene'] + '_' + tile_metrics['tile_names']
                            for tile_metrics in metrics
                            for i in range(len(tile_metrics['cross_track']))])
-    # Global metrics
+    # global metrics
     total_wse_pix_count = np.sum(total_wse_pix)
     common_wse_pix_pct = np.sum(common_wse_pix)/total_wse_pix_count * 100
     uncommon_wse_pix_truth_pct = np.sum(uncommon_wse_pix_truth)/total_wse_pix_count * 100
@@ -514,7 +523,6 @@ def print_metrics(metrics, weighted=False, scatter_plot=False,
         uncert_to_plot=uncert_to_plot, sources=all_sim_scenes, scatter_plot=scatter_plot,
         outdir=outdir)
 
-
 def append_tile_table(tile_metrics, tile_table={},
                       wse_prefix='wse_e_', area_prefix='a_%e_',
                       inverse_variance_weight=False, normalize_by_uncert=False):
@@ -557,7 +565,7 @@ def append_tile_table(tile_metrics, tile_table={},
     area_err_metrics = compute_metrics_from_error(
         area_perc_err, weights=area_weight)
 
-    # Add data to table
+    # add data to table
     tile_table[wse_prefix + 'mean'].append(wse_err_metrics['mean'])
     tile_table[wse_prefix + 'std'].append(wse_err_metrics['std'])
     tile_table['|' + wse_prefix + '68_pct|'].append(wse_err_metrics['|68_pct|'])
@@ -598,7 +606,6 @@ def append_tile_table(tile_metrics, tile_table={},
     tile_table['tile_names'].append(tile_metrics['tile_names'])
     return tile_table
 
-
 def make_global_table(all_wse_err, all_area_perc_err,
                       wse_weight=None, area_weight=None,
                       wse_prefix='wse_e_', area_prefix='a_%e_', mask=None):
@@ -620,7 +627,6 @@ def make_global_table(all_wse_err, all_area_perc_err,
     global_table[area_prefix + '50_pct'] = [area_err_metrics['50_pct']]
 
     return global_table
-
 
 def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                  uncert_to_plot=None, poly=2, sources=None, scatter_plot=False,
@@ -688,12 +694,10 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
         plt.show()
     warnings.resetwarnings()
 
-
 def sort_table(table, sort_key):
     sort_idx = np.argsort(table[sort_key])
     for key in table:
         table[key] = np.array(table[key])[sort_idx]
-
 
 if __name__ == "__main__":
     main()

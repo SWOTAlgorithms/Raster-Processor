@@ -15,6 +15,7 @@ import SWOTRaster.products
 
 from SWOTRaster.products import ScenePixc
 from swot_pixc2raster import load_raster_configs
+from SWOTRaster.geoloc_raster import GeolocRaster
 from SWOTWater.products.product import MutableProduct
 
 LOGGER = logging.getLogger(__name__)
@@ -24,11 +25,16 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('pixc_file')
-    parser.add_argument('raster_file')
-    parser.add_argument('alg_config_file')
-    parser.add_argument('runtime_config_file')
-    parser.add_argument('out_pixc_file')
+    parser.add_argument('pixc_file', type=str,
+                        help='input pixc file')
+    parser.add_argument('raster_file', type=str,
+                        help='input raster file')
+    parser.add_argument('alg_config_file', type=str,
+                        help='raster algorithmic config')
+    parser.add_argument('runtime_config_file', type=str,
+                        help='raster runtime config')
+    parser.add_argument('-o', '--output_pixc_file', type=str,
+                        help='output pixc file', default='pixel_cloud.nc')
     args = parser.parse_args()
 
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
@@ -52,13 +58,13 @@ def main():
             raster_prod = \
                 SWOTRaster.products.RasterGeo.from_ncfile(args.raster_file)
 
-    geolocator = Geoloc_raster(pixc_prod, raster_prod, alg_cfg)
+    geolocator = GeolocRaster(pixc_prod, raster_prod, alg_cfg)
     out_lat, out_lon, out_height = geolocator.process()
 
     pixc_prod['pixel_cloud']['height'][:] = out_height
     pixc_prod['pixel_cloud']['latitude'][:] = out_lat
     pixc_prod['pixel_cloud']['longitude'][:] = out_lon
-    pixc_prod.to_ncfile(args.out_pixc_file)
+    pixc_prod.to_ncfile(args.output_pixc_file)
 
 
 if __name__ == "__main__":

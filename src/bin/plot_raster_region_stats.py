@@ -5,6 +5,18 @@ Government sponsorship acknowledged.
 All rights reserved.
 
 Author(s): Alexander Corben
+
+Plot raster region statistics for single raster or bulk directory structure
+
+Assumed bulk directory structure:
+sim_scene_base_directory
+└── tile_base_directory
+    └── slc_base_directory
+        ├── pixc_base_directory
+        │   ├── pixc_systematic_errors_base_directory
+        │   │   └── proc_raster_systematic_errors_base_directory
+        │   └── proc_raster_base_directory
+        └── truth_raster_base_directory
 '''
 
 import os
@@ -36,19 +48,19 @@ def main():
     parser.add_argument('-eb', '--pixc_errors_basename', type=str, default=None,
                         help='pixc systematic errors basename')
     parser.add_argument('-df', '--dark_frac_thresh', type=float, default=None,
-                        help='Dark water fraction threshold to use as valid data')
+                        help='dark water fraction threshold to use as valid data')
     parser.add_argument('-wf', '--water_frac_thresh', type=float, default=None,
-                        help='Water fraction threshold to use as valid data')
+                        help='water fraction threshold to use as valid data')
     parser.add_argument('-hu', '--wse_uncert_thresh', type=float, default=None,
-                        help='WSE uncertainty threshold to use as valid data')
+                        help='wse uncertainty threshold to use as valid data')
     parser.add_argument('-au', '--area_uncert_thresh', type=float, default=None,
-                        help='Area uncertainty threshold to use as valid data')
+                        help='area uncertainty threshold to use as valid data')
     parser.add_argument('-ct', '--cross_track_bounds', type=float, default=None,
-                        help='Crosstrack bounds to use as valid data', nargs=2)
+                        help='crosstrack bounds to use as valid data', nargs=2)
     parser.add_argument('-mwp', '--min_wse_pixels', type=int, default=None,
-                        help='Minimum number of wse pixels to use as valid data')
+                        help='minimum number of wse pixels to use as valid data')
     parser.add_argument('-map', '--min_area_pixels', type=int, default=None,
-                        help='Minimum number of area pixels to use as valid data')
+                        help='minimum number of area pixels to use as valid data')
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='list of sim scenes to exclude')
     parser.add_argument('-rt', '--region_tables', action='store_true',
@@ -65,8 +77,6 @@ def main():
                   + 'if aggregating stats')
             return
 
-        # TODO: Right now it's hardcoded that the truth data lives under the slc
-        # base directory, and the proc data lives under the pixc base directory
         if args.pixc_errors_basename is not None:
             proc_raster_base_list = glob.glob(os.path.join(
                 args.basedir, '*', '*', args.slc_basename, args.pixc_basename,
@@ -76,11 +86,11 @@ def main():
                 args.basedir, '*', '*', args.slc_basename, args.pixc_basename,
                 args.proc_raster))
 
-        # Get only unique rasters
+        # get only unique rasters
         proc_raster_list = np.unique([os.path.realpath(filename)
                                       for filename in proc_raster_base_list])
 
-        # If proc_raster input is the file itself, get the basename
+        # if proc_raster input is the file itself, get the basename
         proc_raster_base_list = [Path(*Path(proc_raster).parts[:-2])
                                  if os.path.isfile(proc_raster) else proc_raster
                                  for proc_raster in proc_raster_base_list]
@@ -94,7 +104,7 @@ def main():
                 [os.path.join(*Path(proc_raster).parts[:-2], args.truth_raster)
                  for proc_raster in proc_raster_base_list]
 
-        # If truth_raster input is the file itself, get the basename
+        # if truth_raster input is the file itself, get the basename
         truth_raster_base_list = [Path(*Path(truth_raster).parts[:-2])
                                   if os.path.isfile(truth_raster) else truth_raster
                                   for truth_raster in truth_raster_base_list]
@@ -105,15 +115,15 @@ def main():
             truth_raster_path = os.path.join(truth_raster_base, 'raster_data')
             proc_raster = os.path.join(proc_raster_path, 'raster.nc')
             truth_raster = os.path.join(truth_raster_path, 'raster.nc')
-            proc_raster_regionmaps = os.path.join(proc_raster_path,
+            proc_raster_region_maps = os.path.join(proc_raster_path,
                                                   'raster_region_maps.nc')
-            truth_raster_regionmaps = os.path.join(truth_raster_path,
+            truth_raster_region_maps = os.path.join(truth_raster_path,
                                                    'raster_region_maps.nc')
 
             if not os.path.exists(proc_raster) \
                or not os.path.exists(truth_raster) \
-               or not os.path.exists(proc_raster_regionmaps) \
-               or not os.path.exists(truth_raster_regionmaps):
+               or not os.path.exists(proc_raster_region_maps) \
+               or not os.path.exists(truth_raster_region_maps):
                 print('Inputs missing for sim scene: {} - skipping...'.format(sim_scene))
                 continue
 
@@ -134,7 +144,7 @@ def main():
 
             tile_river_metrics, tile_lake_metrics = single_tile_stats(
                 proc_raster, truth_raster,
-                proc_raster_regionmaps, truth_raster_regionmaps,
+                proc_raster_region_maps, truth_raster_region_maps,
                 sim_scene=sim_scene,
                 dark_frac_thresh=args.dark_frac_thresh,
                 water_frac_thresh=args.water_frac_thresh,
@@ -147,7 +157,7 @@ def main():
             lake_metrics.append(tile_lake_metrics)
 
     else:
-        # Inputs can be either raster files, or basenames
+        # inputs can be either raster files, or basenames
         if os.path.isfile(args.proc_raster):
             proc_raster_base = Path(*Path(args.proc_raster).parts[:-2])
         else:
@@ -162,14 +172,14 @@ def main():
         truth_raster_path = os.path.join(truth_raster_base, 'raster_data')
         proc_raster = os.path.join(proc_raster_path, 'raster.nc')
         truth_raster = os.path.join(truth_raster_path, 'raster.nc')
-        proc_raster_regionmaps = os.path.join(proc_raster_path,
+        proc_raster_region_maps = os.path.join(proc_raster_path,
                                               'raster_region_maps.nc')
-        truth_raster_regionmaps = os.path.join(truth_raster_path,
+        truth_raster_region_maps = os.path.join(truth_raster_path,
                                                'raster_region_maps.nc')
 
         tile_river_metrics, tile_lake_metrics = single_tile_stats(
             proc_raster, truth_raster,
-            proc_raster_regionmaps, truth_raster_regionmaps,
+            proc_raster_region_maps, truth_raster_region_maps,
             dark_frac_thresh=args.dark_frac_thresh,
             water_frac_thresh=args.water_frac_thresh,
             wse_uncert_thresh=args.wse_uncert_thresh,
@@ -217,17 +227,16 @@ def main():
     print_global_metrics(river_metrics, lake_metrics, outdir=args.outdir,
                          preamble=preamble)
 
-
 def single_tile_stats(proc_raster, truth_raster,
-                      proc_raster_regionmaps, truth_raster_regionmaps,
+                      proc_raster_region_maps, truth_raster_region_maps,
                       sim_scene=None, dark_frac_thresh=None,
                       water_frac_thresh=None, wse_uncert_thresh=None,
                       area_uncert_thresh=None, cross_track_bounds=None,
                       min_wse_pixels=None, min_area_pixels=None):
 
     tile_river_metrics = load_data(proc_raster, truth_raster,
-                                   proc_raster_regionmaps,
-                                   truth_raster_regionmaps,
+                                   proc_raster_region_maps,
+                                   truth_raster_region_maps,
                                    wb_type='river',
                                    sim_scene=sim_scene,
                                    dark_frac_thresh=dark_frac_thresh,
@@ -238,8 +247,8 @@ def single_tile_stats(proc_raster, truth_raster,
                                    min_wse_pixels=min_wse_pixels,
                                    min_area_pixels=min_area_pixels)
     tile_lake_metrics = load_data(proc_raster, truth_raster,
-                                  proc_raster_regionmaps,
-                                  truth_raster_regionmaps,
+                                  proc_raster_region_maps,
+                                  truth_raster_region_maps,
                                   wb_type='lake',
                                   sim_scene=sim_scene,
                                   dark_frac_thresh=dark_frac_thresh,
@@ -252,18 +261,17 @@ def single_tile_stats(proc_raster, truth_raster,
 
     return tile_river_metrics, tile_lake_metrics
 
-
 def load_data(proc_raster_filename, truth_raster_filename,
-              proc_raster_regionmaps_filename, truth_raster_regionmaps_filename,
+              proc_raster_region_maps_filename, truth_raster_region_maps_filename,
               sim_scene='', wb_type='river', dark_frac_thresh=None,
               water_frac_thresh=None, wse_uncert_thresh=None,
               area_uncert_thresh=None, cross_track_bounds=None,
               min_wse_pixels=None, min_area_pixels=None):
     proc_raster = SWOTRaster.products.RasterUTM.from_ncfile(proc_raster_filename)
     truth_raster = SWOTRaster.products.RasterUTM.from_ncfile(truth_raster_filename)
-    with Dataset(proc_raster_regionmaps_filename, 'r') as fin_proc, \
-         Dataset(truth_raster_regionmaps_filename, 'r') as fin_truth:
-        # When loading, set unregioned area to -1 and width/area to nan
+    with Dataset(proc_raster_region_maps_filename, 'r') as fin_proc, \
+         Dataset(truth_raster_region_maps_filename, 'r') as fin_truth:
+        # when loading, set unregioned area to -1 and width/area to nan
         if wb_type=='river':
             region_map_raster_truth = fin_truth['region_map_river'][:].filled(-1)
             region_map_raster_proc = fin_proc['region_map_river'][:].filled(-1)
@@ -273,7 +281,7 @@ def load_data(proc_raster_filename, truth_raster_filename,
             region_map_raster_proc = fin_proc['region_map_lake'][:].filled(-1)
             lake_area = np.ma.append(fin_truth['lake_area'][:], np.nan)
 
-    # 1. get list of unique region ids
+    # get list of unique region ids
     region_list = np.unique(region_map_raster_proc)
 
     tile_metrics = []
@@ -300,7 +308,7 @@ def load_data(proc_raster_filename, truth_raster_filename,
         area_truth_not_in_data_mask = np.logical_and(area_truth_mask, ~area_proc_mask)
         area_data_not_in_truth_mask = np.logical_and(~area_truth_mask, area_proc_mask)
 
-        # Use additional filters to update masks
+        # use additional filters to update masks
         tmp_mask = np.ones_like(wse_common_mask)
         if dark_frac_thresh is not None:
             tmp_mask = np.logical_and(
@@ -365,16 +373,12 @@ def load_data(proc_raster_filename, truth_raster_filename,
 
         region_metrics['true_ct_mean'] = \
             nanmean_masked(truth_raster['cross_track'][area_truth_mask])
-        #region_metrics['meas_wse_mean'] = \
-        #    nanmean_masked(proc_raster['wse'][wse_proc_mask])
         proc_wse = proc_raster['wse'][wse_proc_mask].ravel()
         region_metrics['meas_wse_mean'], _ = \
             ag.height_only(proc_wse, np.ones(proc_wse.shape, dtype=bool),
                            height_std=proc_raster['wse_uncert'][wse_proc_mask].ravel())
         region_metrics['meas_area_total'] = \
             np.nansum(proc_raster['water_area'][area_proc_mask])
-        #region_metrics['true_wse_mean'] = \
-        #    nanmean_masked(truth_raster['wse'][wse_truth_mask])
         true_wse = truth_raster['wse'][wse_truth_mask].ravel()
         region_metrics['true_wse_mean'], _ = \
             ag.height_only(true_wse, np.ones(true_wse.shape, dtype=bool))
@@ -420,7 +424,6 @@ def load_data(proc_raster_filename, truth_raster_filename,
 
     return tile_metrics
 
-
 def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
                       wse_prefix='wse_e_', area_prefix='a_%e_',
                       normalize_by_uncert=False):
@@ -434,7 +437,6 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
         elif wb_type=='lake':
             tile_table.update({'lake_idx':[], 'lake_area':[]})
 
-        # TODO: some of these fields are redundant and could be removed/cleaned up
         tile_table.update({'true_ct_mean':[],
                            'meas_wse_mean':[],
                            'true_wse_mean':[],
@@ -508,7 +510,6 @@ def append_tile_table(tile_metrics, tile_table={}, wb_type='river',
 
     return tile_table
 
-
 def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None):
     # setup output fnames
     global_table_river_wse_fname = None
@@ -555,13 +556,13 @@ def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None
                               for key in ['lake_area'] + global_table_area_keys}
     global_table_lake_area['lake_area'] = lake_area_keys
 
-    # Aggregate errors for rivers
+    # aggregate errors for rivers
     river_err = {'river_width':river_width_keys,
                  'wse_err':[[]for idx in range(len(river_width_keys))],
                  'area_pct_err':[[]for idx in range(len(river_width_keys))]}
     for tile_metrics in river_metrics:
         for region_metrics in tile_metrics:
-            # Aggregate stats for unregioned area
+            # aggregate stats for unregioned area
             if region_metrics['river_idx'] == -1:
                 river_err['wse_err'][-4].append(region_metrics['mean_wse_err'])
                 river_err['area_pct_err'][-4].append(region_metrics['total_area_pct_err'])
@@ -620,13 +621,13 @@ def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None
         global_table_river_area['|area_%e_68_pct|'][river_width_idx] = area_pct_err['|68_pct|']
         global_table_river_area['area_%e_50_pct'][river_width_idx] = area_pct_err['50_pct']
 
-    # Now do that same for lakes (TODO: break this out to reduce code dup)
+    # now do that same for lakes
     lake_err = {'lake_area':lake_area_keys,
                  'wse_err':[[]for idx in range(len(lake_area_keys))],
                  'area_pct_err':[[]for idx in range(len(lake_area_keys))]}
     for tile_metrics in lake_metrics:
         for region_metrics in tile_metrics:
-            # Aggregate stats for unregioned area
+            # aggregate stats for unregioned area
             if region_metrics['lake_idx'] == -1:
                 lake_err['wse_err'][-4].append(region_metrics['mean_wse_err'])
                 lake_err['area_pct_err'][-4].append(region_metrics['total_area_pct_err'])
@@ -705,7 +706,6 @@ def print_global_metrics(river_metrics, lake_metrics, outdir=None, preamble=None
                                           fname=global_table_lake_area_fname,
                                           preamble=preamble+'\n'+ttl)
 
-
 def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
                   preamble=None):
     # make outdir subdirectory for tile data
@@ -714,7 +714,7 @@ def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
         os.makedirs(outdir)
 
     passfail = get_passfail()
-    data_not_in_truth_fail = (100**2)/resolution # TODO: tweak this
+    data_not_in_truth_fail = (100**2)/resolution
     passfail['uncommon_wse_pix_truth'] = [0, data_not_in_truth_fail]
     passfail['uncommon_area_pix_truth'] = [0, data_not_in_truth_fail]
 
@@ -798,7 +798,6 @@ def print_metrics(metrics, resolution=100, wb_type='river', outdir=None,
         SWOTRiver.analysis.tabley.print_table(region_table_area, precision=5,
                                               passfail=passfail, fname=table_area_norm_fname,
                                               preamble=preamble+'\n'+ttl)
-
 
 if __name__ == '__main__':
     main()
