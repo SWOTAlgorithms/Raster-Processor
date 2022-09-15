@@ -181,14 +181,9 @@ def proc_catcher_proc(raster_file, output_raster_region_maps_file, pixc_files,
     try:
         print('Making proc region maps for {} - {}'.format(
             sim_scene, sim_tile))
-        print('make_proc_region_maps({},{},{},{},{},{},{})'.format(
-            raster_file, output_raster_region_maps_file,
-            pixc_files, slant_region_map_files,
-            ground_region_map_file, alg_config, runtime_config))
-        input()
-        #make_proc_region_maps(raster_file, output_raster_region_maps_file,
-        #                      pixc_files, slant_region_map_files,
-        #                      ground_region_map_file, alg_config, runtime_config)
+        make_proc_region_maps(raster_file, output_raster_region_maps_file,
+                              pixc_files, slant_region_map_files,
+                              ground_region_map_file, alg_config, runtime_config)
     except Exception as e:
         print('Unable to make proc region maps for {} - {}'.format(
             sim_scene, sim_tile))
@@ -202,10 +197,10 @@ def proc_catcher_truth(raster_file, output_raster_region_maps_file, pixc_files,
     try:
         print('Making truth region maps for {} - {}'.format(
             sim_scene, sim_tile))
-        #make_truth_region_maps(raster_file, output_raster_region_maps_file,
-        #                       pixc_files, ground_region_map_file,
-        #                       gdem_diles, alg_config, runtime_config,
-        #                       gdem_subsample_factor)
+        make_truth_region_maps(raster_file, output_raster_region_maps_file,
+                               pixc_files, ground_region_map_file,
+                               gdem_diles, alg_config, runtime_config,
+                               gdem_subsample_factor)
     except Exception as e:
         print('Unable to make truth region maps for {} - {}'.format(
             sim_scene, sim_tile))
