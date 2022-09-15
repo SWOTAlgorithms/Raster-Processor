@@ -54,6 +54,8 @@ def main():
                         help='raster runtime config')
     parser.add_argument('-eb', '--pixc_errors_basename', type=str, default=None,
                         help='pixc systematic errors basename')
+    parser.add_argument('-gs', '--gdem_subsample_factor', default=2,
+                        help='gdem subsample factor')
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='list of sim scenes to exclude')
     parser.add_argument('-x', '--max_proc', type=int, default=8,
@@ -109,7 +111,7 @@ def main():
                 *Path(pixc_file).parts[:dir_idx], args.slant_region_map_basename,
                 'region_map_data', 'region_map.nc')
             slc_dir = os.path.join(
-                *Path(pixc_file).parts[:dir_idx], args.slc_basename, 'slc_data')
+                *Path(pixc_file).parts[:dir_idx-1], args.slc_basename, 'slc_data')
 
             gdem_file = os.path.join(slc_dir, 'gdem_truth.RightSwath.nc')
             if not os.path.isfile(gdem_file):
@@ -118,7 +120,9 @@ def main():
             slant_region_map_files.append(slant_region_map_file)
             gdem_files.append(gdem_file)
 
-        if args.pixc_errors_basename is None:
+        if flavor_is_truth:
+            sim_scene = Path(raster_file).parts[-6]
+        elif args.pixc_errors_basename is None:
             sim_scene = Path(raster_file).parts[-7]
         else:
             sim_scene = Path(raster_file).parts[-8]
@@ -143,7 +147,7 @@ def main():
             tup_list.append((raster_file, output_raster_region_maps_file,
                              pixc_files, ground_region_map_file, gdem_files,
                              args.alg_config, args.runtime_config,
-                             sim_scene, sim_tile))
+                             args.gdem_subsample_factor, sim_scene, sim_tile))
         else:
             tup_list.append((raster_file, output_raster_region_maps_file,
                              pixc_files, slant_region_map_files,
@@ -199,7 +203,7 @@ def proc_catcher_truth(raster_file, output_raster_region_maps_file, pixc_files,
             sim_scene, sim_tile))
         make_truth_region_maps(raster_file, output_raster_region_maps_file,
                                pixc_files, ground_region_map_file,
-                               gdem_diles, alg_config, runtime_config,
+                               gdem_files, alg_config, runtime_config,
                                gdem_subsample_factor)
     except Exception as e:
         print('Unable to make truth region maps for {} - {}'.format(
