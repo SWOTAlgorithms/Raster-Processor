@@ -103,6 +103,8 @@ def make_truth_region_maps(raster_file, output_raster_region_maps_file, pixc_fil
             gr_region_map_river = fin['region_map_river'][:]
             gr_region_map_lake = fin['region_map_lake'][:]
 
+        gdem_region_maps_river = []
+        gdem_region_maps_lake = []
         for gdem_file in gdem_files:
             with Dataset(gdem_file, 'r') as fin:
                 gdem_lat = fin['latitude'][:]
