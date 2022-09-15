@@ -337,7 +337,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
                 If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, values less than 32768 represent
+                indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
@@ -427,7 +427,7 @@ COMMON_VARIABLES = odict([
                 Bitwise quality indicator for the water surface area and water
                 fraction quantities.
                 If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, values less than 32768 represent
+                indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
@@ -542,7 +542,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
                 If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, values less than 32768 represent
+                indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.""")],
