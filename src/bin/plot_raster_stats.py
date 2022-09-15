@@ -78,6 +78,10 @@ def main():
                 args['basedir'], '*', '*', args['slc_basename'], args['pixc_basename'],
                 args['proc_raster']))
 
+        # Get only unique rasters
+        proc_raster_list = np.unique([os.path.realpath(filename)
+                                      for filename in proc_raster_list])
+
         # If proc_raster input is a basename, get the actual raster
         proc_raster_list = [os.path.join(proc_raster, 'raster_data', 'raster.nc')
                             if os.path.isdir(proc_raster) else proc_raster
@@ -206,7 +210,7 @@ def load_data(
         tile_metrics['water_frac'] = np.array([np.nan])
         tile_metrics['water_frac_err'] = np.array([np.nan])
         tile_metrics['n_wse_pix'] = np.array([np.nan])
-        tile_metrics['n_area_pix'] = np.array([np.nan])
+        tile_metrics['n_water_area_pix'] = np.array([np.nan])
         tile_metrics['total_wse_pix'] = truth_tmp['wse'].count() + data_tmp['wse'].count()
         tile_metrics['common_wse_pix'] = 0
         tile_metrics['uncommon_wse_pix_truth'] = truth_tmp['wse'].count()
@@ -267,7 +271,7 @@ def load_data(
 
         if min_area_pixels is not None:
             tmp_mask = np.logical_and(
-                tmp_mask, data_tmp['n_area_pix'] >= min_area_pixels)
+                tmp_mask, data_tmp['n_water_area_pix'] >= min_area_pixels)
 
         wse_total_mask = np.logical_and(wse_total_mask, tmp_mask)
         wse_common_mask = np.logical_and(wse_common_mask, tmp_mask)
@@ -294,7 +298,7 @@ def load_data(
         tile_metrics['water_frac'] = truth_tmp['water_frac'][common_mask]
         tile_metrics['water_frac_err'] = water_frac_err[common_mask]
         tile_metrics['n_wse_pix'] = data_tmp['n_wse_pix'][common_mask]
-        tile_metrics['n_area_pix'] = data_tmp['n_area_pix'][common_mask]
+        tile_metrics['n_water_area_pix'] = data_tmp['n_water_area_pix'][common_mask]
         tile_metrics['total_wse_pix'] = np.count_nonzero(wse_total_mask)
         tile_metrics['common_wse_pix'] = np.count_nonzero(wse_common_mask)
         tile_metrics['uncommon_wse_pix_truth'] = np.count_nonzero(

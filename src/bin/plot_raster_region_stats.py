@@ -76,6 +76,10 @@ def main():
                 args.basedir, '*', '*', args.slc_basename, args.pixc_basename,
                 args.proc_raster))
 
+        # Get only unique rasters
+        proc_raster_list = np.unique([os.path.realpath(filename)
+                                      for filename in proc_raster_base_list])
+
         # If proc_raster input is the file itself, get the basename
         proc_raster_base_list = [Path(*Path(proc_raster).parts[:-2])
                                  if os.path.isfile(proc_raster) else proc_raster
@@ -326,7 +330,7 @@ def load_data(proc_raster_filename, truth_raster_filename,
 
         if min_area_pixels is not None:
             tmp_mask = np.logical_and(
-                tmp_mask, proc_raster['n_area_pix'] >= min_area_pixels)
+                tmp_mask, proc_raster['n_water_area_pix'] >= min_area_pixels)
 
         wse_truth_mask = np.logical_and(wse_truth_mask, tmp_mask)
         wse_proc_mask = np.logical_and(wse_proc_mask, tmp_mask)
