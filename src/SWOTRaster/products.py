@@ -1463,6 +1463,7 @@ class RasterUTMDebug(RasterUTM):
     VARIABLES['classification']['dimensions'] = \
         odict([['y', 0], ['x', 0]])
 
+
 class RasterGeoDebug(RasterGeo):
     ATTRIBUTES = odict({key:RasterGeo.ATTRIBUTES[key].copy()
                         for key in RasterGeo.ATTRIBUTES})
@@ -1587,6 +1588,7 @@ class ScenePixc(Product):
         scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
 
         return scene_pixc
+
 
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
@@ -1864,8 +1866,18 @@ class ScenePixelCloud(Product):
             scene_pixel_cloud['improved_height'] = \
                 pixcvec_tile.height_vectorproc
 
-            scene_pixel_cloud['ice_clim_flag'] = pixcvec_tile.ice_clim_f
-            scene_pixel_cloud['ice_dyn_flag'] = pixcvec_tile.ice_dyn_f
+            scene_pixel_cloud['ice_clim_flag'] = \
+                np.ma.MaskedArray(pixcvec_tile.ice_clim_f)
+            scene_pixel_cloud['ice_dyn_flag'] = \
+                np.ma.MaskedArray(pixcvec_tile.ice_dyn_f)
+            ice_clim_flag_mask = np.logical_not(np.isin(
+                scene_pixel_cloud['ice_clim_flag'],
+                COMMON_VARIABLES['ice_clim_flag']['flag_values']))
+            ice_dyn_flag_mask = np.logical_not(np.isin(
+                scene_pixel_cloud['ice_dyn_flag'],
+                COMMON_VARIABLES['ice_dyn_flag']['flag_values']))
+            scene_pixel_cloud['ice_clim_flag'].mask = ice_clim_flag_mask
+            scene_pixel_cloud['ice_dyn_flag'].mask = ice_dyn_flag_mask
         else:
             scene_pixel_cloud['improved_latitude'] = \
                 scene_pixel_cloud['latitude']

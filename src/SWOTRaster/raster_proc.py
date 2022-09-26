@@ -765,17 +765,21 @@ class RasterProcessor(object):
                     valid_ice_dyn_flag = \
                         pixc_ice_dyn_flag[self.proj_mapping[i][j]][mask]
 
-                    # If all flags are the same, then we return that flag value
-                    if np.all(valid_ice_clim_flag == valid_ice_clim_flag[0]):
-                        self.ice_clim_flag[i][j] = valid_ice_clim_flag[0]
-                    else: # otherwise, return a value of 1 (partially covered)
-                        self.ice_clim_flag[i][j] = 1
+                    if not np.all(valid_ice_clim_flag.mask):
+                        min_flag_val = np.min(valid_ice_clim_flag)
+                        # If all flags are the same, then we return that value
+                        if np.all(valid_ice_clim_flag==min_flag_val):
+                            self.ice_clim_flag[i][j] = min_flag_val
+                        else: # otherwise, return a value of 1 (partial cover)
+                            self.ice_clim_flag[i][j] = 1
 
-                    # If all flags are the same, then we return that flag value
-                    if np.all(valid_ice_dyn_flag == valid_ice_dyn_flag[0]):
-                        self.ice_dyn_flag[i][j] = valid_ice_dyn_flag[0]
-                    else: # otherwise, return a value of 1 (partially covered)
-                        self.ice_dyn_flag[i][j] = 1
+                    if not np.all(valid_ice_dyn_flag.mask):
+                        min_flag_val = np.min(valid_ice_dyn_flag)
+                        # If all flags are the same, then we return that value
+                        if np.all(valid_ice_dyn_flag==min_flag_val):
+                            self.ice_dyn_flag[i][j] = min_flag_val
+                        else: # otherwise, return a value of 1 (partial cover)
+                            self.ice_dyn_flag[i][j] = 1
 
     def aggregate_layover_impact(self, pixc, rasterization_mask):
         """ Aggregate layover impact """
@@ -815,7 +819,7 @@ class RasterProcessor(object):
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
         self.wse_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
-            + np.ma.zeros((self.size_y, self.size_x))
+            + np.ma.zeros((self.size_y, self.size_x), dtype=int)
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -907,7 +911,7 @@ class RasterProcessor(object):
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
         self.water_area_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
-            + np.ma.zeros((self.size_y, self.size_x))
+            + np.ma.zeros((self.size_y, self.size_x), dtype=int)
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
@@ -1008,7 +1012,7 @@ class RasterProcessor(object):
             products.QUAL_IND_BAD + np.ma.zeros((self.size_y, self.size_x))
         self.sig0_qual_bitwise = \
             products.QUAL_IND_NO_PIXELS + products.QUAL_IND_FEW_PIXELS \
-            + np.ma.zeros((self.size_y, self.size_x))
+            + np.ma.zeros((self.size_y, self.size_x), dtype=int)
 
         for i in range(0, self.size_y):
             for j in range(0, self.size_x):
