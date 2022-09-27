@@ -15,7 +15,7 @@ from osgeo import osr
 from datetime import datetime
 from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
-from SWOTWater.products.product import Product
+from SWOTWater.products.product import Product, ProductTesterMixIn
 from SWOTRaster.raster_crs import ELLIPSOID_SEMI_MAJOR_AXIS, ELLIPSOID_INVERSE_FLATTENING
 
 UNIX_EPOCH = datetime(1970, 1, 1)
@@ -891,7 +891,7 @@ COMMON_VARIABLES = odict([
 ])
 
 
-class RasterUTM(Product):
+class RasterUTM(ProductTesterMixIn, Product):
     UID = "raster"
     DIMENSIONS = odict([
         ['x', 0],
@@ -1192,7 +1192,7 @@ class RasterUTM(Product):
         return 1
 
 
-class RasterGeo(Product):
+class RasterGeo(ProductTesterMixIn, Product):
     UID = "raster"
     DIMENSIONS = odict([
         ['longitude', 0],
