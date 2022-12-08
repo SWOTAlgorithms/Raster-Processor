@@ -685,13 +685,17 @@ def plot_metrics(metrics_to_plot, metrics_to_plot_against,
                         # don't do signed cross-track in the plot to
                         # make it easier to read
                         this_x_data = np.abs(this_x_data)
-                    scatter_density(this_x_data, this_y_data,
-                        uncert=this_uncert, source=sources, bin_edges=bin_edges)
-                    plt.title('{} vs. {}'.format(y_key, x_key))
-                    plt.xlabel(x_key)
-                    plt.ylabel(y_key)
-                    if outname is not None:
-                        plt.savefig(outname, dpi=300)
+                    try:
+                        scatter_density(this_x_data, this_y_data,
+                            uncert=this_uncert, source=sources, bin_edges=bin_edges)
+                        plt.title('{} vs. {}'.format(y_key, x_key))
+                        plt.xlabel(x_key)
+                        plt.ylabel(y_key)
+                        if outname is not None:
+                            plt.savefig(outname, dpi=300)
+                    except Exception as E:
+                        print('Plotting Exception: {}'.format(E))
+
 
     if outdir is None:
         plt.show()
