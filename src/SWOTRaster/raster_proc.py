@@ -1401,6 +1401,8 @@ class RasterProcessor(object):
         product.right_last_longitude = self.right_last_longitude
         product.right_last_latitude = self.right_last_latitude
 
+        coordinate_system = self.output_crs
+
         if self.projection_type == 'utm':
             product.utm_zone_num = self.utm_zone
             product.mgrs_latitude_band = self.mgrs_band
@@ -1410,7 +1412,6 @@ class RasterProcessor(object):
             product.y_max = self.y_max
             product['x'] = np.linspace(self.x_min, self.x_max, self.size_x)
             product['y'] = np.linspace(self.y_min, self.y_max, self.size_y)
-            coordinate_system = self.output_crs
             product.VARIABLES['crs']['projected_crs_name'] = \
                 coordinate_system.GetName()
             product.VARIABLES['crs']['false_northing'] = \
@@ -1428,7 +1429,6 @@ class RasterProcessor(object):
             product['latitude'] = np.linspace(self.y_min,
                                               self.y_max,
                                               self.size_y)
-            coordinate_system = raster_crs.wgs84_crs()
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
