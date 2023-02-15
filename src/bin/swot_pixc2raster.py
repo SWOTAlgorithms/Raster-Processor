@@ -111,7 +111,14 @@ def main():
     else:
         pixcvec_tile = None
 
-    pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile)
+    # Only load defined classes to save on memory
+    valid_classes = alg_config['interior_water_classes'] \
+                    + alg_config['water_edge_classes'] \
+                    + alg_config['land_edge_classes'] \
+                    + alg_config['dark_water_classes']
+
+    pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile,
+                                    valid_classes=valid_classes)
 
     proc = SWOTRaster.l2pixc_to_raster.L2PixcToRaster(
         pixc=pixc_data, algorithmic_config=alg_cfg, runtime_config=rt_cfg)

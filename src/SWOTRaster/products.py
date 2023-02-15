@@ -1521,7 +1521,8 @@ class ScenePixc(Product):
     ])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None, leap_second=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, leap_second=None,
+                  valid_classes=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixc from tile')
 
@@ -1584,7 +1585,7 @@ class ScenePixc(Product):
 
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
-            pixc_tile, pixcvec_tile)
+            pixc_tile, pixcvec_tile, valid_classes)
         scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
 
         return scene_pixc
@@ -1593,7 +1594,8 @@ class ScenePixc(Product):
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
                    granule_start_time, granule_end_time, leap_second,
-                   cycle_number, pass_number, scene_number, pixcvec_tiles=None):
+                   cycle_number, pass_number, scene_number, pixcvec_tiles=None,
+                   valid_classes=None):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
@@ -1606,7 +1608,8 @@ class ScenePixc(Product):
         tile_objs = []
         for tile_idx in range(num_tiles):
             tile_objs.append(cls.from_tile(pixc_tiles[tile_idx],
-                                           pixcvec_tiles[tile_idx]))
+                                           pixcvec_tiles[tile_idx],
+                                           valid_classes=valid_classes))
 
         # Add all of the pixel_cloud/tvp data
         scene_pixc = np.array(tile_objs).sum()
@@ -1841,13 +1844,16 @@ class ScenePixelCloud(Product):
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['points', 0]])
     VARIABLES['pixc_line_qual']['dimensions'] = odict([['num_pixc_lines',0],])
+    VARIABLES['pixc_line_to_tvp']['dimensions'] = odict([['num_pixc_lines',0],])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, valid_classes=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixel cloud from tile')
 
         scene_pixel_cloud = cls()
+
+        mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
 
         # Copy common pixc variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
@@ -1855,21 +1861,24 @@ class ScenePixelCloud(Product):
                 pixc_tile['pixel_cloud'].VARIABLES.keys()):
             scene_pixel_cloud.VARIABLES[field] = \
                 pixc_tile['pixel_cloud'].VARIABLES[field]
-            scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
+            if field in ['pixc_line_qual', 'pixc_line_to_tvp']:
+                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
+            else:
+                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
 
         # Copy pixcvec variables (set improved llh to pixcvec llh here)
         if pixcvec_tile is not None:
             scene_pixel_cloud['improved_latitude'] = \
-                pixcvec_tile.latitude_vectorproc
+                pixcvec_tile.latitude_vectorproc[mask]
             scene_pixel_cloud['improved_longitude'] = \
-                pixcvec_tile.longitude_vectorproc
+                pixcvec_tile.longitude_vectorproc[mask]
             scene_pixel_cloud['improved_height'] = \
-                pixcvec_tile.height_vectorproc
+                pixcvec_tile.height_vectorproc[mask]
 
             scene_pixel_cloud['ice_clim_flag'] = \
-                np.ma.MaskedArray(pixcvec_tile.ice_clim_f)
+                np.ma.MaskedArray(pixcvec_tile.ice_clim_f)[mask]
             scene_pixel_cloud['ice_dyn_flag'] = \
-                np.ma.MaskedArray(pixcvec_tile.ice_dyn_f)
+                np.ma.MaskedArray(pixcvec_tile.ice_dyn_f)[mask]
             ice_clim_flag_mask = np.logical_not(np.isin(
                 scene_pixel_cloud['ice_clim_flag'],
                 COMMON_VARIABLES['ice_clim_flag']['flag_values']))
