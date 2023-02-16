@@ -169,7 +169,7 @@ class RasterProcessor(object):
         empty_product = self.build_product(populate_values=False)
         # Return empty product if pixc is empty
         if len(pixc['pixel_cloud']['height'])==0:
-            LOGGER.warn('Empty Pixel Cloud: returning empty raster')
+            LOGGER.warning('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
         self.proj_mapping = empty_product.get_raster_mapping(

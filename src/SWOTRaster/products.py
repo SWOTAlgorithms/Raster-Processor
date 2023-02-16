@@ -1853,7 +1853,10 @@ class ScenePixelCloud(Product):
 
         scene_pixel_cloud = cls()
 
-        mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
+        if valid_classes is not None:
+            mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
+        else:
+            mask = np.ones(pixc_tile['pixel_cloud']['classification'].shape, dtype=bool)
 
         # Copy common pixc variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
