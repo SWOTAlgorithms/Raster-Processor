@@ -12,6 +12,7 @@ import SWOTRaster.geoloc_raster
 import SWOTRaster.raster_proc
 
 from SWOTRaster.errors import RasterUsageException
+from SWOTRaster.products import DEFAULT_CHUNK_SIZE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +24,12 @@ class L2PixcToRaster(object):
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
 
-        # Add default zone adjusts to config
+        # Add default optional values to configs
+        if 'utm_conversion_chunk_size' not in self.algorithmic_config:
+            self.algorithmic_config['utm_conversion_chunk_size'] = \
+                DEFAULT_CHUNK_SIZE
+        if 'debug_flag' not in self.algorithmic_config:
+            self.algorithmic_config['debug_flag'] = False
         if 'utm_zone_adjust' not in self.runtime_config:
             self.runtime_config['utm_zone_adjust'] = 0
         if 'mgrs_band_adjust' not in self.runtime_config:
@@ -119,6 +125,8 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
+                utm_conversion_chunk_size=\
+                self.algorithmic_config['utm_conversion_chunk_size'],
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -186,6 +194,8 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
+                utm_conversion_chunk_size=\
+                self.algorithmic_config['utm_conversion_chunk_size'],
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -249,6 +259,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['missing_karin_data_time_thresh'],
             utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
             mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
+            utm_conversion_chunk_size=\
+                self.algorithmic_config['utm_conversion_chunk_size'],
             debug_flag=self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(

@@ -12,9 +12,11 @@ import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
+from SWOTRaster.products import RasterUTM
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 LOGGER = logging.getLogger(__name__)
+DEFAULT_CHUNK_SIZE = 100000
 
 class GeolocRaster(object):
     def __init__(self, pixc, raster, algorithmic_config):
@@ -48,8 +50,13 @@ class GeolocRaster(object):
         all_classes_mask = self.pixc.get_mask(
             all_classes, use_improved_geoloc=False)
 
-        proj_mapping = self.raster.get_raster_mapping(
-            self.pixc, all_classes_mask, use_improved_geoloc=False)
+        if isinstance(self.raster, RasterUTM):
+            proj_mapping = self.raster.get_raster_mapping(
+                self.pixc, all_classes_mask, False,
+                self.algorithmic_config['utm_conversion_chunk_size'])
+        else:
+            proj_mapping = self.raster.get_raster_mapping(
+                self.pixc, all_classes_mask, False)
 
         raster_uncorrected_height = self.raster.get_uncorrected_height()
 
@@ -122,20 +129,31 @@ class GeolocRaster(object):
             nadir_vy_vect[i] = nadir_vy[ind_sensor]
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
 
-        # improve height with vectorised pixel
-        p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = \
-            geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
-                                                 h_noisy,
-                                                 np.transpose(np.array(
-                                                     [nadir_x_vect, nadir_y_vect,
-                                                      nadir_z_vect])),
-                                                 np.transpose(np.array(
-                                                     [nadir_vx_vect, nadir_vy_vect,
-                                                      nadir_vz_vect])),
-                                                 ri, self.new_height,
-                                                 recompute_doppler=True,
-                                                 recompute_range=True, verbose=False,
-                                                 max_iter_grad=1, height_goal=1.e-3)
+        # Split the data into more manageable chunks and geolocate
+        try:
+            chunk_size = self.algorithmic_config['height_constrained_geoloc_chunk_size']
+        except KeyError:
+            chunk_size = DEFAULT_CHUNK_SIZE
 
-        self.out_lat_corr, self.out_lon_corr, self.out_height_corr = np.transpose(
-            p_final_llh)
+        for start_idx in np.arange(0, nb_pix, chunk_size):
+            end_idx = min(start_idx+chunk_size, nb_pix)
+            p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = \
+                geoloc.pointcloud_height_geoloc_vect(
+                    np.transpose(np.array([x[start_idx:end_idx],
+                                           y[start_idx:end_idx],
+                                           z[start_idx:end_idx]])),
+                    h_noisy[start_idx:end_idx],
+                    np.transpose(np.array([nadir_x_vect[start_idx:end_idx],
+                                           nadir_y_vect[start_idx:end_idx],
+                                           nadir_z_vect[start_idx:end_idx]])),
+                    np.transpose(np.array([nadir_vx_vect[start_idx:end_idx],
+                                           nadir_vy_vect[start_idx:end_idx],
+                                           nadir_vz_vect[start_idx:end_idx]])),
+                    ri[start_idx:end_idx],
+                    self.new_height[start_idx:end_idx],
+                    recompute_doppler=True, recompute_range=True, verbose=False,
+                    max_iter_grad=1, height_goal=1.e-3)
+
+            self.out_lat_corr[start_idx:end_idx] = p_final_llh[:,0]
+            self.out_lon_corr[start_idx:end_idx] = p_final_llh[:,1]
+            self.out_height_corr[start_idx:end_idx] = p_final_llh[:,2]

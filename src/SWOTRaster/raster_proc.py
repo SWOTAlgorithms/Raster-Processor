@@ -41,7 +41,9 @@ class RasterProcessor(object):
                  water_frac_bad_thresh_min, water_frac_bad_thresh_max,
                  sig0_bad_thresh_min, sig0_bad_thresh_max,
                  inner_swath_distance_thresh, missing_karin_data_time_thresh,
-                 utm_zone_adjust=0, mgrs_band_adjust=0, debug_flag=False):
+                 utm_zone_adjust=0, mgrs_band_adjust=0,
+                 utm_conversion_chunk_size=products.DEFAULT_CHUNK_SIZE,
+                 debug_flag=False):
 
         self.projection_type = projection_type
         if self.projection_type=='geo':
@@ -51,6 +53,7 @@ class RasterProcessor(object):
             self.resolution = np.float(resolution)
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
+            self.utm_conversion_chunk_size = utm_conversion_chunk_size
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
@@ -105,8 +108,8 @@ class RasterProcessor(object):
         LOGGER.info("rasterizing")
 
         self.input_crs = raster_crs.wgs84_crs()
-        self.cycle_number = pixc.cycle_number
-        self.pass_number = pixc.pass_number
+        self.cycle_number = pixc.scene_cycle_number
+        self.pass_number = pixc.scene_pass_number
         self.tile_numbers = pixc.tile_numbers
         self.tile_names = pixc.tile_names
         self.tile_polarizations = pixc.tile_polarizations
@@ -172,8 +175,14 @@ class RasterProcessor(object):
             LOGGER.warning('Empty Pixel Cloud: returning empty raster')
             return empty_product
 
-        self.proj_mapping = empty_product.get_raster_mapping(
-            pixc, all_classes_mask, use_improved_geoloc)
+        # Get raster mapping
+        if self.projection_type=='utm':
+            self.proj_mapping = empty_product.get_raster_mapping(
+                pixc, all_classes_mask, use_improved_geoloc,
+                self.utm_conversion_chunk_size)
+        else:
+            self.proj_mapping = empty_product.get_raster_mapping(
+                pixc, all_classes_mask, use_improved_geoloc)
 
         # Get rasterization masks for wse/water_area/sig0/all
         wse_mask, water_area_mask, sig0_mask, all_mask = \

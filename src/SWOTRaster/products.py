@@ -9,6 +9,7 @@ Author(s): Alexander Corben
 import logging
 import textwrap
 import numpy as np
+import operator as op
 import SWOTRaster.raster_crs
 
 from osgeo import osr
@@ -51,6 +52,11 @@ QUAL_IND_INNER_SWATH = 1073741824               # bit 30
 QUAL_IND_MISSING_KARIN_DATA = 2147483648        # bit 31
 
 POLYGON_EXTENT_DIST = 200000
+
+NONOVERLAP_TILES_PER_SIDE = 2
+OVERLAP_TILES_PER_SIDE = 1
+
+DEFAULT_CHUNK_SIZE = 100000
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1075,7 +1081,8 @@ class RasterUTM(ProductTesterMixIn, Product):
     VARIABLES['y']['dimensions'] = odict([['y', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
 
-    def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True):
+    def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True,
+                           chunk_size=DEFAULT_CHUNK_SIZE):
         """ Get the mapping of pixc points to raster bins """
         LOGGER.info('getting raster mapping')
 
@@ -1090,13 +1097,20 @@ class RasterUTM(ProductTesterMixIn, Product):
         pixc_lons = SWOTRaster.raster_crs.lon_360to180(
             pixc['pixel_cloud'][lon_keyword][mask])
         pixc_idx = np.where(mask)[0]
+        nb_pix = pixc_lats.size
 
         input_crs = SWOTRaster.raster_crs.wgs84_crs()
         output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
                                         self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
-        points = [(lat, lon) for lat, lon in zip(pixc_lats, pixc_lons)]
-        transf_points = transf.TransformPoints(points)
+
+        # Split the data into more manageable chunks and convert to UTM
+        transf_points = []
+        for start_idx in np.arange(0, nb_pix, chunk_size):
+            end_idx = min(start_idx+chunk_size, nb_pix)
+            points = [(lat, lon) for lat, lon in zip(
+                pixc_lats[start_idx:end_idx], pixc_lons[start_idx:end_idx])]
+            transf_points.extend(transf.TransformPoints(points))
 
         mapping_tmp = []
         for i in range(0, self.dimensions['y']):
@@ -1488,9 +1502,11 @@ class RasterGeoDebug(RasterGeo):
 
 class ScenePixc(Product):
     ATTRIBUTES = odict([
-        ['cycle_number', odict([])],
-        ['pass_number', odict([])],
+        ['scene_cycle_number', odict([])],
+        ['scene_pass_number', odict([])],
         ['scene_number', odict([])],
+        ['cycle_numbers', odict([])],
+        ['pass_numbers', odict([])],
         ['tile_numbers', odict([])],
         ['tile_names', odict([])],
         ['tile_polarizations', odict([])],
@@ -1498,6 +1514,14 @@ class ScenePixc(Product):
         ['time_granule_end', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
+        ['left_time_granule_start', odict([])],
+        ['left_time_granule_end', odict([])],
+        ['right_time_granule_start', odict([])],
+        ['right_time_granule_end', odict([])],
+        ['left_time_coverage_start', odict([])],
+        ['left_time_coverage_end', odict([])],
+        ['right_time_coverage_start', odict([])],
+        ['right_time_coverage_end', odict([])],
         ['wavelength', odict([])],
         ['near_range', odict([])],
         ['nominal_slant_range_spacing', odict([])],
@@ -1521,20 +1545,22 @@ class ScenePixc(Product):
     ])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None, leap_second=None,
-                  valid_classes=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, valid_classes=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixc from tile')
 
         scene_pixc = cls()
 
         # Copy over attributes
-        scene_pixc.cycle_number = pixc_tile.cycle_number
-        scene_pixc.pass_number = pixc_tile.pass_number
+        scene_pixc.scene_cycle_number = pixc_tile.cycle_number
+        scene_pixc.scene_pass_number = pixc_tile.pass_number
+        scene_pixc.scene_number = np.ceil(
+            pixc_tile.tile_number/NONOVERLAP_TILES_PER_SIDE).astype('i2')
+        scene_pixc.cycle_numbers = [pixc_tile.cycle_number]
+        scene_pixc.pass_numbers = [pixc_tile.pass_number]
         scene_pixc.tile_numbers = [pixc_tile.tile_number]
-        scene_pixc.tile_names = [pixc_tile.tile_name]
-        scene_pixc.tile_polarizations = [pixc_tile.polarization]
-        scene_pixc.scene_number = np.ceil(pixc_tile.tile_number/2).astype('i2')
+        scene_pixc.tile_names = pixc_tile.tile_name
+        scene_pixc.tile_polarizations = pixc_tile.polarization
         scene_pixc.time_granule_start = pixc_tile.time_granule_start
         scene_pixc.time_granule_end = pixc_tile.time_granule_end
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
@@ -1547,6 +1573,15 @@ class ScenePixc(Product):
         swath_side = pixc_tile.swath_side
 
         if swath_side.lower() == 'l':
+            scene_pixc.left_time_granule_start = pixc_tile.time_granule_start
+            scene_pixc.left_time_granule_end = pixc_tile.time_granule_end
+            scene_pixc.left_time_coverage_start = pixc_tile.time_coverage_start
+            scene_pixc.left_time_coverage_end = pixc_tile.time_coverage_end
+            scene_pixc.right_time_granule_start = None
+            scene_pixc.right_time_granule_end = None
+            scene_pixc.right_time_coverage_start = None
+            scene_pixc.right_time_coverage_end = None
+
             scene_pixc.left_first_longitude = pixc_tile.outer_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.outer_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.outer_first_latitude
@@ -1555,7 +1590,17 @@ class ScenePixc(Product):
             scene_pixc.right_last_longitude = pixc_tile.inner_last_longitude
             scene_pixc.right_first_latitude = pixc_tile.inner_first_latitude
             scene_pixc.right_last_latitude = pixc_tile.inner_last_latitude
+
         elif swath_side.lower() == 'r':
+            scene_pixc.right_time_granule_start = pixc_tile.time_granule_start
+            scene_pixc.right_time_granule_end = pixc_tile.time_granule_end
+            scene_pixc.right_time_coverage_start = pixc_tile.time_coverage_start
+            scene_pixc.right_time_coverage_end = pixc_tile.time_coverage_end
+            scene_pixc.left_time_granule_start = None
+            scene_pixc.left_time_granule_end = None
+            scene_pixc.left_time_coverage_start = None
+            scene_pixc.left_time_coverage_end = None
+
             scene_pixc.left_first_longitude = pixc_tile.inner_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.inner_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.inner_first_latitude
@@ -1566,18 +1611,19 @@ class ScenePixc(Product):
             scene_pixc.right_last_latitude = pixc_tile.outer_last_latitude
 
         lats = [scene_pixc.left_first_latitude,
-                 scene_pixc.right_first_latitude,
-                 scene_pixc.left_last_latitude,
-                 scene_pixc.right_last_latitude]
+                scene_pixc.right_first_latitude,
+                scene_pixc.left_last_latitude,
+                scene_pixc.right_last_latitude]
         lons = [scene_pixc.left_first_longitude,
-                   scene_pixc.right_first_longitude,
-                   scene_pixc.left_last_longitude,
-                   scene_pixc.right_last_longitude]
+                scene_pixc.right_first_longitude,
+                scene_pixc.left_last_longitude,
+                scene_pixc.right_last_longitude]
         scene_pixc.geospatial_lat_min = min(lats)
         scene_pixc.geospatial_lat_max = max(lats)
         scene_pixc.geospatial_lon_min = min(lons)
         scene_pixc.geospatial_lon_max = max(lons)
 
+        leap_second = pixc_tile.pixel_cloud.VARIABLES['illumination_time']['leap_second']
         if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
             scene_pixc.leap_second = leap_second
         else:
@@ -1590,10 +1636,9 @@ class ScenePixc(Product):
 
         return scene_pixc
 
-
     @classmethod
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   granule_start_time, granule_end_time, leap_second,
+                   granule_start_time, granule_end_time,
                    cycle_number, pass_number, scene_number, pixcvec_tiles=None,
                    valid_classes=None):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
@@ -1623,16 +1668,14 @@ class ScenePixc(Product):
         coverage_end_times = [datetime.strptime(
             tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs
                               if tile.time_coverage_end != EMPTY_DATETIME]
-        scene_pixc.cycle_number = np.short(cycle_number)
-        scene_pixc.pass_number = np.short(pass_number)
+        scene_pixc.scene_cycle_number = np.short(cycle_number)
+        scene_pixc.scene_pass_number = np.short(pass_number)
         scene_pixc.scene_number = np.short(scene_number)
 
-        swath_sides = [tile_name[-1] for tile in tile_objs
-                       for tile_name in tile.tile_names]
-        sort_indices = np.argsort(
-            [swath_side + str(start_time)
-             for swath_side, start_time in zip(swath_sides, granule_start_times)])
-
+        # Sort the tile level attributes based on swath side first,
+        # then the rest of the name (i.e. side_cycle_pass_tile)
+        sort_indices = np.argsort([tile_name[-1].lower() + tile_name[:-1]
+                                   for tile_name in tile.tile_names])
         scene_pixc.tile_numbers = [tile_num for i in sort_indices
                                     for tile_num in tile_objs[i].tile_numbers]
         scene_pixc.tile_names = ', '.join(
@@ -1641,22 +1684,24 @@ class ScenePixc(Product):
         scene_pixc.tile_polarizations =', '.join(
             [tile_pol for i in sort_indices
              for tile_pol in tile_objs[i].tile_polarizations])
-        scene_pixc.time_granule_start = \
-            granule_start_time.strftime(DATETIME_FORMAT_STR)
-        scene_pixc.time_granule_end = \
-            granule_end_time.strftime(DATETIME_FORMAT_STR)
 
         if len(coverage_start_times) > 0:
-            scene_pixc.time_coverage_start = \
-                min(coverage_start_times).strftime(DATETIME_FORMAT_STR)
+            coverage_start_time = min(coverage_start_times)
         else:
-            scene_pixc.time_coverage_start = EMPTY_DATETIME
+            coverage_start_time = EMPTY_DATETIME
 
         if len(coverage_end_times) > 0:
-            scene_pixc.time_coverage_end = \
-                max(coverage_end_times).strftime(DATETIME_FORMAT_STR)
+            coverage_end_time = max(coverage_end_times)
         else:
-            scene_pixc.time_coverage_end = EMPTY_DATETIME
+            coverage_end_time = EMPTY_DATETIME
+
+        scene_pixc.time_coverage_start = \
+            coverage_start_time.strftime(DATETIME_FORMAT_STR)
+        scene_pixc.time_coverage_end = \
+            coverage_end_time.strftime(DATETIME_FORMAT_STR)
+
+        scene_pixc.set_extent(swath_edges, swath_polygon_points,
+                              granule_start_time, granule_end_time)
 
         # Copy most attributes from one of the central tiles
         # Central tile is one with the median time
@@ -1667,33 +1712,36 @@ class ScenePixc(Product):
         scene_pixc.nominal_slant_range_spacing = \
             tile_objs[central_tile_index].nominal_slant_range_spacing
 
+        return scene_pixc
+
+    def set_extent(self, swath_edges, swath_polygon_points,
+                   granule_start_time, granule_end_time):
+        """ Sets the geospatial and temporal extent attributes """
         # Set the first/last lats/lons from the swath edges
         # swath_edges = ((left_first_lat, left_first_lon),
         #                (right_first_lat, right_first_lon),
         #                (left_last_lat, left_last_lon),
         #                (right_last_lat, right_last_lon))
-        scene_pixc.left_first_latitude = swath_edges[0][0]
-        scene_pixc.left_first_longitude = swath_edges[0][1]
-        scene_pixc.right_first_latitude = swath_edges[1][0]
-        scene_pixc.right_first_longitude = swath_edges[1][1]
-        scene_pixc.left_last_latitude = swath_edges[2][0]
-        scene_pixc.left_last_longitude = swath_edges[2][1]
-        scene_pixc.right_last_latitude = swath_edges[3][0]
-        scene_pixc.right_last_longitude = swath_edges[3][1]
+        self.left_first_latitude = swath_edges[0][0]
+        self.left_first_longitude = swath_edges[0][1]
+        self.right_first_latitude = swath_edges[1][0]
+        self.right_first_longitude = swath_edges[1][1]
+        self.left_last_latitude = swath_edges[2][0]
+        self.left_last_longitude = swath_edges[2][1]
+        self.right_last_latitude = swath_edges[3][0]
+        self.right_last_longitude = swath_edges[3][1]
 
         lats = [latlon[0] for latlon in swath_polygon_points]
         lons = [latlon[1] for latlon in swath_polygon_points]
-        scene_pixc.geospatial_lat_min = min(lats)
-        scene_pixc.geospatial_lat_max = max(lats)
-        scene_pixc.geospatial_lon_min = min(lons)
-        scene_pixc.geospatial_lon_max = max(lons)
+        self.geospatial_lat_min = min(lats)
+        self.geospatial_lat_max = max(lats)
+        self.geospatial_lon_min = min(lons)
+        self.geospatial_lon_max = max(lons)
 
-        if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
-            scene_pixc.leap_second = leap_second
-        else:
-            scene_pixc.leap_second = EMPTY_LEAPSEC
-
-        return scene_pixc
+        self.time_granule_start = \
+            granule_start_time.strftime(DATETIME_FORMAT_STR)
+        self.time_granule_end = \
+            granule_end_time.strftime(DATETIME_FORMAT_STR)
 
     def get_summary_qual_flag(self, qual_flag, suspect_qual_flag_mask,
                               degraded_qual_flag_mask, bad_qual_flag_mask):
@@ -1766,6 +1814,8 @@ class ScenePixc(Product):
         klass = ScenePixc()
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
+
+        # Handle merged TVP with overlap discarded
         tvp_time = np.ma.concatenate((self.tvp.time, other.tvp.time))
         tvp_swath_side = np.ma.concatenate(
             (self.tvp.swath_side, other.tvp.swath_side))
@@ -1776,6 +1826,166 @@ class ScenePixc(Product):
             self.pixel_cloud.pixc_line_to_tvp,
             len(self.tvp.time) + other.pixel_cloud.pixc_line_to_tvp)).astype(int)
         klass.pixel_cloud.pixc_line_to_tvp = rev_indx[unsorted_pixc_line_to_tvp]
+
+        # Set attributes from self
+        for field in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, field)
+            setattr(klass, field, attr_val)
+
+        # Merge special attributes
+        cycle_numbers = np.concatenate((self.cycle_numbers, other.cycle_numbers))
+        pass_numbers = np.concatenate((self.pass_numbers, other.pass_numbers))
+        tile_numbers = np.concatenate((self.tile_numbers, other.tile_numbers))
+        tile_names = np.concatenate((
+            self.tile_names.split(', '), other.tile_names.split(', ')))
+        tile_polarizations = np.concatenate((
+            self.tile_polarizations.split(', '), other.tile_polarizations.split(', ')))
+
+        # Set the scene level attributes for the scene of the middle tile
+        # These should almost always be overwritten later based on the actual
+        # scene that we want to rasterize
+        tile_name_sort_indices = np.argsort(
+            [tile_name for tile_name in tile_names])
+        mid_tile_index = tile_name_sort_indices[int(len(tile_name_sort_indices)/2)]
+        klass.scene_cycle_number = cycle_numbers[mid_tile_index]
+        klass.scene_pass_number = pass_numbers[mid_tile_index]
+        klass.scene_number = np.ceil(
+            tile_numbers[mid_tile_index]/NONOVERLAP_TILES_PER_SIDE).astype('i2')
+
+        # Sort the tile level attributes based on swath side first,
+        # then the rest of the name (i.e. side_cycle_pass_tile)
+        sort_indices = np.argsort([tile_name[-1].lower() + tile_name[:-1]
+                                   for tile_name in tile_names])
+        klass.cycle_numbers = cycle_numbers[sort_indices]
+        klass.pass_numbers = pass_numbers[sort_indices]
+        klass.tile_numbers = tile_numbers[sort_indices]
+        klass.tile_names = ', '.join(tile_names[sort_indices])
+        klass.tile_polarizations = ', '.join(tile_polarizations[sort_indices])
+
+        # Sort the time attributes based on simple min/max
+        # (note that left/right time attributes can be None)
+        def _datetime_str_comp(d0, d1, comp=op.le,
+                               format_str=DATETIME_FORMAT_STR,
+                               empty_value=EMPTY_DATETIME):
+            # Compares d0 and d1 with comparison in comp argument
+            # Returns False if d0 is None or "None"
+            # Returns True if d0 is not None or "None" and d1 is None or "None"
+            if d0 is None or d0.lower()=='none' or d0==empty_value:
+                return False
+            if d1 is None or d1.lower()=='none' or d1==empty_value:
+                return True
+            _d0 = datetime.strptime(d0, format_str)
+            _d1 = datetime.strptime(d1, format_str)
+            return comp(_d0, _d1)
+
+        if _datetime_str_comp(self.time_granule_start, other.time_granule_start,
+                              comp=op.le):
+            klass.time_granule_start = self.time_granule_start
+        else:
+            klass_time_granule_start = other.time_granule_start
+
+        if _datetime_str_comp(self.time_granule_end, other.time_granule_end,
+                              comp=op.ge):
+            klass.time_granule_end = self.time_granule_end
+        else:
+            klass_time_granule_end = other.time_granule_end
+
+        if _datetime_str_comp(self.time_coverage_start, other.time_coverage_start,
+                              comp=op.le):
+            klass.time_coverage_start = self.time_coverage_start
+        else:
+            klass_time_coverage_start = other.time_coverage_start
+
+        if _datetime_str_comp(self.time_coverage_end, other.time_coverage_end,
+                              comp=op.ge):
+            klass.time_coverage_end = self.time_coverage_end
+        else:
+            klass_time_coverage_end = other.time_coverage_end
+
+        if _datetime_str_comp(self.left_time_granule_start, other.left_time_granule_start,
+                              comp=op.le):
+            klass.left_time_granule_start = self.left_time_granule_start
+            klass.left_first_latitude = self.left_first_latitude
+            klass.left_first_longitude = self.left_first_longitude
+        else:
+            klass.left_time_granule_start = other.left_time_granule_start
+            klass.left_first_latitude = other.left_first_latitude
+            klass.left_first_longitude = other.left_first_longitude
+
+        if _datetime_str_comp(self.left_time_granule_end, other.left_time_granule_end,
+                              comp=op.ge):
+            klass.left_time_granule_end = self.left_time_granule_end
+            klass.left_last_latitude = self.left_last_latitude
+            klass.left_last_longitude = self.left_last_longitude
+        else:
+            klass.left_time_granule_end = other.left_time_granule_end
+            klass.left_last_latitude = other.left_last_latitude
+            klass.left_last_longitude = other.left_last_longitude
+
+        if _datetime_str_comp(self.right_time_granule_start, other.right_time_granule_start,
+                              comp=op.le):
+            klass.right_time_granule_start = self.right_time_granule_start
+            klass.right_first_latitude = self.right_first_latitude
+            klass.right_first_longitude = self.right_first_longitude
+        else:
+            klass.right_time_granule_start = other.right_time_granule_start
+            klass.right_first_latitude = other.right_first_latitude
+            klass.right_first_longitude = other.right_first_longitude
+
+        if _datetime_str_comp(self.right_time_granule_end, other.right_time_granule_end,
+                              comp=op.ge):
+            klass.right_time_granule_end = self.right_time_granule_end
+            klass.right_last_latitude = self.right_last_latitude
+            klass.right_last_longitude = self.right_last_longitude
+        else:
+            klass.right_time_granule_end = other.right_time_granule_end
+            klass.right_last_latitude = other.right_last_latitude
+            klass.right_last_longitude = other.right_last_longitude
+
+        if _datetime_str_comp(self.left_time_coverage_start, other.left_time_coverage_start,
+                              comp=op.le):
+            klass.left_time_coverage_start = self.left_time_coverage_start
+        else:
+            klass.left_time_coverage_start = other.left_time_coverage_start
+
+        if _datetime_str_comp(self.left_time_coverage_end, other.left_time_coverage_end,
+                              comp=op.ge):
+            klass.left_time_coverage_end = self.left_time_coverage_end
+        else:
+            klass.left_time_coverage_end = other.left_time_coverage_end
+
+        if _datetime_str_comp(self.right_time_coverage_start, other.right_time_coverage_start,
+                              comp=op.le):
+            klass.right_time_coverage_start = self.right_time_coverage_start
+        else:
+            klass.right_time_coverage_start = other.right_time_coverage_start
+
+        if _datetime_str_comp(self.right_time_coverage_end, other.right_time_coverage_end,
+                              comp=op.ge):
+            klass.right_time_coverage_end = self.right_time_coverage_end
+        else:
+            klass.right_time_coverage_end = other.right_time_coverage_end
+
+        # Get geospatial bounds from self and other's geospatial bounds
+        klass.geospatial_lat_min = min(self.geospatial_lat_min,
+                                       other.geospatial_lat_min)
+        klass.geospatial_lat_max = max(self.geospatial_lat_max,
+                                       other.geospatial_lat_max)
+        klass.geospatial_lon_min = min(self.geospatial_lon_min,
+                                       other.geospatial_lon_min)
+        klass.geospatial_lon_max = max(self.geospatial_lon_max,
+                                       other.geospatial_lon_max)
+
+        # Get the earlier leap second
+        if _datetime_str_comp(self.leap_second, other.leap_second,
+                              comp=op.le, format_str=LEAPSEC_FORMAT_STR,
+                              empty_value=EMPTY_LEAPSEC):
+            klass.leap_second = self.leap_second
+        else:
+            klass.leap_second = other.leap_second
+        if klass.leap_second is None or klass.leap_second.lower()=='none':
+            klass.leap_second = EMPTY_LEAPSEC
+
         return klass
 
 
@@ -1910,7 +2120,6 @@ class ScenePixelCloud(Product):
     def __add__(self, other):
         """ Add other to self """
         klass = ScenePixelCloud()
-        klass.looks_to_efflooks = self.looks_to_efflooks
         for key in klass.VARIABLES:
             if key in ['azimuth_index']:
                 setattr(klass, key, np.ma.concatenate((
@@ -1918,6 +2127,10 @@ class ScenePixelCloud(Product):
             else:
                 setattr(klass, key, np.ma.concatenate((
                     getattr(self, key), getattr(other, key))))
+
+        for field in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, field)
+            setattr(klass, field, attr_val)
 
         return klass
 
@@ -1989,4 +2202,9 @@ class SceneTVP(Product):
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
+
+        for field in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, field)
+            setattr(klass, field, attr_val)
+
         return klass
