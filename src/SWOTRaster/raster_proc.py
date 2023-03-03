@@ -18,6 +18,7 @@ from osgeo import osr
 from datetime import datetime
 from itertools import groupby
 from shapely.geometry import Polygon
+from shapely import affinity
 from SWOTRaster.errors import RasterUsageException
 
 LOGGER = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, interior_water_classes,
                  water_edge_classes, land_edge_classes, dark_water_classes,
-                 use_bright_land,
+                 use_bright_land, use_all_classes_for_wse, use_all_classes_for_sig0,
                  geo_qual_suspect, geo_qual_degraded, geo_qual_bad,
                  class_qual_suspect, class_qual_degraded, class_qual_bad,
                  sig0_qual_suspect, sig0_qual_degraded, sig0_qual_bad,
@@ -43,7 +44,7 @@ class RasterProcessor(object):
                  inner_swath_distance_thresh, missing_karin_data_time_thresh,
                  utm_zone_adjust=0, mgrs_band_adjust=0,
                  utm_conversion_chunk_size=products.DEFAULT_CHUNK_SIZE,
-                 debug_flag=False):
+                 skip_wse=False, skip_area=False, skip_sig0=False, debug_flag=False):
 
         self.projection_type = projection_type
         if self.projection_type=='geo':
@@ -66,6 +67,8 @@ class RasterProcessor(object):
         self.land_edge_classes = land_edge_classes
         self.dark_water_classes = dark_water_classes
         self.use_bright_land = use_bright_land
+        self.use_all_classes_for_wse = use_all_classes_for_wse
+        self.use_all_classes_for_sig0 = use_all_classes_for_sig0
 
         self.geo_qual_suspect = geo_qual_suspect
         self.geo_qual_degraded = geo_qual_degraded
@@ -101,6 +104,9 @@ class RasterProcessor(object):
         self.inner_swath_distance_thresh = inner_swath_distance_thresh
         self.missing_karin_data_time_thresh = missing_karin_data_time_thresh
 
+        self.skip_wse = skip_wse
+        self.skip_area = skip_area
+        self.skip_sig0 = skip_sig0
         self.debug_flag = debug_flag
 
     def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
@@ -137,9 +143,9 @@ class RasterProcessor(object):
                  (pixc.right_first_latitude, pixc.right_first_longitude),
                  (pixc.right_last_latitude, pixc.right_last_longitude),
                  (pixc.left_last_latitude, pixc.left_last_longitude)]
-            self.create_projection_from_polygon(swath_corners)
+            self.create_projection_from_polygon_points(swath_corners)
         else:
-            self.create_projection_from_polygon(polygon_points)
+            self.create_projection_from_polygon_points(polygon_points)
 
         # Get pixc classification masks
         water_classes = np.concatenate((self.interior_water_classes,
@@ -191,85 +197,89 @@ class RasterProcessor(object):
                 geo_qual_pixc_flag, class_qual_pixc_flag,
                 sig0_qual_pixc_flag)
 
-        self.aggregate_sig0_corrections(pixc, sig0_mask)
-        self.aggregate_wse_corrections(pixc, wse_mask)
-        self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
-        self.aggregate_water_area(pixc, water_area_mask)
-        self.aggregate_sig0(pixc, sig0_mask)
+        # Aggregate fields
         self.aggregate_cross_track(pixc, all_mask)
         self.aggregate_inc(pixc, all_mask)
-        self.aggregate_dark_frac(pixc, all_mask)
         self.aggregate_illumination_time(pixc, all_mask)
-        self.aggregate_ice_flags(pixc, all_mask)
-        self.aggregate_layover_impact(pixc, wse_mask)
-        self.aggregate_wse_qual(
-            wse_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
-            bright_land_flag)
-        self.aggregate_water_area_qual(
-            water_area_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
-            bright_land_flag, pixc['pixel_cloud']['water_frac'])
-        self.aggregate_sig0_qual(
-            sig0_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
-            sig0_qual_pixc_flag, bright_land_flag)
-        self.flag_missing_karin_data(pixc)
-        self.flag_inner_swath(pixc)
-
-        if self.projection_type == 'utm':
+        if self.projection_type=='utm' \
+           or self.projection_type=='geo' and self.debug_flag:
             self.aggregate_lat_lon(all_mask)
+
+        if not self.skip_wse:
+            self.aggregate_wse_corrections(pixc, wse_mask)
+            self.aggregate_wse(pixc, wse_mask, use_improved_geoloc)
+            self.aggregate_wse_qual(
+                wse_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
+                bright_land_flag)
+            self.aggregate_layover_impact(pixc, wse_mask)
+
+        if not self.skip_area:
+            self.aggregate_water_area(pixc, water_area_mask)
+            self.aggregate_water_area_qual(
+                water_area_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
+                bright_land_flag, pixc['pixel_cloud']['water_frac'])
+            self.aggregate_dark_frac(pixc, water_area_mask)
+
+        if not self.skip_sig0:
+            self.aggregate_sig0_corrections(pixc, sig0_mask)
+            self.aggregate_sig0(pixc, sig0_mask)
+            self.aggregate_sig0_qual(
+                sig0_mask, geo_qual_pixc_flag, class_qual_pixc_flag,
+                sig0_qual_pixc_flag, bright_land_flag)
 
         if self.debug_flag:
             self.aggregate_classification(pixc, all_mask)
 
+        self.aggregate_ice_flags(pixc, all_mask)
+        self.flag_missing_karin_data(pixc)
+        self.flag_inner_swath(pixc)
+
         return self.build_product(polygon_points=polygon_points)
 
-    def create_projection_from_polygon(self, polygon_points):
-        """ Create the output projection given a bounding polygon """
-        LOGGER.info("creating projection from polygon")
-
-        poly_edge_y = [point[0] for point in polygon_points]
-        poly_edge_x = [point[1] for point in polygon_points]
+    def create_projection_from_polygon_points(self, polygon_points):
+        """ Create projection given points defining a bounding polygon """
+        LOGGER.info("creating projection from polygon points")
 
         if self.projection_type=='geo':
+            # Set output crs
             self.output_crs = raster_crs.wgs84_crs()
+
+            # Handle longitude wrap
+            poly_edge_x = raster_crs.shift_wrapped_longitude(
+                [point[1] for point in polygon_points])
+            poly_edge_y = [point[0] for point in polygon_points]
             proj_center_x = 0
             proj_center_y = 0
+
         elif self.projection_type=='utm':
-            lat_mid = np.mean(poly_edge_y)
-            lon_mid = np.mean(poly_edge_x)
-            utm_zone = raster_crs.utm_zone_from_latlon(lat_mid, lon_mid)
-            mgrs_band = raster_crs.mgrs_band_from_latlon(lat_mid, lon_mid)
-            # adjust the utm zone (-1 and +1 as zone numbers are 1 indexed)
-            utm_zone = np.mod(utm_zone + self.utm_zone_adjust - 1,
-                              raster_crs.UTM_NUM_ZONES) + 1
+            # Set output crs
+            self.output_crs, utm_zone, mgrs_band = \
+                raster_crs.utm_crs_from_points(
+                    polygon_points, self.utm_zone_adjust, self.mgrs_band_adjust)
+            self.utm_zone = np.short(utm_zone)
+            self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
+            self.mgrs_band = mgrs_band
 
-            # adjust/shift the mgrs band
-            mgrs_band = raster_crs.mgrs_band_shift(mgrs_band,
-                                                   self.mgrs_band_adjust,
-                                                   lon_mid)
-
-            self.output_crs = raster_crs.utm_crs(utm_zone, mgrs_band)
-
-            transf = osr.CoordinateTransformation(self.input_crs,
-                                                  self.output_crs)
-
+            # Transform to UTM
+            transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
             polygon_points = [(transf.TransformPoint(point[0], point[1])[:2])
                               for point in polygon_points]
             poly_edge_y = [point[1] for point in polygon_points]
             poly_edge_x = [point[0] for point in polygon_points]
-
             proj_center_x = self.output_crs.GetProjParm('false_easting')
             proj_center_y = self.output_crs.GetProjParm('false_northing')
+
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
-        # get the coordinate limits
+        # Get the coordinate limits
         x_min = np.min(poly_edge_x)
         x_max = np.max(poly_edge_x)
         y_min = np.min(poly_edge_y)
         y_max = np.max(poly_edge_y)
 
-        # round limits to the nearest bin (centered at proj_center_x with pad)
+        # Round limits to the nearest bin (centered at proj center with pad)
         x_min = int(round((x_min - proj_center_x) / self.resolution)) \
                 * self.resolution + proj_center_x - self.padding
         x_max = int(round((x_max - proj_center_x) / self.resolution)) \
@@ -279,16 +289,19 @@ class RasterProcessor(object):
         y_max = int(round((y_max - proj_center_y) / self.resolution)) \
                 * self.resolution + proj_center_y + self.padding
 
-        self.x_min = x_min
-        self.x_max = x_max
+        # Wrap longitude to between -180 to 180 degrees longitude if lat/lon
+        if self.projection_type=='geo':
+            self.x_min = raster_crs.lon_360to180(x_min)
+            self.x_max = raster_crs.lon_360to180(x_max)
+        else:
+            self.x_min = x_min
+            self.x_max = x_max
+
         self.y_min = y_min
         self.y_max = y_max
+
         self.size_x = int(round((x_max - x_min) / self.resolution)) + 1
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
-        if self.projection_type=='utm':
-            self.utm_zone = np.short(utm_zone)
-            self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
-            self.mgrs_band = mgrs_band
 
         LOGGER.info({'proj': self.output_crs.ExportToWkt(),
                      'res': self.resolution,
@@ -323,12 +336,16 @@ class RasterProcessor(object):
         sig0_degraded_qual_mask = \
             [x==products.QUAL_IND_DEGRADED for x in sig0_qual_flag]
 
+        wse_classes_mask = water_classes_mask
+        if self.use_all_classes_for_wse:
+            wse_classes_mask = all_classes_mask
+
         wse_good_mask = np.logical_and(
-            water_classes_mask, common_good_qual_mask)
+            wse_classes_mask, common_good_qual_mask)
         wse_suspect_mask = np.logical_and(
-            water_classes_mask, common_suspect_qual_mask)
+            wse_classes_mask, common_suspect_qual_mask)
         wse_degraded_mask = np.logical_and(
-            water_classes_mask, common_degraded_qual_mask)
+            wse_classes_mask, common_degraded_qual_mask)
 
         water_area_good_mask = np.logical_and(
             all_classes_mask, common_good_qual_mask)
@@ -337,12 +354,16 @@ class RasterProcessor(object):
         water_area_degraded_mask = np.logical_and(
             all_classes_mask, common_degraded_qual_mask)
 
+        sig0_classes_mask = water_classes_mask
+        if self.use_all_classes_for_sig0:
+            sig0_classes_mask = all_classes_mask
+
         sig0_good_mask = np.logical_and(
-            water_classes_mask, sig0_good_qual_mask)
+            sig0_classes_mask, sig0_good_qual_mask)
         sig0_suspect_mask = np.logical_and(
-            water_classes_mask, sig0_suspect_qual_mask)
+            sig0_classes_mask, sig0_suspect_qual_mask)
         sig0_degraded_mask = np.logical_and(
-            water_classes_mask, sig0_degraded_qual_mask)
+            sig0_classes_mask, sig0_degraded_qual_mask)
 
         wse_mask = self.get_rasterization_mask(
             wse_good_mask, wse_suspect_mask, wse_degraded_mask,
@@ -411,7 +432,7 @@ class RasterProcessor(object):
         pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
 
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # set bad pix height std to high number to deweight
+        # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
         bad_num = 1.0e5
         pixc_height_std[pixc_height_std<=0] = bad_num
@@ -489,7 +510,7 @@ class RasterProcessor(object):
         pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
 
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # set bad pix height std to high number to deweight
+        # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
         bad_num = 1.0e5
         pixc_height_std[pixc_height_std<=0] = bad_num
@@ -593,9 +614,9 @@ class RasterProcessor(object):
                     self.water_area[i][j] = grid_area[0]
                     self.water_area_u[i][j] = grid_area[1]
 
-                    if self.projection_type == 'utm':
+                    if self.projection_type=='utm':
                         pixel_area = self.resolution**2
-                    elif self.projection_type == 'geo':
+                    elif self.projection_type=='geo':
                         px_latitude = self.y_min + self.resolution*i
                         pixel_area = raster_crs.wgs84_px_area(
                             px_latitude, self.resolution)
@@ -744,7 +765,7 @@ class RasterProcessor(object):
             - self.illumination_time[min_illumination_time_index]
 
         # Set leap second
-        if pixc.leap_second == products.EMPTY_LEAPSEC:
+        if pixc.leap_second==products.EMPTY_LEAPSEC:
             self.leap_second = products.EMPTY_LEAPSEC
         else:
             leap_second = datetime.strptime(
@@ -779,7 +800,7 @@ class RasterProcessor(object):
                         # If all flags are the same, then we return that value
                         if np.all(valid_ice_clim_flag==min_flag_val):
                             self.ice_clim_flag[i][j] = min_flag_val
-                        else: # otherwise, return a value of 1 (partial cover)
+                        else: # Otherwise, return a value of 1 (partial cover)
                             self.ice_clim_flag[i][j] = 1
 
                     if not np.all(valid_ice_dyn_flag.mask):
@@ -787,7 +808,7 @@ class RasterProcessor(object):
                         # If all flags are the same, then we return that value
                         if np.all(valid_ice_dyn_flag==min_flag_val):
                             self.ice_dyn_flag[i][j] = min_flag_val
-                        else: # otherwise, return a value of 1 (partial cover)
+                        else: # Otherwise, return a value of 1 (partial cover)
                             self.ice_dyn_flag[i][j] = 1
 
     def aggregate_layover_impact(self, pixc, rasterization_mask):
@@ -799,7 +820,7 @@ class RasterProcessor(object):
         pixc_dh_dphi = pixc['pixel_cloud']['dheight_dphase']
         pixc_phase_noise_std = pixc['pixel_cloud']['phase_noise_std']
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # set bad pix height std to high number to deweight
+        # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
         bad_num = 1.0e5
         pixc_height_std[pixc_height_std<=0] = bad_num
@@ -1131,9 +1152,9 @@ class RasterProcessor(object):
 
         # Create polygons for areas that don't have missing data
         # Handle the different sides separately
-        extant_data_polygons = []
+        extant_data_polygons_points = []
         for swath_side in ['L', 'R']:
-            tvp_side_mask = pixc['tvp']['swath_side'] == swath_side
+            tvp_side_mask = pixc['tvp']['swath_side']==swath_side
             pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
             pixc_side_mask = tvp_side_mask[pixc_tvp_index]
             pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual'][pixc_side_mask]
@@ -1157,34 +1178,56 @@ class RasterProcessor(object):
                             key=group_times):
                         group_tvp_xyz = tvp_xyz[:,idxs]
                         group_tvp_velocity_heading = tvp_velocity_heading[idxs]
-                        extant_data_polygons.append(
-                            self.get_swath_polygon_from_tvp(
+                        extant_data_polygons_points.append(
+                            self.get_swath_polygon_points_from_tvp(
                                 group_tvp_xyz,
                                 group_tvp_velocity_heading,
                                 swath_side,
                                 products.POLYGON_EXTENT_DIST))
 
         polys = []
-        for this_polygon_points in extant_data_polygons:
-            polys.append(Polygon(this_polygon_points))
+        for this_polygon_points in extant_data_polygons_points:
+            # If polygon points are in geodetic coordinates, swap lat/lon
+            if self.projection_type=='geo':
+                this_poly = Polygon(
+                    [[point[1], point[0]] for point in this_polygon_points])
+            else:
+                this_poly = Polygon(this_polygon_points)
+            polys.append(this_poly)
+
+        # Handle longitude wrap
+        x_max = self.x_max
+        if self.projection_type=='geo' and self.x_min > x_max:
+            x_max = x_max + 360
+            shifted_polys = []
+            for poly in polys:
+                shifted_poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+                (min_x, _, max_x, _) = shifted_poly.bounds
+                if min_x < -180:
+                    shifted_poly = affinity.translate(shifted_poly, xoff=360)
+                shifted_polys.append(shifted_poly)
+            polys = shifted_polys
+
         raster_transform = rasterio.transform.from_bounds(
-            self.x_min, self.y_min, self.x_max, self.y_max, self.size_x,
+            self.x_min, self.y_min, x_max, self.y_max, self.size_x,
             self.size_y)
         mask = np.flipud(rasterio.features.geometry_mask(
             polys, out_shape=(self.size_y, self.size_x),
             transform=raster_transform, all_touched=True))
 
         # Mask the datasets and flag
-        wse_mask = np.logical_and(self.wse.mask, mask)
-        water_area_mask = np.logical_and(self.water_area.mask, mask)
-        sig0_mask = np.logical_and(self.sig0.mask, mask)
-
-        self.wse_qual_bitwise[wse_mask] += \
-            products.QUAL_IND_MISSING_KARIN_DATA
-        self.water_area_qual_bitwise[water_area_mask] += \
-            products.QUAL_IND_MISSING_KARIN_DATA
-        self.sig0_qual_bitwise[sig0_mask] += \
-            products.QUAL_IND_MISSING_KARIN_DATA
+        if not self.skip_wse:
+            wse_mask = np.logical_and(self.wse.mask, mask)
+            self.wse_qual_bitwise[wse_mask] += \
+                products.QUAL_IND_MISSING_KARIN_DATA
+        if not self.skip_area:
+            water_area_mask = np.logical_and(self.water_area.mask, mask)
+            self.water_area_qual_bitwise[water_area_mask] += \
+                products.QUAL_IND_MISSING_KARIN_DATA
+        if not self.skip_sig0:
+            sig0_mask = np.logical_and(self.sig0.mask, mask)
+            self.sig0_qual_bitwise[sig0_mask] += \
+                products.QUAL_IND_MISSING_KARIN_DATA
 
     def flag_inner_swath(self, pixc):
         """ Flag inner swath"""
@@ -1196,42 +1239,59 @@ class RasterProcessor(object):
         tvp_xyz = np.row_stack((
             pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
-        inner_swath_polygon = self.get_swath_polygon_from_tvp(
+        inner_swath_polygon_points = self.get_swath_polygon_points_from_tvp(
             tvp_xyz, tvp_velocity_heading, swath_side,
             self.inner_swath_distance_thresh,
             products.POLYGON_EXTENT_DIST,
             products.POLYGON_EXTENT_DIST)
 
-        poly = Polygon(inner_swath_polygon)
+        # If polygon points are in geodetic coordinates, swap lat/lon
+        if self.projection_type=='geo':
+            poly = Polygon(
+                [[point[1], point[0]] for point in inner_swath_polygon_points])
+        else:
+            poly = Polygon(inner_swath_polygon_points)
+
+        # Handle longitude wrap
+        x_max = self.x_max
+        if self.projection_type=='geo' and self.x_min > x_max:
+            x_max = x_max + 360
+            poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+            (min_x, _, max_x, _) = poly.bounds
+            if min_x < -180:
+                poly = affinity.translate(poly, xoff=360)
+
         raster_transform = rasterio.transform.from_bounds(
-            self.x_min, self.y_min, self.x_max, self.y_max, self.size_x,
+            self.x_min, self.y_min, x_max, self.y_max, self.size_x,
             self.size_y)
         mask = np.flipud(rasterio.features.geometry_mask(
             [poly], out_shape=(self.size_y, self.size_x),
             transform=raster_transform, all_touched=True, invert=True))
 
         # Mask the datasets and flag
-        wse_mask = np.logical_and(self.wse.mask, mask)
-        water_area_mask = np.logical_and(self.water_area.mask, mask)
-        sig0_mask = np.logical_and(self.sig0.mask, mask)
+        if not self.skip_wse:
+            wse_mask = np.logical_and(self.wse.mask, mask)
+            self.wse_qual_bitwise[wse_mask] += \
+                products.QUAL_IND_INNER_SWATH
+        if not self.skip_area:
+            water_area_mask = np.logical_and(self.water_area.mask, mask)
+            self.water_area_qual_bitwise[water_area_mask] += \
+                products.QUAL_IND_INNER_SWATH
+        if not self.skip_sig0:
+            sig0_mask = np.logical_and(self.sig0.mask, mask)
+            self.sig0_qual_bitwise[sig0_mask] += \
+                products.QUAL_IND_INNER_SWATH
 
-        self.wse_qual_bitwise[wse_mask] += \
-            products.QUAL_IND_INNER_SWATH
-        self.water_area_qual_bitwise[water_area_mask] += \
-            products.QUAL_IND_INNER_SWATH
-        self.sig0_qual_bitwise[sig0_mask] += \
-            products.QUAL_IND_INNER_SWATH
-
-    def get_swath_polygon_from_tvp(self, sc_xyz, sc_velocity_heading,
-                                   swath_side, crosstrack_dist,
-                                   alongtrack_start_buffer_dist=None,
-                                   alongtrack_end_buffer_dist=None,
-                                   downsample_rate=None):
-        """ Get swath polygon from tvp points """
-        LOGGER.info("getting swath polyon from tvp")
+    def get_swath_polygon_points_from_tvp(self, sc_xyz, sc_velocity_heading,
+                                          swath_side, crosstrack_dist,
+                                          alongtrack_start_buffer_dist=None,
+                                          alongtrack_end_buffer_dist=None,
+                                          downsample_rate=None):
+        """ Get swath polygon points from tvp points """
+        LOGGER.info("getting swath polygon points from tvp")
 
         # If there is only one line, repeat it to make a polygon
-        if len(sc_velocity_heading) == 1:
+        if len(sc_velocity_heading)==1:
             sc_xyz = np.column_stack((sc_xyz, sc_xyz))
             sc_velocity_heading = np.append(
                 sc_velocity_heading, sc_velocity_heading)
@@ -1248,15 +1308,15 @@ class RasterProcessor(object):
         polygon = []
         for polygon_side in [0, 1]:
             reverse_side = polygon_side*2 - 1
-            if swath_side == 'L':
+            if swath_side=='L':
                 this_side_crosstrack_angle = np.deg2rad(
                     np.mod(sc_velocity_heading-90, 360))
                 this_side_crosstrack_dist = polygon_side*crosstrack_dist
-            elif swath_side == 'R':
+            elif swath_side=='R':
                 this_side_crosstrack_angle = np.deg2rad(
                     np.mod(sc_velocity_heading+90, 360))
                 this_side_crosstrack_dist = polygon_side*crosstrack_dist
-            elif swath_side == 'F':
+            elif swath_side=='F':
                 if polygon_side==0:
                     this_side_crosstrack_angle = np.deg2rad(
                         np.mod(sc_velocity_heading-90, 360))
@@ -1290,7 +1350,7 @@ class RasterProcessor(object):
                     this_side_points_deg = this_side_point_buffer_deg \
                                            + this_side_points_deg
 
-                if idx == sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
+                if idx==sc_xyz.shape[1]-1 and alongtrack_end_buffer_dist is not None:
                     this_side_ll_buffer = raster_crs.terminal_loc_spherical(
                         this_side_ll[0], this_side_ll[1],
                         alongtrack_start_buffer_dist,
@@ -1308,11 +1368,6 @@ class RasterProcessor(object):
 
             polygon.extend(this_side_polygon_points[::reverse_side])
 
-        # if geodetic, swap lat and lon so that the e/w and n/s coords are
-        # always in the same order regardless of projection
-        if self.projection_type == 'geo':
-            polygon = [(point[1], point[0]) for point in polygon]
-
         return polygon
 
     @staticmethod
@@ -1329,7 +1384,12 @@ class RasterProcessor(object):
         """ Aggregate latitude and longitude """
         LOGGER.info("aggregating latitude and longitude")
 
-        x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
+        # Handle longitude wrap
+        if self.projection_type=='geo' and self.x_min > self.x_max:
+            x_vec = raster_crs.lon_360to180(np.linspace(
+                self.x_min, self.x_max + 360, self.size_x))
+        else:
+            x_vec = np.linspace(self.x_min, self.x_max, self.size_x)
         y_vec = np.linspace(self.y_min, self.y_max, self.size_y)
 
         transf = osr.CoordinateTransformation(self.output_crs, self.input_crs)
@@ -1341,7 +1401,7 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
-                    # get the lat and lon if there are any good pixels at all
+                    # Get the lat and lon if there are any good pixels at all
                     lon, lat = transf.TransformPoint(x_vec[j], y_vec[i])[:2]
                     self.latitude[i][j] = lon
                     self.longitude[i][j] = lat
@@ -1366,12 +1426,12 @@ class RasterProcessor(object):
         """ Assemble the product """
         LOGGER.info("building product")
 
-        if self.projection_type == 'utm':
+        if self.projection_type=='utm':
             if self.debug_flag:
                 product = products.RasterUTMDebug()
             else:
                 product = products.RasterUTM()
-        elif self.projection_type == 'geo':
+        elif self.projection_type=='geo':
             if self.debug_flag:
                 product = products.RasterGeoDebug()
             else:
@@ -1412,7 +1472,7 @@ class RasterProcessor(object):
 
         coordinate_system = self.output_crs
 
-        if self.projection_type == 'utm':
+        if self.projection_type=='utm':
             product.utm_zone_num = self.utm_zone
             product.mgrs_latitude_band = self.mgrs_band
             product.x_min = self.x_min
@@ -1427,17 +1487,22 @@ class RasterProcessor(object):
                 coordinate_system.GetProjParm('false_northing')
             product.VARIABLES['crs']['longitude_of_central_meridian'] = \
                 coordinate_system.GetProjParm('central_meridian')
-        elif self.projection_type == 'geo':
+        elif self.projection_type=='geo':
             product.longitude_min = self.x_min
             product.longitude_max = self.x_max
             product.latitude_min = self.y_min
             product.latitude_max = self.y_max
-            product['longitude'] = np.linspace(self.x_min,
-                                               self.x_max,
-                                               self.size_x)
-            product['latitude'] = np.linspace(self.y_min,
-                                              self.y_max,
-                                              self.size_y)
+
+            # Handle longitude wrap
+            if self.x_min > self.x_max:
+                product['longitude'] = raster_crs.lon_360to180(np.linspace(
+                    self.x_min, self.x_max + 360, self.size_x))
+            else:
+                product['longitude'] = np.linspace(
+                    self.x_min, self.x_max, self.size_x)
+
+            product['latitude'] = np.linspace(
+                self.y_min, self.y_max, self.size_y)
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
@@ -1447,9 +1512,12 @@ class RasterProcessor(object):
             product.VARIABLES['crs']['crs_wkt']
 
         if populate_values:
-            if self.projection_type == 'utm':
+            if self.projection_type=='utm':
                 product['longitude'] = self.longitude
                 product['latitude'] = self.latitude
+            elif self.projection_type=='geo' and self.debug_flag:
+                product['pixel_longitude'] = self.longitude
+                product['pixel_latitude'] = self.longitude
 
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
@@ -1457,40 +1525,47 @@ class RasterProcessor(object):
                 self.tai_utc_difference
             product.VARIABLES['illumination_time']['leap_second'] = \
                 self.leap_second
-            product['wse'] = self.wse
-            product['wse_qual_bitwise'] = self.wse_qual_bitwise
-            product['wse_qual'] = self.wse_qual
-            product['wse_uncert'] = self.wse_u
-            product['water_area'] = self.water_area
-            product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
-            product['water_area_qual'] = self.water_area_qual
-            product['water_area_uncert'] = self.water_area_u
-            product['water_frac'] = self.water_frac
-            product['water_frac_uncert'] = self.water_frac_u
-            product['sig0'] = self.sig0
-            product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
-            product['sig0_qual'] = self.sig0_qual
-            product['sig0_uncert'] = self.sig0_u
+
             product['inc'] = self.inc
             product['cross_track'] = self.cross_track
-            product['n_wse_pix'] = self.n_wse_pix
-            product['n_water_area_pix'] = self.n_water_area_pix
-            product['n_sig0_pix'] = self.n_sig0_pix
             product['n_other_pix'] = self.n_other_pix
-            product['dark_frac'] = self.dark_frac
             product['ice_clim_flag'] = self.ice_clim_flag
             product['ice_dyn_flag'] = self.ice_dyn_flag
-            product['layover_impact'] = self.layover_impact
-            product['sig0_cor_atmos_model'] = self.sig0_cor_atmos_model
-            product['height_cor_xover'] = self.height_cor_xover
-            product['geoid'] = self.geoid
-            product['solid_earth_tide'] = self.solid_earth_tide
-            product['load_tide_fes'] = self.load_tide_fes
-            product['load_tide_got'] = self.load_tide_got
-            product['pole_tide'] = self.pole_tide
-            product['model_dry_tropo_cor'] = self.model_dry_tropo_cor
-            product['model_wet_tropo_cor'] = self.model_wet_tropo_cor
-            product['iono_cor_gim_ka'] = self.iono_cor_gim_ka
+
+            if not self.skip_wse:
+                product['wse'] = self.wse
+                product['wse_qual_bitwise'] = self.wse_qual_bitwise
+                product['wse_qual'] = self.wse_qual
+                product['wse_uncert'] = self.wse_u
+                product['n_wse_pix'] = self.n_wse_pix
+                product['layover_impact'] = self.layover_impact
+                product['height_cor_xover'] = self.height_cor_xover
+                product['geoid'] = self.geoid
+                product['solid_earth_tide'] = self.solid_earth_tide
+                product['load_tide_fes'] = self.load_tide_fes
+                product['load_tide_got'] = self.load_tide_got
+                product['pole_tide'] = self.pole_tide
+                product['model_dry_tropo_cor'] = self.model_dry_tropo_cor
+                product['model_wet_tropo_cor'] = self.model_wet_tropo_cor
+                product['iono_cor_gim_ka'] = self.iono_cor_gim_ka
+
+            if not self.skip_area:
+                product['water_area'] = self.water_area
+                product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
+                product['water_area_qual'] = self.water_area_qual
+                product['water_area_uncert'] = self.water_area_u
+                product['water_frac'] = self.water_frac
+                product['water_frac_uncert'] = self.water_frac_u
+                product['n_water_area_pix'] = self.n_water_area_pix
+                product['dark_frac'] = self.dark_frac
+
+            if not self.skip_sig0:
+                product['sig0'] = self.sig0
+                product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
+                product['sig0_qual'] = self.sig0_qual
+                product['sig0_uncert'] = self.sig0_u
+                product['sig0_cor_atmos_model'] = self.sig0_cor_atmos_model
+                product['n_sig0_pix'] = self.n_sig0_pix
 
             if self.debug_flag:
                 product['classification'] = self.classification

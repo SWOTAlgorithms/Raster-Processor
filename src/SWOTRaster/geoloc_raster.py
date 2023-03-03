@@ -51,9 +51,13 @@ class GeolocRaster(object):
             all_classes, use_improved_geoloc=False)
 
         if isinstance(self.raster, RasterUTM):
+            try:
+                chunk_size = self.algorithmic_config['utm_conversion_chunk_size']
+            except KeyError:
+                chunk_size = DEFAULT_CHUNK_SIZE
+
             proj_mapping = self.raster.get_raster_mapping(
-                self.pixc, all_classes_mask, False,
-                self.algorithmic_config['utm_conversion_chunk_size'])
+                self.pixc, all_classes_mask, False, chunk_size)
         else:
             proj_mapping = self.raster.get_raster_mapping(
                 self.pixc, all_classes_mask, False)
@@ -82,37 +86,46 @@ class GeolocRaster(object):
         """ Improve the height of noisy point (in object sensor) """
         LOGGER.info("doing taylor improved geolocation")
 
-        nb_pix = self.pixc['pixel_cloud']['height'].size
-        # Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
-        x, y, z = geoloc.convert_llh2ecef(self.pixc['pixel_cloud']['latitude'],
-                                          self.pixc['pixel_cloud']['longitude'],
-                                          self.pixc['pixel_cloud']['height'],
-                                          GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+        mask = np.logical_not(np.logical_or.reduce((
+            np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
+            np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
+            np.ma.getmaskarray(self.pixc['pixel_cloud']['longitude']))))
 
-        # Get position of associated along-track pixels (in cartesian coordinates)
+        mask_indices = np.where(mask)[0]
+
+        nb_pix = np.sum(mask)
+
+        # Convert geodetic coordinates (lat, lon, height) to
+        # cartesian coordinates (x, y, z)
+        x, y, z = geoloc.convert_llh2ecef(
+            self.pixc['pixel_cloud']['latitude'][mask],
+            self.pixc['pixel_cloud']['longitude'][mask],
+            self.pixc['pixel_cloud']['height'][mask],
+            GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+
+        # Get position of associated along-track pixels
+        # (in cartesian coordinates)
         nadir_x = self.pixc['tvp']['x']
         nadir_y = self.pixc['tvp']['y']
         nadir_z = self.pixc['tvp']['z']
 
-        # Get velocity of associated along-track pixels (in cartesian coordinates)
+        # Get velocity of associated along-track pixels
+        # (in cartesian coordinates)
         nadir_vx = self.pixc['tvp']['vx']
         nadir_vy = self.pixc['tvp']['vy']
         nadir_vz = self.pixc['tvp']['vz']
 
         # Get distance from satellite to target point
-        ri = self.pixc.near_range + (self.pixc['pixel_cloud']['range_index']
-                                     * self.pixc.nominal_slant_range_spacing)
-
-        # Init output vectors
-        self.out_lat_corr = np.zeros(nb_pix)  # Improved latitudes
-        self.out_lon_corr = np.zeros(nb_pix)  # Improved longitudes
-        self.out_height_corr = np.zeros(nb_pix)  # Improved heights
+        ri = self.pixc.near_range \
+             + (self.pixc['pixel_cloud']['range_index'][mask]
+                * self.pixc.nominal_slant_range_spacing)
 
         # Remap illumination time to nearest sensor index
-        sensor_s = ag.get_sensor_index(self.pixc)
+        sensor_s = ag.get_sensor_index(self.pixc)[mask]
 
         # Loop over each pixel (could be vectorized)
-        h_noisy = self.pixc['pixel_cloud']['height']
+        h_noisy = self.pixc['pixel_cloud']['height'][mask]
+        h_new = self.new_height[mask]
         nadir_x_vect = np.zeros(nb_pix)
         nadir_y_vect = np.zeros(nb_pix)
         nadir_z_vect = np.zeros(nb_pix)
@@ -130,6 +143,14 @@ class GeolocRaster(object):
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
 
         # Split the data into more manageable chunks and geolocate
+        # Init output vectors
+        self.out_lat_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['latitude']))
+        self.out_lon_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['longitude']))
+        self.out_height_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['height']))
+
         try:
             chunk_size = self.algorithmic_config['height_constrained_geoloc_chunk_size']
         except KeyError:
@@ -150,10 +171,10 @@ class GeolocRaster(object):
                                            nadir_vy_vect[start_idx:end_idx],
                                            nadir_vz_vect[start_idx:end_idx]])),
                     ri[start_idx:end_idx],
-                    self.new_height[start_idx:end_idx],
+                    h_new[start_idx:end_idx],
                     recompute_doppler=True, recompute_range=True, verbose=False,
                     max_iter_grad=1, height_goal=1.e-3)
 
-            self.out_lat_corr[start_idx:end_idx] = p_final_llh[:,0]
-            self.out_lon_corr[start_idx:end_idx] = p_final_llh[:,1]
-            self.out_height_corr[start_idx:end_idx] = p_final_llh[:,2]
+            self.out_lat_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,0]
+            self.out_lon_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,1]
+            self.out_height_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,2]

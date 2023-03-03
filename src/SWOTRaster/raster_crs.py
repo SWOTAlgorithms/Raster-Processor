@@ -11,6 +11,9 @@ import argparse
 import warnings
 import numpy as np
 
+from shapely.geometry import GeometryCollection, LineString, Polygon
+from shapely.ops import split
+from shapely import affinity
 from osgeo import osr
 
 WGS84_ID = 4326
@@ -44,7 +47,7 @@ def wgs84_px_area(center_lat, px_size):
 
 
 def is_utm_zone_valid(utm_zone):
-    # Checks in a UTM zone is valid
+    # Checks if a UTM zone is valid
     return (1 <= utm_zone <= UTM_NUM_ZONES)
 
 
@@ -54,7 +57,7 @@ def is_mgrs_band_valid(mgrs_band):
 
 
 def utm_zone_from_latlon(latitude, longitude):
-    # Gets the utm zone for a given lat/lon
+    # Gets the UTM zone for a given lat/lon
     if 56 <= latitude < 64 and 3 <= longitude < 12:
         return 32
 
@@ -117,7 +120,7 @@ def hemisphere_from_mgrs_band(mgrs_band):
 
 
 def utm_zone_identifier(utm_zone, hemisphere):
-    # Gets the EPGS identifier for the utm zone
+    # Gets the EPGS identifier for the UTM zone
     if not is_utm_zone_valid(utm_zone):
         raise ValueError("Invalid UTM Zone: {}".format(utm_zone))
 
@@ -146,11 +149,89 @@ def utm_crs(utm_zone, mgrs_band):
     return spatial_ref
 
 
+def utm_crs_from_points(points, utm_zone_adjust=0, mgrs_band_adjust=0):
+    # Gets the UTM Coordinate Reference System at the centroid of points
+
+    # Handle longitude wrap
+    poly_edge_y = [point[0] for point in points]
+    poly_edge_x = shift_wrapped_longitude([point[1] for point in points])
+
+    lat_mid = np.mean(poly_edge_y)
+    lon_mid = np.mean(poly_edge_x)
+
+    # Wrap to between -180 to 180 degrees longitude
+    lon_min = lon_360to180(lon_mid)
+
+    utm_zone = utm_zone_from_latlon(lat_mid, lon_mid)
+    mgrs_band = mgrs_band_from_latlon(lat_mid, lon_mid)
+
+    # Adjust the UTM zone (-1 and +1 as zone numbers are 1 indexed)
+    utm_zone = np.mod(utm_zone + utm_zone_adjust - 1, UTM_NUM_ZONES) + 1
+
+    # Adjust/shift the mgrs band
+    mgrs_band = mgrs_band_shift(mgrs_band, mgrs_band_adjust, lon_mid)
+
+    return utm_crs(utm_zone, mgrs_band), utm_zone, mgrs_band
+
+
 def wgs84_crs():
     # Gets the WGS84 Coordinate Reference System
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(WGS84_ID)
     return spatial_ref
+
+
+def is_longitude_wrapped(lons, thresh=180):
+    # Checks if longitudes are wrapped
+    for i in range(1, len(lons)):
+        if abs(lons[i-1]-lons[i]) > thresh:
+            return True
+    return False
+
+
+def shift_wrapped_longitude(lons, thresh=180):
+    # Shift longitudes to minimize distance between consecutive points
+    out_lons = lons.copy()
+    for i in range(1, len(out_lons)):
+        if abs(out_lons[i]-out_lons[i-1]) > thresh:
+            out_lons[i] -= np.sign(out_lons[i]-out_lons[i-1]) * 360
+    return out_lons
+
+
+def shift_wrapped_longitude_polygon(polygon, thresh=180):
+    # Shift longitudes of a polygon
+    coords = polygon.exterior.coords
+    lats = [point[1] for point in coords]
+    lons = [point[0] for point in coords]
+    shifted_lons = shift_wrapped_longitude(lons, thresh)
+    return Polygon([[lon, lat] for lat, lon in zip(lats, shifted_lons)])
+
+
+def split_wrapped_longitude_polygon(polygon, thresh=180):
+    # Split polygon at longitude wrap
+    shifted_polygon = shift_wrapped_longitude_polygon(polygon)
+    (min_x, _, max_x, _) = shifted_polygon.bounds
+    if min_x < -180:
+        meridian_crossing = -180
+    elif max_x > 180:
+        meridian_crossing = 180
+    else: # No longitude wrap
+        return polygon
+
+    splitter = LineString([[meridian_crossing, -90],[meridian_crossing, 90]])
+    split_collection = split(shifted_polygon, splitter)
+
+    split_poly_list = []
+    for item in split_collection:
+        (min_x, _, max_x, _) = item.bounds
+        if min_x < -180:
+            split_poly_list.append(affinity.translate(item, xoff=360))
+        elif max_x > 180:
+            split_poly_list.append(affinity.translate(item, xoff=-360))
+        else:
+            split_poly_list.append(item)
+
+    return GeometryCollection(split_poly_list)
 
 
 def lon_360to180(longitude):

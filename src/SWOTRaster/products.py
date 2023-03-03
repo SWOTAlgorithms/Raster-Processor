@@ -10,14 +10,13 @@ import logging
 import textwrap
 import numpy as np
 import operator as op
-import SWOTRaster.raster_crs
+import SWOTRaster.raster_crs as raster_crs
 
 from osgeo import osr
 from datetime import datetime
 from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product, ProductTesterMixIn
-from SWOTRaster.raster_crs import ELLIPSOID_SEMI_MAJOR_AXIS, ELLIPSOID_INVERSE_FLATTENING
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
@@ -980,8 +979,8 @@ class RasterUTM(ProductTesterMixIn, Product):
                 ['longitude_of_prime_meridian', 0.],
                 ['latitude_of_projection_origin', 0.],
                 ['scale_factor_at_central_meridian', 0.9996],
-                ['semi_major_axis', ELLIPSOID_SEMI_MAJOR_AXIS],
-                ['inverse_flattening', ELLIPSOID_INVERSE_FLATTENING],
+                ['semi_major_axis', raster_crs.ELLIPSOID_SEMI_MAJOR_AXIS],
+                ['inverse_flattening', raster_crs.ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'UTM zone coordinate reference system.'],
@@ -1093,15 +1092,19 @@ class RasterUTM(ProductTesterMixIn, Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
+        mask = np.logical_and.reduce((mask,
+            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
+            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
+
         pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+        pixc_lons = raster_crs.lon_360to180(
             pixc['pixel_cloud'][lon_keyword][mask])
         pixc_idx = np.where(mask)[0]
         nb_pix = pixc_lats.size
 
-        input_crs = SWOTRaster.raster_crs.wgs84_crs()
-        output_crs = SWOTRaster.raster_crs.utm_crs(self.utm_zone_num,
-                                        self.mgrs_latitude_band)
+        input_crs = raster_crs.wgs84_crs()
+        output_crs = raster_crs.utm_crs(
+            self.utm_zone_num, self.mgrs_latitude_band)
         transf = osr.CoordinateTransformation(input_crs, output_crs)
 
         # Split the data into more manageable chunks and convert to UTM
@@ -1118,10 +1121,11 @@ class RasterUTM(ProductTesterMixIn, Product):
             for j in range(0, self.dimensions['x']):
                 mapping_tmp[i].append([])
 
-        i_tmp = np.array([int(round((pt[1] - self.y_min) / self.resolution))
-                          for pt in transf_points])
-        j_tmp = np.array([int(round((pt[0] - self.x_min) / self.resolution))
-                          for pt in transf_points])
+        ys = np.array([point[1] for point in transf_points])
+        xs = np.array([point[0] for point in transf_points])
+        i_tmp = np.round((ys - self.y_min) / self.resolution).astype(int)
+        j_tmp = np.round((xs - self.x_min) / self.resolution).astype(int)
+
         idx_mask = np.logical_and.reduce((
             i_tmp >= 0, i_tmp < self.dimensions['y'],
             j_tmp >= 0, j_tmp < self.dimensions['x']))
@@ -1136,8 +1140,8 @@ class RasterUTM(ProductTesterMixIn, Product):
         LOGGER.info('cropping to bounds')
 
         # Convert polygon points to UTM
-        input_crs = SWOTRaster.raster_crs.wgs84_crs()
-        output_crs = SWOTRaster.raster_crs.utm_crs(
+        input_crs = raster_crs.wgs84_crs()
+        output_crs = raster_crs.utm_crs(
             self.utm_zone_num, self.mgrs_latitude_band)
 
         transf = osr.CoordinateTransformation(input_crs, output_crs)
@@ -1279,8 +1283,8 @@ class RasterGeo(ProductTesterMixIn, Product):
                 ['horizontal_datum_name', 'WGS_1984'],
                 ['prime_meridian_name', 'Greenwich'],
                 ['longitude_of_prime_meridian', 0.],
-                ['semi_major_axis', ELLIPSOID_SEMI_MAJOR_AXIS],
-                ['inverse_flattening', ELLIPSOID_INVERSE_FLATTENING],
+                ['semi_major_axis', raster_crs.ELLIPSOID_SEMI_MAJOR_AXIS],
+                ['inverse_flattening', raster_crs.ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'Geodetic lat/lon coordinate reference system.'],
@@ -1364,8 +1368,12 @@ class RasterGeo(ProductTesterMixIn, Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
+        mask = np.logical_and.reduce((mask,
+            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
+            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
+
         pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
-        pixc_lons = SWOTRaster.raster_crs.lon_360to180(
+        pixc_lons = raster_crs.lon_360to180(
             pixc['pixel_cloud'][lon_keyword][mask])
         pixc_idx = np.where(mask)[0]
 
@@ -1375,10 +1383,16 @@ class RasterGeo(ProductTesterMixIn, Product):
             for j in range(0, self.dimensions['longitude']):
                 mapping_tmp[i].append([])
 
-        i_tmp = np.array([int(round((lat - self.latitude_min) / self.resolution))
-                          for lat in pixc_lats])
-        j_tmp = np.array([int(round((lon - self.longitude_min) / self.resolution))
-                          for lon in pixc_lons])
+        i_tmp = np.round(
+            (pixc_lats - self.latitude_min)/self.resolution).astype(int)
+
+        # Handle longitude wrap
+        lons_diff = pixc_lons - self.longitude_min
+        wrapped_mask = lons_diff < -180
+        j_tmp = np.round(lons_diff / self.resolution).astype(int)
+        j_tmp[wrapped_mask] = np.round(
+            (lons_diff[wrapped_mask] + 360)/self.resolution).astype(int)
+
         idx_mask = np.logical_and.reduce((
             i_tmp >= 0, i_tmp < self.dimensions['latitude'],
             j_tmp >= 0, j_tmp < self.dimensions['longitude']))
@@ -1392,15 +1406,18 @@ class RasterGeo(ProductTesterMixIn, Product):
         """ Crop raster to the given swath polygon """
         LOGGER.info('cropping to bounds')
 
-        poly = Polygon(swath_polygon_points)
+        poly = Polygon([[point[1], point[0]] for point in swath_polygon_points])
 
-        # Check whether each pixel center intersects with the polygon
+        # Handle longitude wrap
+        split_polys = raster_crs.split_wrapped_longitude_polygon(poly)
+
+        # Check whether each pixel center intersects with split_polys
         mask = np.zeros((self.dimensions['latitude'],
-                         self.dimensions['longitude']))
+                         self.dimensions['longitude']), dtype=bool)
         for i in range(0, self.dimensions['latitude']):
             for j in range(0, self.dimensions['longitude']):
-                mask[i][j] = Point((self.latitude[i],
-                                    self.longitude[j])).intersects(poly)
+                point = Point(self.longitude[j], self.latitude[i])
+                mask[i][j] = point.intersects(split_polys)
 
         # Mask the datasets
         for var in self.variables:
@@ -1488,6 +1505,10 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES.update(odict([
         ['classification',
          odict([['dtype', 'u1']])],
+        ['pixel_latitude',
+         odict([['dtype', 'f8']])],
+        ['pixel_longitude',
+         odict([['dtype', 'f8']])],
     ]))
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
@@ -1497,6 +1518,10 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
     VARIABLES['classification']['dimensions'] = \
+        odict([['latitude', 0], ['longitude', 0]])
+    VARIABLES['pixel_latitude']['dimensions'] = \
+        odict([['latitude', 0], ['longitude', 0]])
+    VARIABLES['pixel_longitude']['dimensions'] = \
         odict([['latitude', 0], ['longitude', 0]])
 
 
@@ -1545,7 +1570,7 @@ class ScenePixc(Product):
     ])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None, valid_classes=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, mask=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixc from tile')
 
@@ -1614,14 +1639,20 @@ class ScenePixc(Product):
                 scene_pixc.right_first_latitude,
                 scene_pixc.left_last_latitude,
                 scene_pixc.right_last_latitude]
-        lons = [scene_pixc.left_first_longitude,
-                scene_pixc.right_first_longitude,
-                scene_pixc.left_last_longitude,
-                scene_pixc.right_last_longitude]
+        lons = [scene_pixc.left_first_latitude,
+                scene_pixc.right_first_latitude,
+                scene_pixc.left_last_latitude,
+                scene_pixc.right_last_latitude]
         scene_pixc.geospatial_lat_min = min(lats)
         scene_pixc.geospatial_lat_max = max(lats)
-        scene_pixc.geospatial_lon_min = min(lons)
-        scene_pixc.geospatial_lon_max = max(lons)
+
+        # Handle longitude wrap
+        shifted_lons = raster_crs.shift_wrapped_longitude(lons)
+        lon_min = min(shifted_lons)
+        lon_max = max(shifted_lons)
+        # Wrap to between -180 and 180 degrees longitude
+        scene_pixc.geospatial_lon_min = raster_crs.lon_360to180(lon_min)
+        scene_pixc.geospatial_lon_max = raster_crs.lon_360to180(lon_max)
 
         leap_second = pixc_tile.pixel_cloud.VARIABLES['illumination_time']['leap_second']
         if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
@@ -1631,7 +1662,7 @@ class ScenePixc(Product):
 
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
-            pixc_tile, pixcvec_tile, valid_classes)
+            pixc_tile, pixcvec_tile, mask)
         scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
 
         return scene_pixc
@@ -1640,7 +1671,7 @@ class ScenePixc(Product):
     def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
                    granule_start_time, granule_end_time,
                    cycle_number, pass_number, scene_number, pixcvec_tiles=None,
-                   valid_classes=None):
+                   mask=None):
         """ Constructs self from a list of pixc tiles (and associated pixcvec
            tiles). Pixcvec_tiles must either have a one-to-one correspondence
            with pixc_tiles or be None. """
@@ -1654,7 +1685,7 @@ class ScenePixc(Product):
         for tile_idx in range(num_tiles):
             tile_objs.append(cls.from_tile(pixc_tiles[tile_idx],
                                            pixcvec_tiles[tile_idx],
-                                           valid_classes=valid_classes))
+                                           mask))
 
         # Add all of the pixel_cloud/tvp data
         scene_pixc = np.array(tile_objs).sum()
@@ -1735,8 +1766,14 @@ class ScenePixc(Product):
         lons = [latlon[1] for latlon in swath_polygon_points]
         self.geospatial_lat_min = min(lats)
         self.geospatial_lat_max = max(lats)
-        self.geospatial_lon_min = min(lons)
-        self.geospatial_lon_max = max(lons)
+
+        # Handle longitude wrap
+        shifted_lons = raster_crs.shift_wrapped_longitude(lons)
+        lon_min = min(shifted_lons)
+        lon_max = max(shifted_lons)
+        # Wrap to between -180 and 180 degrees longitude
+        self.geospatial_lon_min = raster_crs.lon_360to180(lon_min)
+        self.geospatial_lon_max = raster_crs.lon_360to180(lon_max)
 
         self.time_granule_start = \
             granule_start_time.strftime(DATETIME_FORMAT_STR)
@@ -1800,11 +1837,7 @@ class ScenePixc(Product):
         mask[np.isnan(lons)] = 0
         mask[np.isnan(pixc_classif)] = 0
 
-        # Use valid classes to mask
-        classif_mask = np.zeros_like(mask)
-        for classif_val in valid_classes:
-            classif_mask = np.logical_or(
-                classif_mask, pixc_classif==classif_val)
+        classif_mask = np.isin(pixc_classif, valid_classes)
         mask[np.logical_not(classif_mask)] = 0
 
         return mask==1
@@ -1862,7 +1895,7 @@ class ScenePixc(Product):
         klass.tile_names = ', '.join(tile_names[sort_indices])
         klass.tile_polarizations = ', '.join(tile_polarizations[sort_indices])
 
-        # Sort the time attributes based on simple min/max
+        # Overwrite the temporal extent attributes if others are better than self
         # (note that left/right time attributes can be None)
         def _datetime_str_comp(d0, d1, comp=op.le,
                                format_str=DATETIME_FORMAT_STR,
@@ -1878,92 +1911,60 @@ class ScenePixc(Product):
             _d1 = datetime.strptime(d1, format_str)
             return comp(_d0, _d1)
 
-        if _datetime_str_comp(self.time_granule_start, other.time_granule_start,
-                              comp=op.le):
-            klass.time_granule_start = self.time_granule_start
-        else:
+        if _datetime_str_comp(other.time_granule_start,
+                              self.time_granule_start, comp=op.lt):
             klass_time_granule_start = other.time_granule_start
 
-        if _datetime_str_comp(self.time_granule_end, other.time_granule_end,
-                              comp=op.ge):
-            klass.time_granule_end = self.time_granule_end
-        else:
+        if _datetime_str_comp(other.time_granule_end,
+                              self.time_granule_end, comp=op.gt):
             klass_time_granule_end = other.time_granule_end
 
-        if _datetime_str_comp(self.time_coverage_start, other.time_coverage_start,
-                              comp=op.le):
-            klass.time_coverage_start = self.time_coverage_start
-        else:
+        if _datetime_str_comp(other.time_coverage_start,
+                              self.time_coverage_start, comp=op.lt):
             klass_time_coverage_start = other.time_coverage_start
 
-        if _datetime_str_comp(self.time_coverage_end, other.time_coverage_end,
-                              comp=op.ge):
-            klass.time_coverage_end = self.time_coverage_end
-        else:
+        if _datetime_str_comp(other.time_coverage_end,
+                              self.time_coverage_end, comp=op.gt):
             klass_time_coverage_end = other.time_coverage_end
 
-        if _datetime_str_comp(self.left_time_granule_start, other.left_time_granule_start,
-                              comp=op.le):
-            klass.left_time_granule_start = self.left_time_granule_start
-            klass.left_first_latitude = self.left_first_latitude
-            klass.left_first_longitude = self.left_first_longitude
-        else:
+        if _datetime_str_comp(other.left_time_granule_start,
+                              self.left_time_granule_start, comp=op.lt):
             klass.left_time_granule_start = other.left_time_granule_start
             klass.left_first_latitude = other.left_first_latitude
             klass.left_first_longitude = other.left_first_longitude
 
-        if _datetime_str_comp(self.left_time_granule_end, other.left_time_granule_end,
-                              comp=op.ge):
-            klass.left_time_granule_end = self.left_time_granule_end
-            klass.left_last_latitude = self.left_last_latitude
-            klass.left_last_longitude = self.left_last_longitude
-        else:
+        if _datetime_str_comp(other.left_time_granule_end,
+                              self.left_time_granule_end, comp=op.gt):
             klass.left_time_granule_end = other.left_time_granule_end
             klass.left_last_latitude = other.left_last_latitude
             klass.left_last_longitude = other.left_last_longitude
 
-        if _datetime_str_comp(self.right_time_granule_start, other.right_time_granule_start,
-                              comp=op.le):
-            klass.right_time_granule_start = self.right_time_granule_start
-            klass.right_first_latitude = self.right_first_latitude
-            klass.right_first_longitude = self.right_first_longitude
-        else:
+        if _datetime_str_comp(other.right_time_granule_start,
+                              self.right_time_granule_start, comp=op.lt):
             klass.right_time_granule_start = other.right_time_granule_start
             klass.right_first_latitude = other.right_first_latitude
             klass.right_first_longitude = other.right_first_longitude
 
-        if _datetime_str_comp(self.right_time_granule_end, other.right_time_granule_end,
-                              comp=op.ge):
-            klass.right_time_granule_end = self.right_time_granule_end
-            klass.right_last_latitude = self.right_last_latitude
-            klass.right_last_longitude = self.right_last_longitude
-        else:
+        if _datetime_str_comp(other.right_time_granule_end,
+                              self.right_time_granule_end, comp=op.gt):
             klass.right_time_granule_end = other.right_time_granule_end
             klass.right_last_latitude = other.right_last_latitude
             klass.right_last_longitude = other.right_last_longitude
 
-        if _datetime_str_comp(self.left_time_coverage_start, other.left_time_coverage_start,
-                              comp=op.le):
-            klass.left_time_coverage_start = self.left_time_coverage_start
-        else:
+        if _datetime_str_comp(other.left_time_coverage_start,
+                              self.left_time_coverage_start, comp=op.lt):
             klass.left_time_coverage_start = other.left_time_coverage_start
 
-        if _datetime_str_comp(self.left_time_coverage_end, other.left_time_coverage_end,
-                              comp=op.ge):
-            klass.left_time_coverage_end = self.left_time_coverage_end
-        else:
+        if _datetime_str_comp(other.left_time_coverage_end,
+                              self.left_time_coverage_end, comp=op.gt):
             klass.left_time_coverage_end = other.left_time_coverage_end
 
-        if _datetime_str_comp(self.right_time_coverage_start, other.right_time_coverage_start,
-                              comp=op.le):
-            klass.right_time_coverage_start = self.right_time_coverage_start
-        else:
+        if _datetime_str_comp(other.right_time_coverage_start,
+                              self.right_time_coverage_start, comp=op.lt):
             klass.right_time_coverage_start = other.right_time_coverage_start
 
-        if _datetime_str_comp(self.right_time_coverage_end, other.right_time_coverage_end,
-                              comp=op.ge):
-            klass.right_time_coverage_end = self.right_time_coverage_end
-        else:
+        if _datetime_str_comp(other.right_time_coverage_end,
+                              self.right_time_coverage_end, comp=op.gt):
             klass.right_time_coverage_end = other.right_time_coverage_end
 
         # Get geospatial bounds from self and other's geospatial bounds
@@ -1977,11 +1978,9 @@ class ScenePixc(Product):
                                        other.geospatial_lon_max)
 
         # Get the earlier leap second
-        if _datetime_str_comp(self.leap_second, other.leap_second,
-                              comp=op.le, format_str=LEAPSEC_FORMAT_STR,
+        if _datetime_str_comp(other.leap_second, self.leap_second,
+                              comp=op.lt, format_str=LEAPSEC_FORMAT_STR,
                               empty_value=EMPTY_LEAPSEC):
-            klass.leap_second = self.leap_second
-        else:
             klass.leap_second = other.leap_second
         if klass.leap_second is None or klass.leap_second.lower()=='none':
             klass.leap_second = EMPTY_LEAPSEC
@@ -2057,16 +2056,15 @@ class ScenePixelCloud(Product):
     VARIABLES['pixc_line_to_tvp']['dimensions'] = odict([['num_pixc_lines',0],])
 
     @classmethod
-    def from_tile(cls, pixc_tile, pixcvec_tile=None, valid_classes=None):
+    def from_tile(cls, pixc_tile, pixcvec_tile=None, mask=None):
         """ Construct self from a single pixc tile (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixel cloud from tile')
 
         scene_pixel_cloud = cls()
 
-        if valid_classes is not None:
-            mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
-        else:
-            mask = np.ones(pixc_tile['pixel_cloud']['classification'].shape, dtype=bool)
+        if mask is None: # Default mask is all
+            mask = np.ones(pixc_tile['pixel_cloud']['illumination_time'].shape,
+                           dtype=bool)
 
         # Copy common pixc variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())

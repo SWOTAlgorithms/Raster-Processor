@@ -111,14 +111,19 @@ def main():
     else:
         pixcvec_tile = None
 
-    # Only load defined classes to save on memory
+    # Only load defined classes
     valid_classes = alg_config['interior_water_classes'] \
                     + alg_config['water_edge_classes'] \
                     + alg_config['land_edge_classes'] \
                     + alg_config['dark_water_classes']
+    mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
 
-    pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile,
-                                    valid_classes=valid_classes)
+    # Only load pixels with unmasked latitude/longitude
+    mask = np.logical_and.reduce((mask,
+        np.logical_not(np.ma.getmaskarray(pixc_tile['pixel_cloud']['latitude'])),
+        np.logical_not(np.ma.getmaskarray(pixc_tile['pixel_cloud']['longitude']))))
+
+    pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile, mask)
 
     proc = SWOTRaster.l2pixc_to_raster.L2PixcToRaster(
         pixc=pixc_data, algorithmic_config=alg_cfg, runtime_config=rt_cfg)

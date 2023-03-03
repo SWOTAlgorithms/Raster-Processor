@@ -6,6 +6,7 @@ All rights reserved.
 Author (s): Alexander Corben
 '''
 
+import os
 import logging
 import numpy as np
 import SWOTRaster.geoloc_raster
@@ -16,18 +17,24 @@ from SWOTRaster.products import DEFAULT_CHUNK_SIZE
 
 LOGGER = logging.getLogger(__name__)
 
+LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
+
 class L2PixcToRaster(object):
     def __init__(self, pixc=None, polygon_points=None,
-                 algorithmic_config=None, runtime_config=None):
+                 algorithmic_config=None, runtime_config=None,
+                 scratch_dir=None):
         self.pixc = pixc
         self.polygon_points = polygon_points
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
+        self.scratch_dir = scratch_dir
 
         # Add default optional values to configs
         if 'utm_conversion_chunk_size' not in self.algorithmic_config:
             self.algorithmic_config['utm_conversion_chunk_size'] = \
                 DEFAULT_CHUNK_SIZE
+        if 'write_internal_files' not in self.algorithmic_config:
+            self.algorithmic_config['write_internal_files'] = False
         if 'debug_flag' not in self.algorithmic_config:
             self.algorithmic_config['debug_flag'] = False
         if 'utm_zone_adjust' not in self.runtime_config:
@@ -94,6 +101,8 @@ class L2PixcToRaster(object):
                 tmp_land_edge_classes,
                 self.algorithmic_config['dark_water_classes'],
                 self.algorithmic_config['use_bright_land'],
+                self.algorithmic_config['use_all_classes_for_wse'],
+                self.algorithmic_config['use_all_classes_for_sig0'],
                 self.algorithmic_config['geo_qual_suspect'],
                 self.algorithmic_config['geo_qual_degraded'],
                 self.algorithmic_config['geo_qual_bad'],
@@ -127,11 +136,19 @@ class L2PixcToRaster(object):
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
                 utm_conversion_chunk_size=\
                 self.algorithmic_config['utm_conversion_chunk_size'],
+                skip_area=True, skip_sig0=True,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
                 self.pixc, self.polygon_points, use_improved_geoloc=False)
+
+        if self.algorithmic_config['write_internal_files']:
+            if self.scratch_dir is None:
+                height_constrained_geoloc_raster.to_ncfile(LOWRES_RASTER_FILENAME)
+            else:
+                height_constrained_geoloc_raster.to_ncfile(
+                    os.path.join(self.scratch_dir, LOWRES_RASTER_FILENAME))
 
         # if the height-constrained geoloc raster is empty, return fully masked
         # output
@@ -163,6 +180,8 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['land_edge_classes'],
                 self.algorithmic_config['dark_water_classes'],
                 self.algorithmic_config['use_bright_land'],
+                self.algorithmic_config['use_all_classes_for_wse'],
+                self.algorithmic_config['use_all_classes_for_sig0'],
                 self.algorithmic_config['geo_qual_suspect'],
                 self.algorithmic_config['geo_qual_degraded'],
                 self.algorithmic_config['geo_qual_bad'],
@@ -196,11 +215,19 @@ class L2PixcToRaster(object):
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
                 utm_conversion_chunk_size=\
                 self.algorithmic_config['utm_conversion_chunk_size'],
+                skip_area=True, skip_sig0=True,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
                 self.pixc, self.polygon_points, use_improved_geoloc=False)
+
+        if self.algorithmic_config['write_internal_files']:
+            if self.scratch_dir is None:
+                height_constrained_geoloc_raster.to_ncfile(LOWRES_RASTER_FILENAME)
+            else:
+                height_constrained_geoloc_raster.to_ncfile(
+                    os.path.join(self.scratch_dir, LOWRES_RASTER_FILENAME))
 
         # if the height-constrained geoloc raster is empty, return fully masked
         # output
@@ -228,6 +255,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['land_edge_classes'],
             self.algorithmic_config['dark_water_classes'],
             self.algorithmic_config['use_bright_land'],
+            self.algorithmic_config['use_all_classes_for_wse'],
+            self.algorithmic_config['use_all_classes_for_sig0'],
             self.algorithmic_config['geo_qual_suspect'],
             self.algorithmic_config['geo_qual_degraded'],
             self.algorithmic_config['geo_qual_bad'],
