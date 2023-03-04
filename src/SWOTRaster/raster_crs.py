@@ -216,7 +216,7 @@ def split_wrapped_longitude_polygon(polygon, thresh=180):
     elif max_x > 180:
         meridian_crossing = 180
     else: # No longitude wrap
-        return polygon
+        return GeometryCollection([polygon])
 
     splitter = LineString([[meridian_crossing, -90],[meridian_crossing, 90]])
     split_collection = split(shifted_polygon, splitter)
