@@ -1154,7 +1154,7 @@ class RasterUTM(ProductTesterMixIn, Product):
         mask = np.zeros((self.dimensions['y'], self.dimensions['x']))
         for i in range(0, self.dimensions['y']):
             for j in range(0, self.dimensions['x']):
-                mask[i][j] = Point((self.x[j], self.y[i])).intersects(poly)
+                mask[i][j] = Point(self.x[j], self.y[i]).intersects(poly)
 
         # Mask the datasets
         for var in self.variables:
