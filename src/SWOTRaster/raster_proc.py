@@ -399,9 +399,8 @@ class RasterProcessor(object):
                 if np.sum(mask) < num_good_sus_pix_thresh:
                     mask = good_sus_degraded_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
-                    these_idxs = [idx for idx,valid
-                                  in zip(self.proj_mapping[i][j], mask) if valid]
-                    rasterization_mask[these_idxs] = True
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                    rasterization_mask[mapping_idxs] = True
 
         return rasterization_mask
 
@@ -417,9 +416,9 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.sig0_cor_atmos_model[i][j] = ag.simple(
-                        pixc_sig0_cor_atmos_model[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_sig0_cor_atmos_model[mapping_idxs], metric='mean')
 
     def aggregate_wse_corrections(self, pixc, rasterization_mask):
         """ Aggregate wse geophysical corrections """
@@ -459,35 +458,28 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.height_cor_xover[i][j] = ag.height_only(
-                        pixc_height_cor_xover[self.proj_mapping[i][j]],
-                        mask,
-                        pixc_height_std[self.proj_mapping[i][j]],
+                        pixc_height_cor_xover[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
+                        pixc_height_std[mapping_idxs],
                         method=self.height_agg_method)[0]
                     self.geoid[i][j] = ag.simple(
-                        pixc_geoid[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_geoid[mapping_idxs], metric='mean')
                     self.solid_earth_tide[i][j] = ag.simple(
-                        pixc_solid_earth_tide[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_solid_earth_tide[mapping_idxs], metric='mean')
                     self.load_tide_fes[i][j] = ag.simple(
-                        pixc_load_tide_fes[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_load_tide_fes[mapping_idxs], metric='mean')
                     self.load_tide_got[i][j] = ag.simple(
-                        pixc_load_tide_got[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_load_tide_got[mapping_idxs], metric='mean')
                     self.pole_tide[i][j] = ag.simple(
-                        pixc_pole_tide[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_pole_tide[mapping_idxs], metric='mean')
                     self.model_dry_tropo_cor[i][j] = ag.simple(
-                        pixc_model_dry_tropo_cor[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_model_dry_tropo_cor[mapping_idxs], metric='mean')
                     self.model_wet_tropo_cor[i][j] = ag.simple(
-                        pixc_model_wet_tropo_cor[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_model_wet_tropo_cor[mapping_idxs], metric='mean')
                     self.iono_cor_gim_ka[i][j] = ag.simple(
-                        pixc_iono_cor_gim_ka[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_iono_cor_gim_ka[mapping_idxs], metric='mean')
 
     def apply_wse_corrections(self):
         """ Apply geophysical corrections to wse """
@@ -561,19 +553,20 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     grid_height = ag.height_with_uncerts(
-                        pixc_height[self.proj_mapping[i][j]],
-                        mask,
-                        pixc_num_rare_looks[self.proj_mapping[i][j]],
-                        pixc_num_med_looks[self.proj_mapping[i][j]],
-                        flat_ifgram[self.proj_mapping[i][j]],
-                        pixc_power_minus_y[self.proj_mapping[i][j]],
-                        pixc_power_plus_y[self.proj_mapping[i][j]],
+                        pixc_height[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
+                        pixc_num_rare_looks[mapping_idxs],
+                        pixc_num_med_looks[mapping_idxs],
+                        flat_ifgram[mapping_idxs],
+                        pixc_power_minus_y[mapping_idxs],
+                        pixc_power_plus_y[mapping_idxs],
                         looks_to_efflooks,
-                        pixc_dh_dphi[self.proj_mapping[i][j]],
-                        pixc_dlat_dphi[self.proj_mapping[i][j]],
-                        pixc_dlon_dphi[self.proj_mapping[i][j]],
-                        pixc_height_std[self.proj_mapping[i][j]],
+                        pixc_dh_dphi[mapping_idxs],
+                        pixc_dlat_dphi[mapping_idxs],
+                        pixc_dlon_dphi[mapping_idxs],
+                        pixc_height_std[mapping_idxs],
                         method=self.height_agg_method)
 
                     self.wse[i][j] = grid_height[0]
@@ -602,15 +595,16 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     grid_area = ag.area_with_uncert(
-                        pixc_pixel_area[self.proj_mapping[i][j]],
-                        pixc_water_fraction[self.proj_mapping[i][j]],
-                        pixc_water_fraction_uncert[self.proj_mapping[i][j]],
-                        pixc_darea_dheight[self.proj_mapping[i][j]],
-                        pixc_classif[self.proj_mapping[i][j]],
-                        pixc_pfd[self.proj_mapping[i][j]],
-                        pixc_pmd[self.proj_mapping[i][j]],
-                        mask,
+                        pixc_pixel_area[mapping_idxs],
+                        pixc_water_fraction[mapping_idxs],
+                        pixc_water_fraction_uncert[mapping_idxs],
+                        pixc_darea_dheight[mapping_idxs],
+                        pixc_classif[mapping_idxs],
+                        pixc_pfd[mapping_idxs],
+                        pixc_pmd[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
                         method=self.area_agg_method,
                         interior_water_klasses=self.interior_water_classes,
                         water_edge_klasses=self.water_edge_classes,
@@ -648,9 +642,11 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     grid_sig0 = ag.sig0_with_uncerts(
-                        pixc_sig0[self.proj_mapping[i][j]], mask,
-                        pixc_sig0_uncert[self.proj_mapping[i][j]],
+                        pixc_sig0[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
+                        pixc_sig0_uncert[mapping_idxs],
                         method='rare')
                     self.sig0[i][j] = grid_sig0[0]
                     self.sig0_u[i][j] = grid_sig0[2]
@@ -668,9 +664,9 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.cross_track[i][j] = ag.simple(
-                        pixc_cross_track[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_cross_track[mapping_idxs], metric='mean')
                     self.n_other_pix[i][j] = ag.simple(mask, metric='sum')
 
     def aggregate_inc(self, pixc, rasterization_mask):
@@ -685,8 +681,9 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.inc[i][j] = ag.simple(
-                        pixc_inc[self.proj_mapping[i][j]][mask], metric='mean')
+                        pixc_inc[mapping_idxs], metric='mean')
 
     def aggregate_dark_frac(self, pixc, rasterization_mask):
         """ Aggregate dark water fraction """
@@ -703,16 +700,15 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
-                    dark_mask = np.logical_and(
-                        pixc_dark_mask[self.proj_mapping[i][j]], mask)
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                    dark_mask = pixc_dark_mask[mapping_idxs]
                     dark_area = ag.simple(
-                        pixc_pixel_area[self.proj_mapping[i][j]][dark_mask],
-                        metric='sum')
+                        pixc_pixel_area[mapping_idxs][dark_mask], metric='sum')
                     total_area, _ = ag.area_only(
-                        pixc_pixel_area[self.proj_mapping[i][j]],
-                        pixc_water_fraction[self.proj_mapping[i][j]],
-                        pixc_classif[self.proj_mapping[i][j]],
-                        mask,
+                        pixc_pixel_area[mapping_idxs],
+                        pixc_water_fraction[mapping_idxs],
+                        pixc_classif[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
                         method=self.area_agg_method,
                         interior_water_klasses=self.interior_water_classes,
                         water_edge_klasses=self.water_edge_classes,
@@ -738,12 +734,11 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.illumination_time[i][j] = ag.simple(
-                        pixc_illumination_time[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_illumination_time[mapping_idxs], metric='mean')
                     self.illumination_time_tai[i][j] = ag.simple(
-                        pixc_illumination_time_tai[self.proj_mapping[i][j]][mask],
-                        metric='mean')
+                        pixc_illumination_time_tai[mapping_idxs], metric='mean')
 
         # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
@@ -796,10 +791,9 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
-                    valid_ice_clim_flag = \
-                        pixc_ice_clim_flag[self.proj_mapping[i][j]][mask]
-                    valid_ice_dyn_flag = \
-                        pixc_ice_dyn_flag[self.proj_mapping[i][j]][mask]
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                    valid_ice_clim_flag = pixc_ice_clim_flag[mapping_idxs]
+                    valid_ice_dyn_flag = pixc_ice_dyn_flag[mapping_idxs]
 
                     if not np.all(valid_ice_clim_flag.mask):
                         min_flag_val = np.min(valid_ice_clim_flag)
@@ -839,10 +833,11 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.layover_impact[i][j] = ag.height_only(
-                        pixc_layover_impact[self.proj_mapping[i][j]],
-                        mask,
-                        pixc_height_std[self.proj_mapping[i][j]],
+                        pixc_layover_impact[mapping_idxs],
+                        rasterization_mask[mapping_idxs],
+                        pixc_height_std[mapping_idxs],
                         method=self.height_agg_method)[0]
 
     def aggregate_wse_qual(self, rasterization_mask,
@@ -869,11 +864,10 @@ class RasterProcessor(object):
                 self.wse_qual[i][j] = products.QUAL_IND_GOOD
                 self.wse_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
-                these_idxs = [idx for idx,valid
-                                  in zip(self.proj_mapping[i][j], mask) if valid]
-                this_geo_qual = geo_qual[these_idxs]
-                this_class_qual = class_qual[these_idxs]
-                this_bright_land_flag = bright_land_flag[these_idxs]
+                mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                this_geo_qual = geo_qual[mapping_idxs]
+                this_class_qual = class_qual[mapping_idxs]
+                this_bright_land_flag = bright_land_flag[mapping_idxs]
 
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.wse_qual[i][j] = max(
@@ -964,12 +958,11 @@ class RasterProcessor(object):
                 self.water_area_qual[i][j] = products.QUAL_IND_GOOD
                 self.water_area_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
-                these_idxs = [idx for idx,valid
-                                  in zip(self.proj_mapping[i][j], mask) if valid]
-                this_geo_qual = geo_qual[these_idxs]
-                this_class_qual = class_qual[these_idxs]
-                this_bright_land_flag = bright_land_flag[these_idxs]
-                this_pixc_water_frac = pixc_water_frac[these_idxs]
+                mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                this_geo_qual = geo_qual[mapping_idxs]
+                this_class_qual = class_qual[mapping_idxs]
+                this_bright_land_flag = bright_land_flag[mapping_idxs]
+                this_pixc_water_frac = pixc_water_frac[mapping_idxs]
 
                 if np.any(this_class_qual==products.QUAL_IND_SUSPECT):
                     self.water_area_qual[i][j] = max(
@@ -1065,12 +1058,11 @@ class RasterProcessor(object):
                 self.sig0_qual[i][j] = products.QUAL_IND_GOOD
                 self.sig0_qual_bitwise[i][j] = products.QUAL_IND_GOOD
 
-                these_idxs = [idx for idx,valid
-                                  in zip(self.proj_mapping[i][j], mask) if valid]
-                this_geo_qual = geo_qual[these_idxs]
-                this_class_qual = class_qual[these_idxs]
-                this_sig0_qual = sig0_qual[these_idxs]
-                this_bright_land_flag = bright_land_flag[these_idxs]
+                mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
+                this_geo_qual = geo_qual[mapping_idxs]
+                this_class_qual = class_qual[mapping_idxs]
+                this_sig0_qual = sig0_qual[mapping_idxs]
+                this_bright_land_flag = bright_land_flag[mapping_idxs]
 
                 if np.any(this_sig0_qual==products.QUAL_IND_SUSPECT):
                     self.sig0_qual[i][j] = max(
@@ -1424,9 +1416,9 @@ class RasterProcessor(object):
             for j in range(0, self.size_x):
                 mask = rasterization_mask[self.proj_mapping[i][j]]
                 if np.any(mask):
+                    mapping_idxs = np.array(self.proj_mapping[i][j])[mask]
                     self.classification[i][j] = ag.simple(
-                        pixc_classif[self.proj_mapping[i][j]][mask],
-                        metric='mode')
+                        pixc_classif[mapping_idxs], metric='mode')
 
     def build_product(self, populate_values=True, polygon_points=None):
         """ Assemble the product """
