@@ -194,8 +194,10 @@ class RasterProcessor(object):
         wse_mask, water_area_mask, sig0_mask, all_mask = \
             self.get_rasterization_masks(
                 water_classes_mask, all_classes_mask,
-                geo_qual_pixc_flag, class_qual_pixc_flag,
-                sig0_qual_pixc_flag)
+                geo_qual_pixc_flag, class_qual_pixc_flag, sig0_qual_pixc_flag,
+                np.ma.getmaskarray(pixc['pixel_cloud']['height']),
+                np.ma.getmaskarray(pixc['pixel_cloud']['water_frac']),
+                np.ma.getmaskarray(pixc['pixel_cloud']['sig0']))
 
         # Aggregate fields
         self.aggregate_cross_track(pixc, all_mask)
@@ -314,7 +316,8 @@ class RasterProcessor(object):
 
     def get_rasterization_masks(self, water_classes_mask, all_classes_mask,
                                 geo_qual_pixc_flag, class_qual_pixc_flag,
-                                sig0_qual_pixc_flag):
+                                sig0_qual_pixc_flag, invalid_height_mask,
+                                invalid_water_frac_mask, invalid_sig0_mask):
         """ Get masks of pixels to rasterize for wse/water_area/sig0/all"""
         LOGGER.info('getting rasterization masks for wse/water_area/sig0/all')
 
@@ -340,30 +343,33 @@ class RasterProcessor(object):
         if self.use_all_classes_for_wse:
             wse_classes_mask = all_classes_mask
 
-        wse_good_mask = np.logical_and(
-            wse_classes_mask, common_good_qual_mask)
-        wse_suspect_mask = np.logical_and(
-            wse_classes_mask, common_suspect_qual_mask)
-        wse_degraded_mask = np.logical_and(
-            wse_classes_mask, common_degraded_qual_mask)
+        height_valid_mask = np.logical_not(invalid_height_mask)
+        wse_good_mask = np.logical_and.reduce((
+            height_valid_mask, wse_classes_mask, common_good_qual_mask))
+        wse_suspect_mask = np.logical_and.reduce((
+            height_valid_mask, wse_classes_mask, common_suspect_qual_mask))
+        wse_degraded_mask = np.logical_and.reduce((
+            height_valid_mask, wse_classes_mask, common_degraded_qual_mask))
 
-        water_area_good_mask = np.logical_and(
-            all_classes_mask, common_good_qual_mask)
-        water_area_suspect_mask = np.logical_and(
-            all_classes_mask, common_suspect_qual_mask)
-        water_area_degraded_mask = np.logical_and(
-            all_classes_mask, common_degraded_qual_mask)
+        water_frac_valid_mask = np.logical_not(invalid_water_frac_mask)
+        water_area_good_mask = np.logical_and.reduce((
+            water_frac_valid_mask, all_classes_mask, common_good_qual_mask))
+        water_area_suspect_mask = np.logical_and.reduce((
+            water_frac_valid_mask, all_classes_mask, common_suspect_qual_mask))
+        water_area_degraded_mask = np.logical_and.reduce((
+            water_frac_valid_mask, all_classes_mask, common_degraded_qual_mask))
 
         sig0_classes_mask = water_classes_mask
         if self.use_all_classes_for_sig0:
             sig0_classes_mask = all_classes_mask
 
-        sig0_good_mask = np.logical_and(
-            sig0_classes_mask, sig0_good_qual_mask)
-        sig0_suspect_mask = np.logical_and(
-            sig0_classes_mask, sig0_suspect_qual_mask)
-        sig0_degraded_mask = np.logical_and(
-            sig0_classes_mask, sig0_degraded_qual_mask)
+        sig0_valid_mask = np.logical_not(invalid_sig0_mask)
+        sig0_good_mask = np.logical_and.reduce((
+            sig0_valid_mask, sig0_classes_mask, sig0_good_qual_mask))
+        sig0_suspect_mask = np.logical_and.reduce((
+            sig0_valid_mask, sig0_classes_mask, sig0_suspect_qual_mask))
+        sig0_degraded_mask = np.logical_and.reduce((
+            sig0_valid_mask, sig0_classes_mask, sig0_degraded_qual_mask))
 
         wse_mask = self.get_rasterization_mask(
             wse_good_mask, wse_suspect_mask, wse_degraded_mask,
