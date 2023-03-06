@@ -316,8 +316,8 @@ class RasterProcessor(object):
 
     def get_rasterization_masks(self, water_classes_mask, all_classes_mask,
                                 geo_qual_pixc_flag, class_qual_pixc_flag,
-                                sig0_qual_pixc_flag, invalid_height_mask,
-                                invalid_water_frac_mask, invalid_sig0_mask):
+                                sig0_qual_pixc_flag, height_invalid_mask,
+                                water_frac_invalid_mask, sig0_invalid_mask):
         """ Get masks of pixels to rasterize for wse/water_area/sig0/all"""
         LOGGER.info('getting rasterization masks for wse/water_area/sig0/all')
 
@@ -343,7 +343,7 @@ class RasterProcessor(object):
         if self.use_all_classes_for_wse:
             wse_classes_mask = all_classes_mask
 
-        height_valid_mask = np.logical_not(invalid_height_mask)
+        height_valid_mask = np.logical_not(height_invalid_mask)
         wse_good_mask = np.logical_and.reduce((
             height_valid_mask, wse_classes_mask, common_good_qual_mask))
         wse_suspect_mask = np.logical_and.reduce((
@@ -351,7 +351,7 @@ class RasterProcessor(object):
         wse_degraded_mask = np.logical_and.reduce((
             height_valid_mask, wse_classes_mask, common_degraded_qual_mask))
 
-        water_frac_valid_mask = np.logical_not(invalid_water_frac_mask)
+        water_frac_valid_mask = np.logical_not(water_frac_invalid_mask)
         water_area_good_mask = np.logical_and.reduce((
             water_frac_valid_mask, all_classes_mask, common_good_qual_mask))
         water_area_suspect_mask = np.logical_and.reduce((
@@ -363,7 +363,7 @@ class RasterProcessor(object):
         if self.use_all_classes_for_sig0:
             sig0_classes_mask = all_classes_mask
 
-        sig0_valid_mask = np.logical_not(invalid_sig0_mask)
+        sig0_valid_mask = np.logical_not(sig0_invalid_mask)
         sig0_good_mask = np.logical_and.reduce((
             sig0_valid_mask, sig0_classes_mask, sig0_good_qual_mask))
         sig0_suspect_mask = np.logical_and.reduce((
