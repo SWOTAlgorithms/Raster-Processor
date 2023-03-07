@@ -200,7 +200,7 @@ class RasterProcessor(object):
                 geo_qual_pixc_flag, class_qual_pixc_flag, sig0_qual_pixc_flag,
                 np.ma.getmaskarray(pixc['pixel_cloud']['height']),
                 np.logical_and(not_interior_water_mask,
-                    np.ma.getmaskarray(pixc['pixel_cloud']['water_frac']),
+                    np.ma.getmaskarray(pixc['pixel_cloud']['water_frac'])),
                 np.ma.getmaskarray(pixc['pixel_cloud']['sig0']))
 
         # Aggregate fields
