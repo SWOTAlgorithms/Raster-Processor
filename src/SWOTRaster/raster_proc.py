@@ -191,12 +191,16 @@ class RasterProcessor(object):
                 pixc, all_classes_mask, use_improved_geoloc)
 
         # Get rasterization masks for wse/water_area/sig0/all
+        # Mask water_frac as invalid only if not interior water
+        not_interior_water_mask = np.logical_not(np.isin(
+            pixc['pixel_cloud']['classification'], self.interior_water_classes))
         wse_mask, water_area_mask, sig0_mask, all_mask = \
             self.get_rasterization_masks(
                 water_classes_mask, all_classes_mask,
                 geo_qual_pixc_flag, class_qual_pixc_flag, sig0_qual_pixc_flag,
                 np.ma.getmaskarray(pixc['pixel_cloud']['height']),
-                np.ma.getmaskarray(pixc['pixel_cloud']['water_frac']),
+                np.logical_and(not_interior_water_mask,
+                    np.ma.getmaskarray(pixc['pixel_cloud']['water_frac']),
                 np.ma.getmaskarray(pixc['pixel_cloud']['sig0']))
 
         # Aggregate fields
@@ -585,6 +589,10 @@ class RasterProcessor(object):
         pixc_pfd = pixc['pixel_cloud']['false_detection_rate']
         pixc_pmd = pixc['pixel_cloud']['missed_detection_rate']
         pixc_classif = pixc['pixel_cloud']['classification']
+
+        # Set water fraction to 1 for interior water pixels for composite agg
+        interior_water_mask = np.isin(pixc_classif, self.interior_water_classes)
+        pixc_water_fraction[interior_water_mask] = 1
 
         self.water_area = np.ma.masked_all((self.size_y, self.size_x))
         self.water_area_u = np.ma.masked_all((self.size_y, self.size_x))
