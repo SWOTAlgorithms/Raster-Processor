@@ -13,26 +13,29 @@ import SWOTRaster.geoloc_raster
 import SWOTRaster.raster_proc
 
 from SWOTRaster.errors import RasterUsageException
-from SWOTRaster.products import DEFAULT_CHUNK_SIZE
+from SWOTRaster.products import DEFAULT_MAX_CHUNK_SIZE
 
 LOGGER = logging.getLogger(__name__)
 
 LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
 
 class L2PixcToRaster(object):
-    def __init__(self, pixc=None, polygon_points=None,
-                 algorithmic_config=None, runtime_config=None,
-                 scratch_dir=None):
+    def __init__(self, pixc, algorithmic_config, runtime_config,
+                 polygon_points=None, max_child_processes=0, scratch_dir=None):
         self.pixc = pixc
-        self.polygon_points = polygon_points
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
+        self.polygon_points = polygon_points
+        self.max_child_processes = max_child_processes
         self.scratch_dir = scratch_dir
 
         # Add default optional values to configs
-        if 'utm_conversion_chunk_size' not in self.algorithmic_config:
-            self.algorithmic_config['utm_conversion_chunk_size'] = \
-                DEFAULT_CHUNK_SIZE
+        if 'utm_conversion_max_chunk_size' not in self.algorithmic_config:
+            self.algorithmic_config['utm_conversion_max_chunk_size'] = \
+                DEFAULT_MAX_CHUNK_SIZE
+        if 'aggregator_max_chunk_size' not in self.algorithmic_config:
+            self.algorithmic_config['aggregator_max_chunk_size'] = \
+                DEFAULT_MAX_CHUNK_SIZE
         if 'write_internal_files' not in self.algorithmic_config:
             self.algorithmic_config['write_internal_files'] = False
         if 'debug_flag' not in self.algorithmic_config:
@@ -96,6 +99,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['padding'],
                 self.algorithmic_config['height_agg_method'],
                 self.algorithmic_config['area_agg_method'],
+                self.algorithmic_config['sig0_agg_method'],
                 self.algorithmic_config['interior_water_classes'],
                 tmp_water_edge_classes,
                 tmp_land_edge_classes,
@@ -134,9 +138,12 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
-                utm_conversion_chunk_size=\
-                self.algorithmic_config['utm_conversion_chunk_size'],
+                utm_conversion_max_chunk_size=\
+                    self.algorithmic_config['utm_conversion_max_chunk_size'],
+                aggregator_max_chunk_size=\
+                    self.algorithmic_config['aggregator_max_chunk_size'],
                 skip_area=True, skip_sig0=True,
+                max_child_processes=self.max_child_processes,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -158,7 +165,8 @@ class L2PixcToRaster(object):
                     np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
-            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
+            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config,
+            max_child_processes=self.max_child_processes)
         out_lat, out_lon, out_height = geolocator.process()
 
         return out_lat, out_lon, out_height
@@ -175,6 +183,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['padding'],
                 self.algorithmic_config['height_agg_method'],
                 self.algorithmic_config['area_agg_method'],
+                self.algorithmic_config['sig0_agg_method'],
                 self.algorithmic_config['interior_water_classes'],
                 self.algorithmic_config['water_edge_classes'],
                 self.algorithmic_config['land_edge_classes'],
@@ -213,9 +222,12 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
-                utm_conversion_chunk_size=\
-                self.algorithmic_config['utm_conversion_chunk_size'],
+                utm_conversion_max_chunk_size=\
+                    self.algorithmic_config['utm_conversion_max_chunk_size'],
+                aggregator_max_chunk_size=\
+                    self.algorithmic_config['aggregator_max_chunk_size'],
                 skip_area=True, skip_sig0=True,
+                max_child_processes=self.max_child_processes,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -235,7 +247,8 @@ class L2PixcToRaster(object):
             return np.ma.masked_all_like(self.pixc['pixel_cloud']['height'])
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
-            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config)
+            self.pixc, height_constrained_geoloc_raster, self.algorithmic_config,
+            max_child_processes=self.max_child_processes)
         geolocator.update_heights_from_raster()
 
         return geolocator.new_height
@@ -250,6 +263,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['padding'],
             self.algorithmic_config['height_agg_method'],
             self.algorithmic_config['area_agg_method'],
+            self.algorithmic_config['sig0_agg_method'],
             self.algorithmic_config['interior_water_classes'],
             self.algorithmic_config['water_edge_classes'],
             self.algorithmic_config['land_edge_classes'],
@@ -288,8 +302,11 @@ class L2PixcToRaster(object):
             self.algorithmic_config['missing_karin_data_time_thresh'],
             utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
             mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
-            utm_conversion_chunk_size=\
-                self.algorithmic_config['utm_conversion_chunk_size'],
+            utm_conversion_max_chunk_size=\
+                self.algorithmic_config['utm_conversion_max_chunk_size'],
+            aggregator_max_chunk_size=\
+                    self.algorithmic_config['aggregator_max_chunk_size'],
+                max_child_processes=self.max_child_processes,
             debug_flag=self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(

@@ -8,21 +8,26 @@ Author(s): Alexander Corben (adapted from geoloc_river)
 
 import logging
 import numpy as np
+import multiprocessing
 import SWOTWater.aggregate as ag
 import cnes.modules.geoloc.lib.geoloc as geoloc
 import cnes.common.service_error as service_error
 
-from SWOTRaster.products import RasterUTM
+from itertools import chain
+from functools import partial
+from more_itertools import chunked
+from SWOTRaster.raster_agg import fn_star, fn_it
+from SWOTRaster.products import RasterUTM, DEFAULT_MAX_CHUNK_SIZE
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_CHUNK_SIZE = 100000
 
 class GeolocRaster(object):
-    def __init__(self, pixc, raster, algorithmic_config):
+    def __init__(self, pixc, raster, algorithmic_config, max_child_processes=0):
         self.pixc = pixc
         self.raster = raster
         self.algorithmic_config = algorithmic_config
+        self.max_child_processes = max_child_processes
 
     def process(self):
         """ Do improved raster geolocation """
@@ -52,12 +57,13 @@ class GeolocRaster(object):
 
         if isinstance(self.raster, RasterUTM):
             try:
-                chunk_size = self.algorithmic_config['utm_conversion_chunk_size']
+                max_chunk_size = self.algorithmic_config[
+                    'utm_conversion_max_chunk_size']
             except KeyError:
-                chunk_size = DEFAULT_CHUNK_SIZE
+                max_chunk_size = DEFAULT_MAX_CHUNK_SIZE
 
             proj_mapping = self.raster.get_raster_mapping(
-                self.pixc, all_classes_mask, False, chunk_size)
+                self.pixc, all_classes_mask, False, max_chunk_size)
         else:
             proj_mapping = self.raster.get_raster_mapping(
                 self.pixc, all_classes_mask, False)
@@ -102,6 +108,7 @@ class GeolocRaster(object):
             self.pixc['pixel_cloud']['longitude'][mask],
             self.pixc['pixel_cloud']['height'][mask],
             GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+        xyz = np.transpose(np.array([x, y, z]))
 
         # Get position of associated along-track pixels
         # (in cartesian coordinates)
@@ -142,6 +149,11 @@ class GeolocRaster(object):
             nadir_vy_vect[i] = nadir_vy[ind_sensor]
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
 
+        nadir_xyz = np.transpose(
+            np.array([nadir_x_vect, nadir_y_vect, nadir_z_vect]))
+        nadir_v_xyz = np.transpose(
+            np.array([nadir_vx_vect, nadir_vy_vect, nadir_vz_vect]))
+
         # Split the data into more manageable chunks and geolocate
         # Init output vectors
         self.out_lat_corr = np.ma.masked_all(
@@ -152,29 +164,31 @@ class GeolocRaster(object):
             len(self.pixc['pixel_cloud']['height']))
 
         try:
-            chunk_size = self.algorithmic_config['height_constrained_geoloc_chunk_size']
+            max_chunk_size = self.algorithmic_config[
+                'height_constrained_geoloc_max_chunk_size']
         except KeyError:
-            chunk_size = DEFAULT_CHUNK_SIZE
+            max_chunk_size = DEFAULT_MAX_CHUNK_SIZE
 
-        for start_idx in np.arange(0, nb_pix, chunk_size):
-            end_idx = min(start_idx+chunk_size, nb_pix)
-            p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = \
-                geoloc.pointcloud_height_geoloc_vect(
-                    np.transpose(np.array([x[start_idx:end_idx],
-                                           y[start_idx:end_idx],
-                                           z[start_idx:end_idx]])),
-                    h_noisy[start_idx:end_idx],
-                    np.transpose(np.array([nadir_x_vect[start_idx:end_idx],
-                                           nadir_y_vect[start_idx:end_idx],
-                                           nadir_z_vect[start_idx:end_idx]])),
-                    np.transpose(np.array([nadir_vx_vect[start_idx:end_idx],
-                                           nadir_vy_vect[start_idx:end_idx],
-                                           nadir_vz_vect[start_idx:end_idx]])),
-                    ri[start_idx:end_idx],
-                    h_new[start_idx:end_idx],
-                    recompute_doppler=True, recompute_range=True, verbose=False,
-                    max_iter_grad=1, height_goal=1.e-3)
+        args = (xyz, h_noisy, nadir_xyz, nadir_v_xyz, ri, h_new)
+        geoloc_fn = partial(geoloc.pointcloud_height_geoloc_vect,
+                            recompute_doppler=True, recompute_range=True,
+                            verbose=False, max_iter_grad=1, height_goal=1.e-3)
+        _geoloc_fn = partial(fn_star, geoloc_fn)
+        if self.max_child_processes > 0:
+            chunk_size = int(min(np.ceil(len(h_new)/(self.max_child_processes*4)),
+                                 max_chunk_size))
+            with multiprocessing.get_context('spawn').Pool(
+                    processes=self.max_child_processes) as pool:
+                result_chunks = list(
+                    pool.imap(_geoloc_fn, zip(*(
+                        fn_it(chunked(arg, chunk_size), np.array) for arg in args))))
+        else:
+            chunk_size = max_chunk_size
+            result_chunks = [
+                _geoloc_fn(arglist) for arglist in zip(*(
+                    fn_it(chunked(arg, chunk_size), np.array) for arg in args))]
 
-            self.out_lat_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,0]
-            self.out_lon_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,1]
-            self.out_height_corr[mask_indices[start_idx:end_idx]] = p_final_llh[:,2]
+        # Merge chunks
+        (self.out_lat_corr[mask], self.out_lon_corr[mask],
+         self.out_height_corr[mask]) = np.transpose(list(chain.from_iterable(
+             result[1] for result in result_chunks)))

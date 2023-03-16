@@ -55,7 +55,7 @@ POLYGON_EXTENT_DIST = 200000
 NONOVERLAP_TILES_PER_SIDE = 2
 OVERLAP_TILES_PER_SIDE = 1
 
-DEFAULT_CHUNK_SIZE = 100000
+DEFAULT_MAX_CHUNK_SIZE = 100000
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1081,7 +1081,7 @@ class RasterUTM(ProductTesterMixIn, Product):
     VARIABLES['crs']['dimensions'] = odict([])
 
     def get_raster_mapping(self, pixc, mask, use_improved_geoloc=True,
-                           chunk_size=DEFAULT_CHUNK_SIZE):
+                           max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
         """ Get the mapping of pixc points to raster bins """
         LOGGER.info('getting raster mapping')
 
@@ -1109,8 +1109,8 @@ class RasterUTM(ProductTesterMixIn, Product):
 
         # Split the data into more manageable chunks and convert to UTM
         transf_points = []
-        for start_idx in np.arange(0, nb_pix, chunk_size):
-            end_idx = min(start_idx+chunk_size, nb_pix)
+        for start_idx in np.arange(0, nb_pix, max_chunk_size):
+            end_idx = min(start_idx + max_chunk_size, nb_pix)
             points = [(lat, lon) for lat, lon in zip(
                 pixc_lats[start_idx:end_idx], pixc_lons[start_idx:end_idx])]
             transf_points.extend(transf.TransformPoints(points))
