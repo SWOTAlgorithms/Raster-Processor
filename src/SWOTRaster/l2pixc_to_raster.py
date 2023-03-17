@@ -21,7 +21,7 @@ LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
 
 class L2PixcToRaster(object):
     def __init__(self, pixc, algorithmic_config, runtime_config,
-                 polygon_points=None, max_child_processes=0, scratch_dir=None):
+                 polygon_points=None, max_child_processes=1, scratch_dir=None):
         self.pixc = pixc
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config

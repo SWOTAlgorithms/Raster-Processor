@@ -251,13 +251,11 @@ def aggregate_dark_frac(
         area_agg_method='composite'):
     """ Aggregate dark water fraction """
     if np.any(mask):
-        mask = np.logical_and(mask,
-            args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
-
         pixc_dark_mask = np.isin(pixc_classif, dark_water_klasses)
-        dark_mask = pixc_dark_mask[mask]
-        if np.any(dark_mask):
-            dark_area = ag.simple(pixc_pixel_area[dark_mask], metric='sum')
+        if np.any(pixc_dark_mask):
+            mask = np.logical_and(mask,
+                args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
+            dark_area = ag.simple(pixc_pixel_area[pixc_dark_mask], metric='sum')
             total_area, _ = ag.area_only(
                 pixc_pixel_area, pixc_water_frac, pixc_classif, mask,
                 method=area_agg_method,

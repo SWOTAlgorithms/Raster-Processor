@@ -89,7 +89,10 @@ def main():
                         help='pixcvec input file', default=None)
     parser.add_argument("-id", "--internal_files_dir", type=str,
                         help='directory to write out internal files',
-                        default=None)
+                        default=os.getcwd())
+    parser.add_argument("-mp", "-max_child_processes", type=str,
+                        help='maximum number of child processes',
+                        default=1)
     parser.add_argument('-l', '--log-level', type=str,
                         help="logging level, one of: debug info warning error",
                         default="info")
@@ -126,11 +129,13 @@ def main():
     pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile, mask)
 
     proc = SWOTRaster.l2pixc_to_raster.L2PixcToRaster(
-        pixc=pixc_data, algorithmic_config=alg_cfg, runtime_config=rt_cfg)
+        pixc_data, alg_cfg, rt_cfg,
+        max_child_processes=args.max_child_processes,
+        scratch_dir=args.internal_files_dir)
 
     product = proc.process()
 
-    if args.internal_files_dir is not None:
+    if 'write_internal_files' in alg_cfg and alg_cfg['write_internal_files']:
         proc.pixc.to_ncfile(os.path.join(args.internal_files_dir,
                                          'internal_scene_pixc.nc'))
 

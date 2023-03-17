@@ -631,7 +631,7 @@ class RasterProcessor(object):
             return np.ma.masked_invalid(out)
 
         # Call aggregator with multiprocessing if commanded
-        if self.max_child_processes > 0:
+        if self.max_child_processes > 1:
             chunk_size = int(min(
                 np.ceil(np.sum(mask) / (self.max_child_processes*4)),
                 self.aggregator_max_chunk_size))
