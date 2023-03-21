@@ -17,10 +17,16 @@ example algorithmic config parameters:
     dark_water_classes                              (-) = [5, 23, 24]
     height_agg_method                               (-) = weight
     area_agg_method                                 (-) = composite
+    sig0_agg_method                                 (-) = rare
     height_constrained_geoloc_source                (-) = lowres_raster
     lowres_raster_height_constrained_geoloc_method  (-) = taylor
     lowres_raster_scale_factor                      (-) = 0.2
     use_bright_land                                 (-) = True
+    use_all_classes_for_wse                         (-) = False
+    use_all_classes_for_sig0                        (-) = False
+    height_constrained_geoloc_max_chunk_size        (-) = 100000
+    utm_conversion_max_chunk_size                   (-) = 100000
+    aggregator_max_chunk_size                       (-) = 100000
     debug_flag                                      (-) = False
     write_internal_files                            (-) = False
     geo_qual_suspect                                (-) = 0x0000ffff
@@ -65,6 +71,7 @@ import ast
 import RDF
 import logging
 import argparse
+import numpy as np
 import SWOTRaster.l2pixc_to_raster
 
 from SWOTRaster.products import ScenePixc
@@ -90,7 +97,7 @@ def main():
     parser.add_argument("-id", "--internal_files_dir", type=str,
                         help='directory to write out internal files',
                         default=os.getcwd())
-    parser.add_argument("-mp", "-max_worker_processes", type=str,
+    parser.add_argument("-mp", "--max_worker_processes", type=int,
                         help='maximum number of worker processes',
                         default=1)
     parser.add_argument('-l', '--log-level', type=str,
@@ -115,10 +122,10 @@ def main():
         pixcvec_tile = None
 
     # Only load defined classes
-    valid_classes = alg_config['interior_water_classes'] \
-                    + alg_config['water_edge_classes'] \
-                    + alg_config['land_edge_classes'] \
-                    + alg_config['dark_water_classes']
+    valid_classes = alg_cfg['interior_water_classes'] \
+                    + alg_cfg['water_edge_classes'] \
+                    + alg_cfg['land_edge_classes'] \
+                    + alg_cfg['dark_water_classes']
     mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
 
     # Only load pixels with unmasked latitude/longitude
@@ -148,7 +155,7 @@ def load_raster_configs(alg_config_file, runtime_config_file):
 
     # Typecast most config values with eval (except strings)
     for key in alg_cfg.keys():
-        if key in ['height_agg_method', 'area_agg_method',
+        if key in ['height_agg_method', 'area_agg_method', 'sig0_agg_method',
                    'height_constrained_geoloc_source',
                    'lowres_raster_height_constrained_geoloc_method']:
             continue
