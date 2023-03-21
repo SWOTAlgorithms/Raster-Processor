@@ -23,11 +23,11 @@ from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 LOGGER = logging.getLogger(__name__)
 
 class GeolocRaster(object):
-    def __init__(self, pixc, raster, algorithmic_config, max_child_processes=1):
+    def __init__(self, pixc, raster, algorithmic_config, max_worker_processes=1):
         self.pixc = pixc
         self.raster = raster
         self.algorithmic_config = algorithmic_config
-        self.max_child_processes = max_child_processes
+        self.max_worker_processes = max_worker_processes
 
     def process(self):
         """ Do improved raster geolocation """
@@ -174,11 +174,11 @@ class GeolocRaster(object):
                             recompute_doppler=True, recompute_range=True,
                             verbose=False, max_iter_grad=1, height_goal=1.e-3)
         _geoloc_fn = partial(fn_star, geoloc_fn)
-        if self.max_child_processes > 1:
-            chunk_size = int(min(np.ceil(len(h_new)/(self.max_child_processes*4)),
+        if self.max_worker_processes > 1:
+            chunk_size = int(min(np.ceil(len(h_new)/(self.max_worker_processes*4)),
                                  max_chunk_size))
             with multiprocessing.get_context('spawn').Pool(
-                    processes=self.max_child_processes) as pool:
+                    processes=self.max_worker_processes) as pool:
                 result_chunks = list(
                     pool.imap(_geoloc_fn, zip(*(
                         fn_it(chunked(arg, chunk_size), np.array) for arg in args))))
