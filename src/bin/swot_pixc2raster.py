@@ -90,8 +90,8 @@ def main():
     parser.add_argument("-id", "--internal_files_dir", type=str,
                         help='directory to write out internal files',
                         default=os.getcwd())
-    parser.add_argument("-mp", "-max_child_processes", type=str,
-                        help='maximum number of child processes',
+    parser.add_argument("-mp", "-max_worker_processes", type=str,
+                        help='maximum number of worker processes',
                         default=1)
     parser.add_argument('-l', '--log-level', type=str,
                         help="logging level, one of: debug info warning error",
@@ -130,7 +130,7 @@ def main():
 
     proc = SWOTRaster.l2pixc_to_raster.L2PixcToRaster(
         pixc_data, alg_cfg, rt_cfg,
-        max_child_processes=args.max_child_processes,
+        max_worker_processes=args.max_worker_processes,
         scratch_dir=args.internal_files_dir)
 
     product = proc.process()

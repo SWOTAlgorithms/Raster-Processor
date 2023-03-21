@@ -21,12 +21,12 @@ LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
 
 class L2PixcToRaster(object):
     def __init__(self, pixc, algorithmic_config, runtime_config,
-                 polygon_points=None, max_child_processes=1, scratch_dir=None):
+                 polygon_points=None, max_worker_processes=1, scratch_dir=None):
         self.pixc = pixc
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
         self.polygon_points = polygon_points
-        self.max_child_processes = max_child_processes
+        self.max_worker_processes = max_worker_processes
         self.scratch_dir = scratch_dir
 
         # Add default optional values to configs
@@ -143,7 +143,7 @@ class L2PixcToRaster(object):
                 aggregator_max_chunk_size=\
                     self.algorithmic_config['aggregator_max_chunk_size'],
                 skip_area=True, skip_sig0=True,
-                max_child_processes=self.max_child_processes,
+                max_worker_processes=self.max_worker_processes,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -166,7 +166,7 @@ class L2PixcToRaster(object):
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
             self.pixc, height_constrained_geoloc_raster, self.algorithmic_config,
-            max_child_processes=self.max_child_processes)
+            max_worker_processes=self.max_worker_processes)
         out_lat, out_lon, out_height = geolocator.process()
 
         return out_lat, out_lon, out_height
@@ -227,7 +227,7 @@ class L2PixcToRaster(object):
                 aggregator_max_chunk_size=\
                     self.algorithmic_config['aggregator_max_chunk_size'],
                 skip_area=True, skip_sig0=True,
-                max_child_processes=self.max_child_processes,
+                max_worker_processes=self.max_worker_processes,
                 debug_flag=self.algorithmic_config['debug_flag'])
 
         height_constrained_geoloc_raster = \
@@ -248,7 +248,7 @@ class L2PixcToRaster(object):
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
             self.pixc, height_constrained_geoloc_raster, self.algorithmic_config,
-            max_child_processes=self.max_child_processes)
+            max_worker_processes=self.max_worker_processes)
         geolocator.update_heights_from_raster()
 
         return geolocator.new_height
@@ -306,7 +306,7 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['utm_conversion_max_chunk_size'],
             aggregator_max_chunk_size=\
                     self.algorithmic_config['aggregator_max_chunk_size'],
-                max_child_processes=self.max_child_processes,
+            max_worker_processes=self.max_worker_processes,
             debug_flag=self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(

@@ -52,7 +52,7 @@ class RasterProcessor(object):
                  utm_conversion_max_chunk_size=products.DEFAULT_MAX_CHUNK_SIZE,
                  aggregator_max_chunk_size=products.DEFAULT_MAX_CHUNK_SIZE,
                  skip_wse=False, skip_area=False, skip_sig0=False,
-                 max_child_processes=0, debug_flag=False):
+                 max_worker_processes=0, debug_flag=False):
         self.projection_type = projection_type
         if self.projection_type=='geo':
             # Geodetic resolution is given in arcsec
@@ -117,7 +117,7 @@ class RasterProcessor(object):
         self.skip_sig0 = skip_sig0
 
         self.aggregator_max_chunk_size = aggregator_max_chunk_size
-        self.max_child_processes = max_child_processes
+        self.max_worker_processes = max_worker_processes
         self.debug_flag = debug_flag
 
     def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
@@ -631,14 +631,14 @@ class RasterProcessor(object):
             return np.ma.masked_invalid(out)
 
         # Call aggregator with multiprocessing if commanded
-        if self.max_child_processes > 1:
+        if self.max_worker_processes > 1:
             chunk_size = int(min(
-                np.ceil(np.sum(mask) / (self.max_child_processes*4)),
+                np.ceil(np.sum(mask) / (self.max_worker_processes*4)),
                 self.aggregator_max_chunk_size))
 
             _agg_fn = partial(raster_agg.fn_map, agg_fn)
             with multiprocessing.get_context('spawn').Pool(
-                    processes=self.max_child_processes) as pool:
+                    processes=self.max_worker_processes) as pool:
                 result_chunks = pool.imap(_agg_fn,
                     zip(*(get_agg_arg(arg, mask, chunk_size) for arg in args)))
                 results = list(chain.from_iterable(result_chunks))
