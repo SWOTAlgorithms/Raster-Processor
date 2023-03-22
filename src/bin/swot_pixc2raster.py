@@ -76,7 +76,6 @@ import SWOTRaster.l2pixc_to_raster
 
 from SWOTRaster.products import ScenePixc
 from SWOTWater.products.product import MutableProduct
-from cnes.common.lib_lake.proc_pixc_vec import PixelCloudVec
 
 LOGGER = logging.getLogger(__name__)
 
@@ -116,8 +115,7 @@ def main():
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     if args.pixcvec_file is not None:
-        pixcvec_tile = PixelCloudVec("SP")
-        pixcvec_tile.set_from_pixcvec_file(args.pixcvec_file)
+        pixcvec_tile = MutableProduct.from_ncfile(args.pixcvec_file)
     else:
         pixcvec_tile = None
 
