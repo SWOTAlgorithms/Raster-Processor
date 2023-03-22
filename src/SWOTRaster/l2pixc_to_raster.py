@@ -55,7 +55,8 @@ class L2PixcToRaster(object):
         #                   a lowres raster for improved geoloc
         # "pixcvec" - we want to keep pixcvec improved geoloc as improved geoloc
 
-        if self.algorithmic_config['height_constrained_geoloc_source'].lower() \
+        if self.algorithmic_config['height_constrained_geoloc_source'] is None \
+           or self.algorithmic_config['height_constrained_geoloc_source'].lower() \
            == "none":
             new_height = self.get_smoothed_height()
             self.pixc['pixel_cloud']['improved_height'] = new_height
