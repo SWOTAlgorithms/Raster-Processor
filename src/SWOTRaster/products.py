@@ -95,13 +95,13 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str' ,'value':'SWOT',
       'docstr': 'SWOT'}],
     ['references',
-     {'dtype': 'str', 'value': 'V0.5',
+     {'dtype': 'str', 'value': 'V1.0',
       'docstr': textjoin("""
           Published or web-based references that describe
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'JPL D-56416 - Revision A - September 19, 2022',
+     {'dtype': 'str', 'value':'JPL D-56416 - Revision B - October 24, 2022',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -161,7 +161,7 @@ COMMON_ATTRIBUTES = odict([
           Composite release identifier (CRID) of the data system used to
           generate this file""")}],
     ['product_version',
-     {'dtype': 'str', 'value': 'V0.5',
+     {'dtype': 'str', 'value': 'V1.0',
       'docstr': 'Version identifier of this data file'}],
     ['pge_name',
      {'dtype': 'str',
