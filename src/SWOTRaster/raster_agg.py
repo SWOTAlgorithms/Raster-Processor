@@ -38,32 +38,29 @@ def args_mask(*args):
     return np.logical_not(np.logical_or.reduce(
         ([np.ma.getmaskarray(arg) for arg in args])))
 
+def simple_masked(data, mask, metric='mean', fill_value=np.nan):
+    """ Get simple aggregation with masking """
+    mask = np.logical_and(mask, args_mask(data))
+    if np.any(mask):
+        return ag.simple(data[mask], metric=metric)
+    else:
+        return fill_value
+
 def aggregate_cross_track_and_incidence_angle(
         pixc_cross_track, pixc_incidence_angle, mask):
     """ Aggregate cross track and incidence angle """
-    if np.any(mask):
-        cross_track = ag.simple(pixc_cross_track[mask], metric='mean')
-        inc = ag.simple(pixc_incidence_angle[mask], metric='mean')
-        n_other_pix = ag.simple(mask, metric='sum')
-    else:
-        cross_track = np.nan
-        inc = np.nan
-        n_other_pix = 0
-
+    cross_track = simple_masked(pixc_cross_track, mask, metric='mean')
+    inc = simple_masked(pixc_incidence_angle, mask, metric='mean')
+    n_other_pix = int(ag.simple(mask, metric='sum'))
     return cross_track, inc, n_other_pix
 
 def aggregate_illumination_time(
         pixc_illumination_time, pixc_illumination_time_tai, mask):
     """ Aggregate illumination time """
-    if np.any(mask):
-        illumination_time = ag.simple(
-            pixc_illumination_time[mask], metric='mean')
-        illumination_time_tai = ag.simple(
-            pixc_illumination_time_tai[mask], metric='mean')
-    else:
-        illumination_time = np.nan
-        illumination_time_tai = np.nan
-
+    illumination_time = simple_masked(
+        pixc_illumination_time, mask, metric='mean')
+    illumination_time_tai = simple_masked(
+        pixc_illumination_time_tai, mask, metric='mean')
     return illumination_time, illumination_time_tai
 
 def aggregate_px_latlon(x, y, mask, crs_wkt):
@@ -87,46 +84,31 @@ def aggregate_wse_corrections(
         pixc_iono_cor_gim_ka, pixc_dh_dphi, pixc_phase_noise_std,
         mask, height_agg_method='weight'):
     """ Aggregate wse geophysical corrections """
-    if np.any(mask):
-        height_cor_xover_mask = np.logical_and(mask,
-            args_mask(pixc_height_cor_xover, pixc_dh_dphi, pixc_phase_noise_std))
-
+    height_cor_xover_mask = np.logical_and(mask,
+        args_mask(pixc_height_cor_xover, pixc_dh_dphi, pixc_phase_noise_std))
+    if np.any(height_cor_xover_mask):
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
         # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
         pixc_height_std[pixc_height_std<=0] = HEIGHT_STD_DEWEIGHT_VAL
         pixc_height_std[np.isinf(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
         pixc_height_std[np.isnan(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-
         height_cor_xover = ag.height_only(
             pixc_height_cor_xover, height_cor_xover_mask, pixc_height_std,
             method=height_agg_method)[0]
-        geoid = ag.simple(
-            pixc_geoid[mask], metric='mean')
-        solid_earth_tide = ag.simple(
-            pixc_solid_earth_tide[mask], metric='mean')
-        load_tide_fes = ag.simple(
-            pixc_load_tide_fes[mask], metric='mean')
-        load_tide_got = ag.simple(
-            pixc_load_tide_got[mask], metric='mean')
-        pole_tide = ag.simple(
-            pixc_pole_tide[mask], metric='mean')
-        model_dry_tropo_cor = ag.simple(
-            pixc_model_dry_tropo_cor[mask], metric='mean')
-        model_wet_tropo_cor = ag.simple(
-            pixc_model_wet_tropo_cor[mask], metric='mean')
-        iono_cor_gim_ka = ag.simple(
-            pixc_iono_cor_gim_ka[mask], metric='mean')
     else:
         height_cor_xover = np.nan
-        geoid = np.nan
-        solid_earth_tide = np.nan
-        load_tide_fes = np.nan
-        load_tide_got = np.nan
-        pole_tide = np.nan
-        model_dry_tropo_cor = np.nan
-        model_wet_tropo_cor = np.nan
-        iono_cor_gim_ka = np.nan
+
+    geoid = simple_masked(pixc_geoid, mask, metric='mean')
+    solid_earth_tide = simple_masked(pixc_solid_earth_tide, mask, metric='mean')
+    load_tide_fes = simple_masked(pixc_load_tide_fes, mask, metric='mean')
+    load_tide_got = simple_masked(pixc_load_tide_got, mask, metric='mean')
+    pole_tide = simple_masked(pixc_pole_tide, mask, metric='mean')
+    model_dry_tropo_cor = simple_masked(
+        pixc_model_dry_tropo_cor, mask, metric='mean')
+    model_wet_tropo_cor = simple_masked(
+        pixc_model_wet_tropo_cor, mask, metric='mean')
+    iono_cor_gim_ka = simple_masked(pixc_iono_cor_gim_ka, mask, metric='mean')
 
     return (height_cor_xover, geoid, solid_earth_tide, load_tide_fes,
             load_tide_got, pole_tide, model_dry_tropo_cor, model_wet_tropo_cor,
@@ -143,13 +125,12 @@ def aggregate_height(
         pixc_dh_dphi, pixc_dlat_dphi, pixc_dlon_dphi, pixc_phase_noise_std,
         flat_ifgram, mask, looks_to_efflooks, height_agg_method='weight'):
     """ Aggregate height and associated uncertainties """
+    mask = np.logical_and(mask,
+        args_mask(pixc_height, pixc_num_rare_looks, pixc_num_med_looks,
+                  pixc_power_plus_y, pixc_power_minus_y, pixc_dh_dphi,
+                  pixc_dlat_dphi, pixc_dlon_dphi, pixc_phase_noise_std,
+                  flat_ifgram))
     if np.any(mask):
-        mask = np.logical_and(mask,
-            args_mask(pixc_height, pixc_num_rare_looks, pixc_num_med_looks,
-                      pixc_power_plus_y, pixc_power_minus_y, pixc_dh_dphi,
-                      pixc_dlat_dphi, pixc_dlon_dphi, pixc_phase_noise_std,
-                      flat_ifgram))
-
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
         # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
@@ -181,11 +162,10 @@ def aggregate_water_area(
         dark_water_klasses=AGG_CLASSES['dark_water_klasses'],
         area_agg_method='composite'):
     """ Aggregate water area, water fraction and associated uncertainties """
+    mask = np.logical_and(mask,
+        args_mask(pixc_pixel_area, pixc_water_frac, pixc_water_frac_uncert,
+                  pixc_darea_dheight, pixc_pfd, pixc_pmd, pixc_classif))
     if np.any(mask):
-        mask = np.logical_and(mask,
-            args_mask(pixc_pixel_area, pixc_water_frac, pixc_water_frac_uncert,
-                      pixc_darea_dheight, pixc_pfd, pixc_pmd, pixc_classif))
-
         grid_area = ag.area_with_uncert(
             pixc_pixel_area, pixc_water_frac, pixc_water_frac_uncert,
             pixc_darea_dheight, pixc_classif, pixc_pfd, pixc_pmd,
@@ -215,23 +195,16 @@ def aggregate_water_area(
 
     return water_area, water_area_u, water_frac, water_frac_u
 
-def aggregate_sig0_corrections(
-        pixc_sig0_cor_atmos_model, mask):
+def aggregate_sig0_corrections(pixc_sig0_cor_atmos_model, mask):
     """ Aggregate sig0 geophysical corrections """
-    if np.any(mask):
-        sig0_cor_atmos_model = ag.simple(
-            pixc_sig0_cor_atmos_model[mask], metric='mean')
-    else:
-        sig0_cor_atmos_model = np.nan
-
+    sig0_cor_atmos_model = simple_masked(
+        pixc_sig0_cor_atmos_model, mask, metric='mean')
     return sig0_cor_atmos_model
 
-def aggregate_sig0(
-        pixc_sig0, pixc_sig0_uncert, mask, sig0_agg_method='rare'):
+def aggregate_sig0(pixc_sig0, pixc_sig0_uncert, mask, sig0_agg_method='rare'):
     """ Aggregate sigma0 """
+    mask = np.logical_and(mask, args_mask(pixc_sig0, pixc_sig0_uncert))
     if np.any(mask):
-        mask = np.logical_and(mask, args_mask(pixc_sig0, pixc_sig0_uncert))
-
         grid_sig0 = ag.sig0_with_uncerts(
             pixc_sig0, mask, pixc_sig0_uncert, method=sig0_agg_method)
         sig0 = grid_sig0[0]
@@ -250,11 +223,12 @@ def aggregate_dark_frac(
         dark_water_klasses=AGG_CLASSES['dark_water_klasses'],
         area_agg_method='composite'):
     """ Aggregate dark water fraction """
+    mask = np.logical_and(mask,
+        args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
     if np.any(mask):
-        pixc_dark_mask = np.isin(pixc_classif, dark_water_klasses)
+        pixc_dark_mask = np.logical_and(mask,
+            np.isin(pixc_classif, dark_water_klasses))
         if np.any(pixc_dark_mask):
-            mask = np.logical_and(mask,
-                args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
             dark_area = ag.simple(pixc_pixel_area[pixc_dark_mask], metric='sum')
             total_area, _ = ag.area_only(
                 pixc_pixel_area, pixc_water_frac, pixc_classif, mask,
@@ -276,17 +250,15 @@ def aggregate_dark_frac(
 
 def aggregate_ice_flag(pixc_ice_flag, mask):
     """ Aggregate ice flag """
+    mask = np.logical_and(mask, args_mask(pixc_ice_flag))
     if np.any(mask):
         valid_ice_flag = pixc_ice_flag[mask]
-        if not np.all(valid_ice_flag.mask):
-            min_flag_val = np.min(valid_ice_flag)
-            # If all flags are the same, then we return that value
-            if np.all(valid_ice_flag==min_flag_val):
-                ice_flag_out = min_flag_val
-            else: # Otherwise, return partial cover value
-                ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
-        else:
-            ice_flag_out = np.nan
+        min_flag_val = np.min(valid_ice_flag)
+        # If all flags are the same, then we return that value
+        if np.all(valid_ice_flag==min_flag_val):
+            ice_flag_out = min_flag_val
+        else: # Otherwise, return partial cover value
+            ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
     else:
         ice_flag_out = np.nan
 
@@ -296,10 +268,9 @@ def aggregate_layover_impact(
         pixc_layover_impact, pixc_dh_dphi, pixc_phase_noise_std,
         mask, height_agg_method='weight'):
     """ Aggregate layover impact """
+    mask = np.logical_and(mask,
+        args_mask(pixc_layover_impact, pixc_dh_dphi, pixc_phase_noise_std))
     if np.any(mask):
-        mask = np.logical_and(mask,
-            args_mask(pixc_layover_impact, pixc_dh_dphi, pixc_phase_noise_std))
-
         pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
         # Set bad pix height std to high number to deweight
         # instead of giving infs/nans
@@ -325,7 +296,7 @@ def aggregate_wse_qual(
         # Default to good
         wse_qual = products.QUAL_IND_GOOD
         wse_qual_bitwise = products.QUAL_IND_GOOD
-        n_wse_pix = ag.simple(mask, metric='sum')
+        n_wse_pix = int(ag.simple(mask, metric='sum'))
 
         if np.any(pixc_class_qual[mask]==products.QUAL_IND_SUSPECT):
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
@@ -387,7 +358,7 @@ def aggregate_water_area_qual(
         # Default to good
         water_area_qual = products.QUAL_IND_GOOD
         water_area_qual_bitwise = products.QUAL_IND_GOOD
-        n_water_area_pix = ag.simple(mask, metric='sum')
+        n_water_area_pix = int(ag.simple(mask, metric='sum'))
 
         if np.any(pixc_class_qual[mask]==products.QUAL_IND_SUSPECT):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
@@ -451,7 +422,7 @@ def aggregate_sig0_qual(
         # Default to good
         sig0_qual = products.QUAL_IND_GOOD
         sig0_qual_bitwise = products.QUAL_IND_GOOD
-        n_sig0_pix = ag.simple(mask, metric='sum')
+        n_sig0_pix = int(ag.simple(mask, metric='sum'))
 
         if np.any(pixc_sig0_qual[mask]==products.QUAL_IND_SUSPECT):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
@@ -511,14 +482,5 @@ def aggregate_sig0_qual(
 
 def aggregate_classification(pixc_classif, mask):
     """ Aggregate binary classification """
-    if np.any(mask):
-        mask = np.logical_and(mask, args_mask(pixc_classif))
-        # Check mask again, as mode doesn't handle masked arrays properly
-        if np.any(mask):
-            classification = ag.simple(pixc_classif[mask], metric='mode')
-        else:
-            classification = np.nan
-    else:
-        classification = np.nan
-
+    classification = simple_masked(pixc_classif, mask, metric='mode')
     return classification
