@@ -1507,10 +1507,6 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES.update(odict([
         ['classification',
          odict([['dtype', 'u1']])],
-        ['pixel_latitude',
-         odict([['dtype', 'f8']])],
-        ['pixel_longitude',
-         odict([['dtype', 'f8']])],
     ]))
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
@@ -1520,10 +1516,6 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
     VARIABLES['classification']['dimensions'] = \
-        odict([['latitude', 0], ['longitude', 0]])
-    VARIABLES['pixel_latitude']['dimensions'] = \
-        odict([['latitude', 0], ['longitude', 0]])
-    VARIABLES['pixel_longitude']['dimensions'] = \
         odict([['latitude', 0], ['longitude', 0]])
 
 

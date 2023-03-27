@@ -154,8 +154,8 @@ def aggregate_height(
 
 def aggregate_water_area(
         pixc_pixel_area, pixc_water_frac, pixc_water_frac_uncert,
-        pixc_darea_dheight, pixc_pfd, pixc_pmd, pixc_classif,
-        mask, projection_type, resolution, latitude=None,
+        pixc_darea_dheight, pixc_pfd, pixc_pmd, pixc_classif, px_lat,
+        mask, projection_type, resolution,
         interior_water_klasses=AGG_CLASSES['interior_water_klasses'],
         water_edge_klasses=AGG_CLASSES['water_edge_klasses'],
         land_edge_klasses=AGG_CLASSES['land_edge_klasses'],
@@ -180,7 +180,7 @@ def aggregate_water_area(
         if projection_type=='utm':
             pixel_area = resolution**2
         elif projection_type=='geo':
-            pixel_area = raster_crs.wgs84_px_area(latitude, resolution)
+            pixel_area = raster_crs.wgs84_px_area(px_lat, resolution)
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(projection_type))

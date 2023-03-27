@@ -245,15 +245,13 @@ class RasterProcessor(object):
             pixc['pixel_cloud']['illumination_time_tai'],
             all_pixc_mask, mask=all_raster_mask)
 
-        if self.projection_type=='utm' \
-           or self.projection_type=='geo' and self.debug_flag:
-            LOGGER.info('aggregating latitude and longitude')
-            self.latitude, self.longitude = self.call_aggregator(
-                partial(raster_agg.aggregate_px_latlon,
-                        crs_wkt=self.output_crs.ExportToWkt()),
-                np.tile(self.x_vec, (self.size_y, 1)),
-                np.tile(self.y_vec, (self.size_x, 1)).T,
-                all_pixc_mask, mask=all_raster_mask)
+        LOGGER.info('aggregating latitude and longitude')
+        self.latitude, self.longitude = self.call_aggregator(
+            partial(raster_agg.aggregate_px_latlon,
+                    crs_wkt=self.output_crs.ExportToWkt()),
+            np.tile(self.x_vec, (self.size_y, 1)),
+            np.tile(self.y_vec, (self.size_x, 1)).T,
+            all_pixc_mask, mask=all_raster_mask)
 
         if not self.skip_wse:
             LOGGER.info('aggregating wse corrections')
@@ -364,7 +362,7 @@ class RasterProcessor(object):
                  pixc['pixel_cloud']['darea_dheight'],
                  pixc['pixel_cloud']['false_detection_rate'],
                  pixc['pixel_cloud']['missed_detection_rate'],
-                 pixc['pixel_cloud']['classification'],
+                 pixc['pixel_cloud']['classification'], self.latitude,
                  water_area_pixc_mask, mask=water_area_raster_mask)
 
             LOGGER.info('aggregating water area qual')
@@ -969,9 +967,6 @@ class RasterProcessor(object):
             if self.projection_type=='utm':
                 product['longitude'] = self.longitude
                 product['latitude'] = self.latitude
-            elif self.projection_type=='geo' and self.debug_flag:
-                product['pixel_longitude'] = self.longitude
-                product['pixel_latitude'] = self.longitude
 
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
