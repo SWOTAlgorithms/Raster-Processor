@@ -713,21 +713,27 @@ class RasterProcessor(object):
                                 products.POLYGON_EXTENT_DIST))
 
         polys = []
-        x_max = self.x_max
         for this_polygon_points in extant_data_polygons_points:
-            # If polygon points are in geodetic coordinates, swap lat/lon and
-            # handle longitude wrap
+            # If polygon points are in geodetic coordinates, swap lat/lon
             if self.projection_type=='geo':
                 this_poly = Polygon(
                     [[point[1], point[0]] for point in this_polygon_points])
-                if self.x_min > x_max:
-                    this_poly = raster_crs.shift_wrapped_longitude_polygon(this_poly)
-                    (min_x, _, max_x, _) = shifted_poly.bounds
-                    if min_x < -180:
-                        this_poly = affinity.translate(shifted_poly, xoff=360)
             else:
                 this_poly = Polygon(this_polygon_points)
             polys.append(this_poly)
+
+        # Handle longitude wrap
+        x_max = self.x_max
+        if self.projection_type=='geo' and self.x_min > x_max:
+            x_max = x_max + 360
+            shifted_polys = []
+            for poly in polys:
+                shifted_poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+                (min_x, _, max_x, _) = shifted_poly.bounds
+                if min_x < -180:
+                    shifted_poly = affinity.translate(shifted_poly, xoff=360)
+                shifted_polys.append(shifted_poly)
+            polys = shifted_polys
 
         raster_transform = rasterio.transform.from_bounds(
             self.x_min, self.y_min, x_max, self.y_max, self.size_x,
@@ -764,20 +770,21 @@ class RasterProcessor(object):
             products.POLYGON_EXTENT_DIST,
             products.POLYGON_EXTENT_DIST)
 
-        # If polygon points are in geodetic coordinates, swap lat/lon and handle
-        # longitude wrap
-        x_max = self.x_max
+        # If polygon points are in geodetic coordinates, swap lat/lon
         if self.projection_type=='geo':
             poly = Polygon(
                 [[point[1], point[0]] for point in inner_swath_polygon_points])
-            if self.x_min > x_max:
-                x_max = x_max + 360
-                poly = raster_crs.shift_wrapped_longitude_polygon(poly)
-                (min_x, _, max_x, _) = poly.bounds
-                if min_x < -180:
-                    poly = affinity.translate(poly, xoff=360)
         else:
             poly = Polygon(inner_swath_polygon_points)
+
+        # Handle longitude wrap
+        x_max = self.x_max
+        if self.projection_type=='geo' and self.x_min > x_max:
+            x_max = x_max + 360
+            poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+            (min_x, _, max_x, _) = poly.bounds
+            if min_x < -180:
+                poly = affinity.translate(poly, xoff=360)
 
         raster_transform = rasterio.transform.from_bounds(
             self.x_min, self.y_min, x_max, self.y_max, self.size_x,
