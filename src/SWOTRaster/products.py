@@ -14,6 +14,7 @@ import SWOTRaster.raster_crs as raster_crs
 
 from osgeo import osr
 from datetime import datetime
+from shapely.prepared import prep
 from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product, ProductTesterMixIn
@@ -1148,13 +1149,14 @@ class RasterUTM(ProductTesterMixIn, Product):
         transf_points = transf.TransformPoints(swath_polygon_points)
         swath_polygon_points_utm = [point[:2] for point in transf_points]
 
-        poly = Polygon(swath_polygon_points_utm)
+        poly_prep = prep(Polygon(swath_polygon_points_utm))
 
         # Check whether each pixel center intersects with the polygon
         mask = np.zeros((self.dimensions['y'], self.dimensions['x']))
         for i in range(0, self.dimensions['y']):
             for j in range(0, self.dimensions['x']):
-                mask[i][j] = Point(self.x[j], self.y[i]).intersects(poly)
+                pt = Point(self.x[j], self.y[i])
+                mask[i][j] = poly_prep.intersects(pt)
 
         # Mask the datasets
         for var in self.variables:
@@ -1409,15 +1411,15 @@ class RasterGeo(ProductTesterMixIn, Product):
         poly = Polygon([[point[1], point[0]] for point in swath_polygon_points])
 
         # Handle longitude wrap
-        split_polys = raster_crs.split_wrapped_longitude_polygon(poly)
+        poly_prep = prep(raster_crs.split_wrapped_longitude_polygon(poly))
 
         # Check whether each pixel center intersects with split_polys
         mask = np.zeros((self.dimensions['latitude'],
                          self.dimensions['longitude']), dtype=bool)
         for i in range(0, self.dimensions['latitude']):
             for j in range(0, self.dimensions['longitude']):
-                point = Point(self.longitude[j], self.latitude[i])
-                mask[i][j] = point.intersects(split_polys)
+                pt = Point(self.longitude[j], self.latitude[i])
+                mask[i][j] = poly_prep.intersects(pt)
 
         # Mask the datasets
         for var in self.variables:

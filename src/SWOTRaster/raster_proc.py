@@ -290,7 +290,7 @@ class RasterProcessor(object):
                     np.deg2rad(pixc['pixel_cloud']['improved_latitude']),
                     np.deg2rad(pixc['pixel_cloud']['improved_longitude']),
                     pixc['pixel_cloud']['improved_height']))
-            else :
+            else:
                 # Flatten ifgram with original geoloc and improved height
                 target_xyz = raster_crs.llh2xyz((
                     np.deg2rad(pixc['pixel_cloud']['latitude']),
@@ -555,7 +555,7 @@ class RasterProcessor(object):
             self.x_min = raster_crs.lon_360to180(x_min)
             self.x_max = raster_crs.lon_360to180(x_max)
             self.x_vec = raster_crs.lon_360to180(
-                np.linspace(x_min, x_max, size_x))
+                np.linspace(x_min, x_max, self.size_x))
         else:
             self.x_min = x_min
             self.x_max = x_max
