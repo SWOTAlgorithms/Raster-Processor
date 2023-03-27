@@ -246,12 +246,18 @@ class RasterProcessor(object):
             all_pixc_mask, mask=all_raster_mask)
 
         LOGGER.info('aggregating latitude and longitude')
-        self.latitude, self.longitude = self.call_aggregator(
-            partial(raster_agg.aggregate_px_latlon,
-                    crs_wkt=self.output_crs.ExportToWkt()),
-            np.tile(self.x_vec, (self.size_y, 1)),
-            np.tile(self.y_vec, (self.size_x, 1)).T,
-            all_pixc_mask, mask=all_raster_mask)
+        x_mesh = np.tile(self.x_vec, (self.size_y, 1))
+        y_mesh = np.tile(self.y_vec, (self.size_x, 1)).T
+        if self.projection_type=='geo':
+            self.latitude = np.ma.masked_array(
+                y_mesh, mask=np.logical_not(all_raster_mask))
+            self.longitude = np.ma.masked_array(
+                x_mesh, mask=np.logical_not(all_raster_mask))
+        else:
+            self.latitude, self.longitude = self.call_aggregator(
+                partial(raster_agg.aggregate_px_latlon,
+                        crs_wkt=self.output_crs.ExportToWkt()),
+                x_mesh, y_mesh, all_pixc_mask, mask=all_raster_mask)
 
         if not self.skip_wse:
             LOGGER.info('aggregating wse corrections')
