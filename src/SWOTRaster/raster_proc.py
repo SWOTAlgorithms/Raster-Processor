@@ -789,7 +789,7 @@ class RasterProcessor(object):
             x_max = x_max + 360
             poly = raster_crs.shift_wrapped_longitude_polygon(poly)
             (min_x, _, max_x, _) = poly.bounds
-            if min_x < -180:
+            if max_x < self.x_min:
                 poly = affinity.translate(poly, xoff=360)
 
         raster_transform = rasterio.transform.from_bounds(
