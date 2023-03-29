@@ -736,7 +736,7 @@ class RasterProcessor(object):
             for poly in polys:
                 shifted_poly = raster_crs.shift_wrapped_longitude_polygon(poly)
                 (min_x, _, max_x, _) = shifted_poly.bounds
-                if min_x < -180:
+                if max_x < self.x_min:
                     shifted_poly = affinity.translate(shifted_poly, xoff=360)
                 shifted_polys.append(shifted_poly)
             polys = shifted_polys
