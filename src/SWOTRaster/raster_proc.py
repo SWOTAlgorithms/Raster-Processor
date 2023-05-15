@@ -21,7 +21,6 @@ from osgeo import osr
 from datetime import datetime
 from functools import partial
 from itertools import groupby, chain, compress
-from more_itertools import chunked
 from shapely import affinity
 from shapely.geometry import Polygon
 from SWOTRaster.errors import RasterUsageException
@@ -56,9 +55,9 @@ class RasterProcessor(object):
         self.projection_type = projection_type
         if self.projection_type=='geo':
             # Geodetic resolution is given in arcsec
-            self.resolution = np.float(resolution/(60*60))
+            self.resolution = float(resolution/(60*60))
         elif self.projection_type=='utm':
-            self.resolution = np.float(resolution)
+            self.resolution = float(resolution)
             self.utm_zone_adjust = utm_zone_adjust
             self.mgrs_band_adjust = mgrs_band_adjust
             self.utm_conversion_max_chunk_size = utm_conversion_max_chunk_size
@@ -617,7 +616,7 @@ class RasterProcessor(object):
                     return (el for el in arg[mask])
                 else:
                     return ([el for el in chunk]
-                            for chunk in chunked(arg[mask], chunk_size))
+                            for chunk in raster_agg.chunk_it(arg[mask], chunk_size))
             else:
                 compressed_mapping = compress(
                     chain.from_iterable(self.proj_mapping), mask.flatten())
@@ -625,7 +624,7 @@ class RasterProcessor(object):
                     return (arg[inds] for inds in compressed_mapping)
                 else:
                     return ([arg[inds] for inds in chunk]
-                            for chunk in chunked(compressed_mapping, chunk_size))
+                            for chunk in raster_agg.chunk_it(compressed_mapping, chunk_size))
 
         def get_agg_output(result, mask, fill_value=np.nan):
             """ Get aggregator output on raster grid, with fill_value """

@@ -15,8 +15,7 @@ import cnes.common.service_error as service_error
 
 from itertools import chain
 from functools import partial
-from more_itertools import chunked
-from SWOTRaster.raster_agg import fn_star, fn_it
+from SWOTRaster.raster_agg import fn_star, fn_it, chunk_it
 from SWOTRaster.products import RasterUTM, DEFAULT_MAX_CHUNK_SIZE
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 
@@ -181,12 +180,12 @@ class GeolocRaster(object):
                     processes=self.max_worker_processes) as pool:
                 result_chunks = list(
                     pool.imap(_geoloc_fn, zip(*(
-                        fn_it(chunked(arg, chunk_size), np.array) for arg in args))))
+                        fn_it(chunk_it(arg, chunk_size), np.array) for arg in args))))
         else:
             chunk_size = max_chunk_size
             result_chunks = [
                 _geoloc_fn(arglist) for arglist in zip(*(
-                    fn_it(chunked(arg, chunk_size), np.array) for arg in args))]
+                    fn_it(chunk_it(arg, chunk_size), np.array) for arg in args))]
 
         # Merge chunks
         (self.out_lat_corr[mask], self.out_lon_corr[mask],

@@ -19,6 +19,14 @@ from SWOTRaster.errors import RasterUsageException
 HEIGHT_STD_DEWEIGHT_VAL = 1.0e5
 ICE_FLAG_PARTIAL_COVER_FLAG_VALUE = 1
 
+def chunk_it(iterable, chunk_size):
+    """ Chunks data into tuples of length n. The last chunk may be shorter. """
+    if chunk_size < 1:
+        raise ValueError('n must be at least one')
+    it = iter(iterable)
+    while batch := tuple(islice(it, chunk_size)):
+        yield batch
+
 def fn_it(iterable, fn):
     """ Calls fn for each value in iterable """
     it = iter(iterable)
