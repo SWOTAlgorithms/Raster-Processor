@@ -741,12 +741,15 @@ class RasterProcessor(object):
                 shifted_polys.append(shifted_poly)
             polys = shifted_polys
 
-        raster_transform = rasterio.transform.from_bounds(
-            self.x_min, self.y_min, x_max, self.y_max, self.size_x,
-            self.size_y)
-        mask = np.flipud(rasterio.features.geometry_mask(
-            polys, out_shape=(self.size_y, self.size_x),
-            transform=raster_transform, all_touched=True))
+        if len(polys) > 0:
+            raster_transform = rasterio.transform.from_bounds(
+                self.x_min, self.y_min, x_max, self.y_max, self.size_x,
+                self.size_y)
+            mask = np.flipud(rasterio.features.geometry_mask(
+                polys, out_shape=(self.size_y, self.size_x),
+                transform=raster_transform, all_touched=True))
+        else:
+            mask = np.ones((self.size_y, self.size_x), dtype=bool)
 
         # Mask the datasets and flag
         if not self.skip_wse:
