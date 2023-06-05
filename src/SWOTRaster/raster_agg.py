@@ -46,6 +46,27 @@ def simple_masked(data, mask, metric='mean', fill_value=np.nan):
     else:
         return fill_value
 
+def calc_height_std(phase_noise_std, dh_dphi):
+    """ calculate height std """
+    height_std = np.abs(phase_noise_std * dh_dphi)
+    # Set bad pix height std to high number to deweight
+    # instead of giving infs/nans
+    height_std[height_std<=0] = HEIGHT_STD_DEWEIGHT_VAL
+    height_std[np.isinf(height_std)] = HEIGHT_STD_DEWEIGHT_VAL
+    height_std[np.isnan(height_std)] = HEIGHT_STD_DEWEIGHT_VAL
+    return height_std
+
+def height_weighted_mean_masked(data, phase_noise_std, dh_dphi, mask,
+                                height_agg_method='weight', fill_value=np.nan):
+    """ Get height weighted mean with masking """
+    mask = np.logical_and(mask, args_mask(data, phase_noise_std, dh_dphi))
+    if np.any(mask):
+        height_std = calc_height_std(phase_noise_std, dh_dphi)
+        return ag.height_only(
+            data, mask, height_std, method=height_agg_method)[0]
+    else:
+        return fill_value
+
 def aggregate_cross_track_and_incidence_angle(
         pixc_cross_track, pixc_incidence_angle, mask):
     """ Aggregate cross track and incidence angle """
@@ -84,32 +105,33 @@ def aggregate_wse_corrections(
         pixc_iono_cor_gim_ka, pixc_dh_dphi, pixc_phase_noise_std,
         mask, height_agg_method='weight'):
     """ Aggregate wse geophysical corrections """
-    height_cor_xover_mask = np.logical_and(mask,
-        args_mask(pixc_height_cor_xover, pixc_dh_dphi, pixc_phase_noise_std))
-    if np.any(height_cor_xover_mask):
-        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # Set bad pix height std to high number to deweight
-        # instead of giving infs/nans
-        pixc_height_std[pixc_height_std<=0] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isinf(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isnan(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-        height_cor_xover = ag.height_only(
-            pixc_height_cor_xover, height_cor_xover_mask, pixc_height_std,
-            method=height_agg_method)[0]
-    else:
-        height_cor_xover = np.nan
-
-    geoid = simple_masked(pixc_geoid, mask, metric='mean')
-    solid_earth_tide = simple_masked(pixc_solid_earth_tide, mask, metric='mean')
-    load_tide_fes = simple_masked(pixc_load_tide_fes, mask, metric='mean')
-    load_tide_got = simple_masked(pixc_load_tide_got, mask, metric='mean')
-    pole_tide = simple_masked(pixc_pole_tide, mask, metric='mean')
-    model_dry_tropo_cor = simple_masked(
-        pixc_model_dry_tropo_cor, mask, metric='mean')
-    model_wet_tropo_cor = simple_masked(
-        pixc_model_wet_tropo_cor, mask, metric='mean')
-    iono_cor_gim_ka = simple_masked(pixc_iono_cor_gim_ka, mask, metric='mean')
-
+    height_cor_xover = height_weighted_mean_masked(
+        pixc_height_cor_xover, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    geoid = height_weighted_mean_masked(
+        pixc_geoid, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    solid_earth_tide = height_weighted_mean_masked(
+        pixc_solid_earth_tide, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    load_tide_fes = height_weighted_mean_masked(
+        pixc_load_tide_fes, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    load_tide_got = height_weighted_mean_masked(
+        pixc_load_tide_got, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    pole_tide = height_weighted_mean_masked(
+        pixc_pole_tide, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    model_dry_tropo_cor = height_weighted_mean_masked(
+        pixc_model_dry_tropo_cor, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    model_wet_tropo_cor = height_weighted_mean_masked(
+        pixc_model_wet_tropo_cor, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
+    iono_cor_gim_ka = height_weighted_mean_masked(
+        pixc_iono_cor_gim_ka, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
     return (height_cor_xover, geoid, solid_earth_tide, load_tide_fes,
             load_tide_got, pole_tide, model_dry_tropo_cor, model_wet_tropo_cor,
             iono_cor_gim_ka)
@@ -131,13 +153,7 @@ def aggregate_height(
                   pixc_dlat_dphi, pixc_dlon_dphi, pixc_phase_noise_std,
                   flat_ifgram))
     if np.any(mask):
-        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # Set bad pix height std to high number to deweight
-        # instead of giving infs/nans
-        pixc_height_std[pixc_height_std<=0] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isinf(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isnan(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-
+        pixc_height_std = calc_height_std(pixc_phase_noise_std, pixc_dh_dphi)
         grid_height = ag.height_with_uncerts(
             pixc_height, mask, pixc_num_rare_looks,
             pixc_num_med_looks, flat_ifgram, pixc_power_minus_y,
@@ -199,6 +215,7 @@ def aggregate_sig0_corrections(pixc_sig0_cor_atmos_model, mask):
     """ Aggregate sig0 geophysical corrections """
     sig0_cor_atmos_model = simple_masked(
         pixc_sig0_cor_atmos_model, mask, metric='mean')
+
     return sig0_cor_atmos_model
 
 def aggregate_sig0(pixc_sig0, pixc_sig0_uncert, mask, sig0_agg_method='rare'):
@@ -268,22 +285,9 @@ def aggregate_layover_impact(
         pixc_layover_impact, pixc_dh_dphi, pixc_phase_noise_std,
         mask, height_agg_method='weight'):
     """ Aggregate layover impact """
-    mask = np.logical_and(mask,
-        args_mask(pixc_layover_impact, pixc_dh_dphi, pixc_phase_noise_std))
-    if np.any(mask):
-        pixc_height_std = np.abs(pixc_phase_noise_std * pixc_dh_dphi)
-        # Set bad pix height std to high number to deweight
-        # instead of giving infs/nans
-        pixc_height_std[pixc_height_std<=0] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isinf(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-        pixc_height_std[np.isnan(pixc_height_std)] = HEIGHT_STD_DEWEIGHT_VAL
-
-        layover_impact = ag.height_only(
-            pixc_layover_impact, mask, pixc_height_std,
-            method=height_agg_method)[0]
-    else:
-        layover_impact = np.nan
-
+    layover_impact = height_weighted_mean_masked(
+        pixc_layover_impact, pixc_phase_noise_std, pixc_dh_dphi, mask,
+        height_agg_method=height_agg_method)
     return layover_impact
 
 def aggregate_wse_qual(
@@ -368,7 +372,7 @@ def aggregate_water_area_qual(
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
             water_area_qual_bitwise += products.QUAL_IND_GEOLOCATION_QUAL_SUSPECT
 
-        if np.any(pixc_water_frac[mask]>pixc_water_frac_suspect_thresh):
+        if np.any(np.abs(pixc_water_frac[mask]) > pixc_water_frac_suspect_thresh):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
             water_area_qual_bitwise += products.QUAL_IND_WATER_FRACTION_SUSPECT
 

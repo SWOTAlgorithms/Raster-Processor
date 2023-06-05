@@ -278,7 +278,7 @@ class RasterProcessor(object):
                  pixc['pixel_cloud']['iono_cor_gim_ka'],
                  pixc['pixel_cloud']['dheight_dphase'],
                  pixc['pixel_cloud']['phase_noise_std'],
-                 wse_pixc_mask, mask=all_raster_mask)
+                 wse_pixc_mask, mask=wse_raster_mask)
 
             LOGGER.info('flattening interferogram')
             tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
