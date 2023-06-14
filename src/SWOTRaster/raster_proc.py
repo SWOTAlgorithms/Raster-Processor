@@ -542,14 +542,14 @@ class RasterProcessor(object):
         y_max = np.max(poly_edge_y)
 
         # Round limits to the nearest bin (centered at proj center with pad)
-        x_min = int(round((x_min - proj_center_x) / self.resolution)) \
-                * self.resolution + proj_center_x - self.padding
-        x_max = int(round((x_max - proj_center_x) / self.resolution)) \
-                * self.resolution + proj_center_x + self.padding
-        y_min = int(round((y_min - proj_center_y) / self.resolution)) \
-                * self.resolution + proj_center_y - self.padding
-        y_max = int(round((y_max - proj_center_y) / self.resolution)) \
-                * self.resolution + proj_center_y + self.padding
+        x_min = int((round((x_min - proj_center_x) / self.resolution))
+                    - self.padding) * self.resolution + proj_center_x
+        x_max = int((round((x_max - proj_center_x) / self.resolution)) \
+                    + self.padding) * self.resolution + proj_center_x
+        y_min = int((round((y_min - proj_center_y) / self.resolution)) \
+                    - self.padding) * self.resolution + proj_center_y
+        y_max = int((round((y_max - proj_center_y) / self.resolution)) \
+                    + self.padding) * self.resolution + proj_center_y
 
         self.size_x = int(round((x_max - x_min) / self.resolution)) + 1
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
