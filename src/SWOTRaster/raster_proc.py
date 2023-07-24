@@ -277,7 +277,7 @@ class RasterProcessor(object):
                  pixc['pixel_cloud']['iono_cor_gim_ka'],
                  pixc['pixel_cloud']['dheight_dphase'],
                  pixc['pixel_cloud']['phase_noise_std'],
-                 wse_pixc_mask, mask=all_raster_mask)
+                 wse_pixc_mask, mask=wse_raster_mask)
 
             LOGGER.info('flattening interferogram')
             tvp_plus_y_antenna_xyz = (pixc['tvp']['plus_y_antenna_x'],
@@ -541,14 +541,14 @@ class RasterProcessor(object):
         y_max = np.max(poly_edge_y)
 
         # Round limits to the nearest bin (centered at proj center with pad)
-        x_min = int(round((x_min - proj_center_x) / self.resolution)) \
-                * self.resolution + proj_center_x - self.padding
-        x_max = int(round((x_max - proj_center_x) / self.resolution)) \
-                * self.resolution + proj_center_x + self.padding
-        y_min = int(round((y_min - proj_center_y) / self.resolution)) \
-                * self.resolution + proj_center_y - self.padding
-        y_max = int(round((y_max - proj_center_y) / self.resolution)) \
-                * self.resolution + proj_center_y + self.padding
+        x_min = int((round((x_min - proj_center_x) / self.resolution))
+                    - self.padding) * self.resolution + proj_center_x
+        x_max = int((round((x_max - proj_center_x) / self.resolution)) \
+                    + self.padding) * self.resolution + proj_center_x
+        y_min = int((round((y_min - proj_center_y) / self.resolution)) \
+                    - self.padding) * self.resolution + proj_center_y
+        y_max = int((round((y_max - proj_center_y) / self.resolution)) \
+                    + self.padding) * self.resolution + proj_center_y
 
         self.size_x = int(round((x_max - x_min) / self.resolution)) + 1
         self.size_y = int(round((y_max - y_min) / self.resolution)) + 1
@@ -740,12 +740,15 @@ class RasterProcessor(object):
                 shifted_polys.append(shifted_poly)
             polys = shifted_polys
 
-        raster_transform = rasterio.transform.from_bounds(
-            self.x_min, self.y_min, x_max, self.y_max, self.size_x,
-            self.size_y)
-        mask = np.flipud(rasterio.features.geometry_mask(
-            polys, out_shape=(self.size_y, self.size_x),
-            transform=raster_transform, all_touched=True))
+        if len(polys) > 0:
+            raster_transform = rasterio.transform.from_bounds(
+                self.x_min, self.y_min, x_max, self.y_max, self.size_x,
+                self.size_y)
+            mask = np.flipud(rasterio.features.geometry_mask(
+                polys, out_shape=(self.size_y, self.size_x),
+                transform=raster_transform, all_touched=True))
+        else:
+            mask = np.ones((self.size_y, self.size_x), dtype=bool)
 
         # Mask the datasets and flag
         if not self.skip_wse:

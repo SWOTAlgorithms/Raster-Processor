@@ -68,7 +68,7 @@ def main():
     parser.add_argument('-e', '--exclude_scenes', default=[], nargs='+',
                         help='list of sim scenes to exclude')
     parser.add_argument('-o', '--outdir', type=str, default=None,
-                        help='list of sim scenes to exclude')
+                        help='output directory')
     parser.add_argument('--scatter_plot', action='store_true',
                         help='flag for plotting old scatterplots')
     args = vars(parser.parse_args())
