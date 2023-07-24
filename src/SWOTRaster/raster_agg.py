@@ -24,8 +24,10 @@ def chunk_it(iterable, chunk_size):
     if chunk_size < 1:
         raise ValueError('n must be at least one')
     it = iter(iterable)
-    while batch := tuple(islice(it, chunk_size)):
-        yield batch
+    chunk = list(islice(it, chunk_size))
+    while chunk:
+        yield chunk
+        chunk = list(islice(it, chunk_size))
 
 def fn_it(iterable, fn):
     """ Calls fn for each value in iterable """
