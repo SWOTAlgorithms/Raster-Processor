@@ -160,7 +160,7 @@ def utm_crs_from_points(points, utm_zone_adjust=0, mgrs_band_adjust=0):
     lon_mid = np.mean(poly_edge_x)
 
     # Wrap to between -180 to 180 degrees longitude
-    lon_min = lon_360to180(lon_mid)
+    lon_mid = lon_360to180(lon_mid)
 
     utm_zone = utm_zone_from_latlon(lat_mid, lon_mid)
     mgrs_band = mgrs_band_from_latlon(lat_mid, lon_mid)
