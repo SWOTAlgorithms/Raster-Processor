@@ -39,12 +39,14 @@ QUAL_IND_GEOLOCATION_QUAL_SUSPECT = 4           # bit 2
 QUAL_IND_WATER_FRACTION_SUSPECT = 8             # bit 3
 QUAL_IND_LARGE_UNCERT_SUSPECT = 32              # bit 5
 QUAL_IND_BRIGHT_LAND = 128                      # bit 7
+QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256      # bit 8
 QUAL_IND_FEW_PIXELS = 4096                      # bit 12
 QUAL_IND_FAR_RANGE_SUSPECT = 8192               # bit 13
 QUAL_IND_NEAR_RANGE_SUSPECT = 16384             # bit 14
 QUAL_IND_SIG0_QUAL_DEGRADED = 131072            # bit 17
 QUAL_IND_CLASS_QUAL_DEGRADED = 262144           # bit 18
 QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
+QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152 # bit 21
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
@@ -316,6 +318,7 @@ COMMON_VARIABLES = odict([
                 near_range_suspect
                 classification_qual_degraded
                 geolocation_qual_degraded
+                low_coherence_water_degraded
                 value_bad
                 no_pixels
                 outside_scene_bounds
@@ -331,6 +334,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_LOW_COHERENCE_WATER_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
@@ -338,7 +342,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4044124326],
+            ['valid_max', 4046221478],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
@@ -399,6 +403,7 @@ COMMON_VARIABLES = odict([
                 water_fraction_suspect
                 large_uncert_suspect
                 bright_land
+                low_coherence_water_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -415,6 +420,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_WATER_FRACTION_SUSPECT,
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
+                QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
@@ -427,7 +433,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4044124334],
+            ['valid_max', 4044124590],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -513,6 +519,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_suspect
                 large_uncert_suspect
                 bright_land
+                low_coherence_water_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -530,6 +537,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
+                QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
@@ -543,7 +551,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4044255399],
+            ['valid_max', 4044255655],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.

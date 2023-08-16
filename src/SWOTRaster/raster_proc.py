@@ -31,12 +31,16 @@ class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, sig0_agg_method,
                  interior_water_classes, water_edge_classes, land_edge_classes,
-                 dark_water_classes, use_bright_land, use_all_classes_for_wse,
-                 use_all_classes_for_sig0, geo_qual_suspect, geo_qual_degraded,
-                 geo_qual_bad, class_qual_suspect, class_qual_degraded,
-                 class_qual_bad, sig0_qual_suspect, sig0_qual_degraded,
-                 sig0_qual_bad, num_good_sus_pix_thresh_wse,
-                 num_good_sus_pix_thresh_water_area,
+                 dark_water_classes, low_coh_water_classes, use_bright_land,
+                 use_all_classes_for_wse, use_all_classes_for_sig0,
+                 wse_geo_qual_suspect, wse_geo_qual_degraded, wse_geo_qual_bad,
+                 area_geo_qual_suspect, area_geo_qual_degraded, area_geo_qual_bad,
+                 sig0_geo_qual_suspect, sig0_geo_qual_degraded, sig0_geo_qual_bad,
+                 wse_class_qual_suspect, wse_class_qual_degraded, wse_class_qual_bad,
+                 area_class_qual_suspect, area_class_qual_degraded, area_class_qual_bad,
+                 sig0_class_qual_suspect, sig0_class_qual_degraded, sig0_class_qual_bad,
+                 sig0_qual_suspect, sig0_qual_degraded, sig0_qual_bad,
+                 num_good_sus_pix_thresh_wse, num_good_sus_pix_thresh_water_area,
                  num_good_sus_pix_thresh_sig0, pixc_water_frac_suspect_thresh,
                  num_wse_pix_suspect_thresh, num_water_area_pix_suspect_thresh,
                  num_sig0_pix_suspect_thresh,
@@ -73,16 +77,31 @@ class RasterProcessor(object):
         self.water_edge_classes = water_edge_classes
         self.land_edge_classes = land_edge_classes
         self.dark_water_classes = dark_water_classes
+        self.low_coh_water_classes = low_coh_water_classes
         self.use_bright_land = use_bright_land
         self.use_all_classes_for_wse = use_all_classes_for_wse
         self.use_all_classes_for_sig0 = use_all_classes_for_sig0
 
-        self.geo_qual_suspect = geo_qual_suspect
-        self.geo_qual_degraded = geo_qual_degraded
-        self.geo_qual_bad = geo_qual_bad
-        self.class_qual_suspect = class_qual_suspect
-        self.class_qual_degraded = class_qual_degraded
-        self.class_qual_bad = class_qual_bad
+        self.wse_geo_qual_suspect = wse_geo_qual_suspect
+        self.wse_geo_qual_degraded = wse_geo_qual_degraded
+        self.wse_geo_qual_bad = wse_geo_qual_bad
+        self.area_geo_qual_suspect = area_geo_qual_suspect
+        self.area_geo_qual_degraded = area_geo_qual_degraded
+        self.area_geo_qual_bad = area_geo_qual_bad
+        self.sig0_geo_qual_suspect = sig0_geo_qual_suspect
+        self.sig0_geo_qual_degraded = sig0_geo_qual_degraded
+        self.sig0_geo_qual_bad = sig0_geo_qual_bad
+
+        self.wse_class_qual_suspect = wse_class_qual_suspect
+        self.wse_class_qual_degraded = wse_class_qual_degraded
+        self.wse_class_qual_bad = wse_class_qual_bad
+        self.area_class_qual_suspect = area_class_qual_suspect
+        self.area_class_qual_degraded = area_class_qual_degraded
+        self.area_class_qual_bad = area_class_qual_bad
+        self.sig0_class_qual_suspect = sig0_class_qual_suspect
+        self.sig0_class_qual_degraded = sig0_class_qual_degraded
+        self.sig0_class_qual_bad = sig0_class_qual_bad
+
         self.sig0_qual_suspect = sig0_qual_suspect
         self.sig0_qual_degraded = sig0_qual_degraded
         self.sig0_qual_bad = sig0_qual_bad
@@ -175,7 +194,8 @@ class RasterProcessor(object):
 
         water_classes_mask = pixc.get_mask(water_classes, use_improved_geoloc)
         all_classes_mask = pixc.get_mask(all_classes, use_improved_geoloc)
-
+        low_coh_water_classes_mask = pixc.get_mask(
+            self.low_coh_water_classes, use_improved_geoloc)
         bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag']
         if not self.use_bright_land:
             water_classes_mask = np.logical_and(
@@ -185,12 +205,24 @@ class RasterProcessor(object):
 
         # Get pixc summary quality flags
         LOGGER.info("getting pixc summary quality flags")
-        geo_qual_pixc_flag = pixc.get_summary_qual_flag(
-            'geolocation_qual', self.geo_qual_suspect,
-            self.geo_qual_degraded,self.geo_qual_bad)
-        class_qual_pixc_flag = pixc.get_summary_qual_flag(
-            'classification_qual', self.class_qual_suspect,
-            self.class_qual_degraded, self.class_qual_bad)
+        wse_geo_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'geolocation_qual', self.wse_geo_qual_suspect,
+            self.wse_geo_qual_degraded, self.wse_geo_qual_bad)
+        area_geo_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'geolocation_qual', self.area_geo_qual_suspect,
+            self.area_geo_qual_degraded, self.area_geo_qual_bad)
+        sig0_geo_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'geolocation_qual', self.sig0_geo_qual_suspect,
+            self.sig0_geo_qual_degraded, self.sig0_geo_qual_bad)
+        wse_class_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'classification_qual', self.wse_class_qual_suspect,
+            self.wse_class_qual_degraded, self.wse_class_qual_bad)
+        area_class_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'classification_qual', self.area_class_qual_suspect,
+            self.area_class_qual_degraded, self.area_class_qual_bad)
+        sig0_class_qual_pixc_flag = pixc.get_summary_qual_flag(
+            'classification_qual', self.sig0_class_qual_suspect,
+            self.sig0_class_qual_degraded, self.sig0_class_qual_bad)
         sig0_qual_pixc_flag = pixc.get_summary_qual_flag(
             'sig0_qual', self.sig0_qual_suspect,
             self.sig0_qual_degraded, self.sig0_qual_bad)
@@ -206,26 +238,40 @@ class RasterProcessor(object):
 
         # Get rasterization masks
         LOGGER.info('getting rasterization masks for wse/water area/sig0')
-        wse_classes_mask = water_classes_mask
+        # WSE: only water classes are good/sus unless use_all_classes commanded
+        #      low coh water is degraded
+        wse_good_sus_classes_mask = np.logical_and(
+            water_classes_mask, np.logical_not(low_coh_water_classes_mask))
+        wse_degraded_classes_mask = low_coh_water_classes_mask
         if self.use_all_classes_for_wse:
-            wse_classes_mask = all_classes_mask
+            wse_good_sus_classes_mask = np.logical_and(
+                all_classes_mask, np.logical_not(low_coh_water_classes_mask))
 
         wse_pixc_mask, wse_raster_mask = self.get_rasterization_masks(
-            wse_classes_mask, (geo_qual_pixc_flag, class_qual_pixc_flag),
+            wse_good_sus_classes_mask, wse_degraded_classes_mask,
+            (wse_geo_qual_pixc_flag, wse_class_qual_pixc_flag),
             self.num_good_sus_pix_thresh_wse)
 
+        # Area: all classes are good/sus
+        #       low coh water is not degraded
+        area_good_sus_classes_mask = all_classes_mask
+        area_degraded_classes_mask = np.zeros_like(area_good_sus_classes_mask)
         water_area_pixc_mask, water_area_raster_mask = \
             self.get_rasterization_masks(
-                all_classes_mask,(geo_qual_pixc_flag, class_qual_pixc_flag),
+                area_good_sus_classes_mask, area_degraded_classes_mask,
+                (area_geo_qual_pixc_flag, area_class_qual_pixc_flag),
                 self.num_good_sus_pix_thresh_water_area)
 
-        sig0_classes_mask = water_classes_mask
-        if self.use_all_classes_for_wse:
-            sig0_classes_mask = all_classes_mask
+        # Sig0: only water classes are good/sus unless use_all_classes commanded
+        #       low coh water is not degraded
+        sig0_good_sus_classes_mask = water_classes_mask
+        sig0_degraded_classes_mask = np.zeros_like(sig0_good_sus_classes_mask)
+        if self.use_all_classes_for_sig0:
+            sig0_good_sus_classes_mask = all_classes_mask
 
         sig0_pixc_mask, sig0_raster_mask = self.get_rasterization_masks(
-            sig0_classes_mask,
-            (geo_qual_pixc_flag, class_qual_pixc_flag, sig0_qual_pixc_flag),
+            sig0_good_sus_classes_mask, sig0_degraded_classes_mask,
+            (sig0_geo_qual_pixc_flag, sig0_class_qual_pixc_flag, sig0_qual_pixc_flag),
             self.num_good_sus_pix_thresh_sig0)
 
         all_pixc_mask = np.logical_or.reduce((
@@ -339,8 +385,9 @@ class RasterProcessor(object):
                          far_range_suspect_thresh=self.far_range_suspect_thresh,
                          wse_bad_thresh_min=self.wse_bad_thresh_min,
                          wse_bad_thresh_max=self.wse_bad_thresh_max),
-                 self.wse, self.wse_u, self.cross_track, class_qual_pixc_flag,
-                 geo_qual_pixc_flag, bright_land_pixc_flag,
+                 self.wse, self.wse_u, self.cross_track,
+                 wse_class_qual_pixc_flag, wse_geo_qual_pixc_flag,
+                 bright_land_pixc_flag, low_coh_water_classes_mask,
                  wse_pixc_mask, mask=wse_raster_mask)
 
             LOGGER.info('aggregating layover impact')
@@ -392,7 +439,8 @@ class RasterProcessor(object):
                          water_frac_bad_thresh_max=\
                              self.water_frac_bad_thresh_max),
                  self.water_frac, self.water_frac_u, self.cross_track,
-                 class_qual_pixc_flag, geo_qual_pixc_flag, bright_land_pixc_flag,
+                 area_class_qual_pixc_flag, area_geo_qual_pixc_flag,
+                 bright_land_pixc_flag, low_coh_water_classes_mask,
                  pixc['pixel_cloud']['water_frac'],
                  water_area_pixc_mask, mask=water_area_raster_mask)
 
@@ -437,7 +485,8 @@ class RasterProcessor(object):
                          sig0_bad_thresh_min=self.sig0_bad_thresh_min,
                          sig0_bad_thresh_max=self.sig0_bad_thresh_max),
                  self.sig0, self.sig0_u, self.cross_track, sig0_qual_pixc_flag,
-                 class_qual_pixc_flag, geo_qual_pixc_flag, bright_land_pixc_flag,
+                 sig0_class_qual_pixc_flag, sig0_geo_qual_pixc_flag,
+                 bright_land_pixc_flag, low_coh_water_classes_mask,
                  sig0_pixc_mask, mask=sig0_raster_mask)
 
         if self.debug_flag:
@@ -589,17 +638,22 @@ class RasterProcessor(object):
                      'y_max': self.y_max,
                      'size_y': self.size_y})
 
-    def get_rasterization_masks(self, valid_classes_mask,
-                                pixc_summary_qual_flags, num_good_sus_pix_thresh):
+    def get_rasterization_masks(
+            self, good_sus_classes_mask, degraded_classes_mask,
+            pixc_summary_qual_flags, num_good_sus_pix_thresh):
         """ Get masks of pixels to rasterize """
         common_qual_flag = np.maximum.reduce((pixc_summary_qual_flags))
         good_qual_mask = [x==products.QUAL_IND_GOOD for x in common_qual_flag]
         sus_qual_mask = [x==products.QUAL_IND_SUSPECT for x in common_qual_flag]
         deg_qual_mask = [x==products.QUAL_IND_DEGRADED for x in common_qual_flag]
 
-        good_mask = np.logical_and(valid_classes_mask, good_qual_mask)
-        suspect_mask = np.logical_and(valid_classes_mask, sus_qual_mask)
-        degraded_mask = np.logical_and(valid_classes_mask, deg_qual_mask)
+        valid_classes_mask = np.logical_or(
+            good_sus_classes_mask, degraded_classes_mask)
+
+        good_mask = np.logical_and(good_sus_classes_mask, good_qual_mask)
+        suspect_mask = np.logical_and(good_sus_classes_mask, sus_qual_mask)
+        degraded_mask = np.logical_and(valid_classes_mask,
+            np.logical_or(degraded_classes_mask, deg_qual_mask))
 
         good_sus_mask = np.logical_or(good_mask, suspect_mask)
         good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)

@@ -47,6 +47,68 @@ class L2PixcToRaster(object):
         if 'mgrs_band_adjust' not in self.runtime_config:
             self.runtime_config['mgrs_band_adjust'] = 0
 
+        # Add default values for low coherence classes
+        if 'low_coh_water_classes' not in self.algorithmic_config:
+            self.algorithmic_config['low_coh_water_classes'] = []
+
+        # Use default geo qual values if not overridden
+        if 'wse_geo_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['wse_geo_qual_suspect'] = \
+                self.algorithmic_config['geo_qual_suspect']
+        if 'wse_geo_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['wse_geo_qual_degraded'] = \
+                self.algorithmic_config['geo_qual_degraded']
+        if 'wse_geo_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['wse_geo_qual_bad'] = \
+                self.algorithmic_config['geo_qual_bad']
+        if 'area_geo_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['area_geo_qual_suspect'] = \
+                self.algorithmic_config['geo_qual_suspect']
+        if 'area_geo_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['area_geo_qual_degraded'] = \
+                self.algorithmic_config['geo_qual_degraded']
+        if 'area_geo_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['area_geo_qual_bad'] = \
+                self.algorithmic_config['geo_qual_bad']
+        if 'sig0_geo_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_geo_qual_suspect'] = \
+                self.algorithmic_config['geo_qual_suspect']
+        if 'sig0_geo_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_geo_qual_degraded'] = \
+                self.algorithmic_config['geo_qual_degraded']
+        if 'sig0_geo_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_geo_qual_bad'] = \
+                self.algorithmic_config['geo_qual_bad']
+
+        # Use default class qual values if not overridden
+        if 'wse_class_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['wse_class_qual_suspect'] = \
+                self.algorithmic_config['class_qual_suspect']
+        if 'wse_class_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['wse_class_qual_degraded'] = \
+                self.algorithmic_config['class_qual_degraded']
+        if 'wse_class_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['wse_class_qual_bad'] = \
+                self.algorithmic_config['class_qual_bad']
+        if 'area_class_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['area_class_qual_suspect'] = \
+                self.algorithmic_config['class_qual_suspect']
+        if 'area_class_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['area_class_qual_degraded'] = \
+                self.algorithmic_config['class_qual_degraded']
+        if 'area_class_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['area_class_qual_bad'] = \
+                self.algorithmic_config['class_qual_bad']
+        if 'sig0_class_qual_suspect' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_class_qual_suspect'] = \
+                self.algorithmic_config['class_qual_suspect']
+        if 'sig0_class_qual_degraded' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_class_qual_degraded'] = \
+                self.algorithmic_config['class_qual_degraded']
+        if 'sig0_class_qual_bad' not in self.algorithmic_config:
+            self.algorithmic_config['sig0_class_qual_bad'] = \
+                self.algorithmic_config['class_qual_bad']
+
     def process(self):
         """ Process L2Pixc to Raster """
         LOGGER.info("processing l2pixc to raster")
@@ -107,15 +169,28 @@ class L2PixcToRaster(object):
                 tmp_water_edge_classes,
                 tmp_land_edge_classes,
                 self.algorithmic_config['dark_water_classes'],
+                self.algorithmic_config['low_coh_water_classes'],
                 self.algorithmic_config['use_bright_land'],
                 self.algorithmic_config['use_all_classes_for_wse'],
                 self.algorithmic_config['use_all_classes_for_sig0'],
-                self.algorithmic_config['geo_qual_suspect'],
-                self.algorithmic_config['geo_qual_degraded'],
-                self.algorithmic_config['geo_qual_bad'],
-                self.algorithmic_config['class_qual_suspect'],
-                self.algorithmic_config['class_qual_degraded'],
-                self.algorithmic_config['class_qual_bad'],
+                self.algorithmic_config['wse_geo_qual_suspect'],
+                self.algorithmic_config['wse_geo_qual_degraded'],
+                self.algorithmic_config['wse_geo_qual_bad'],
+                self.algorithmic_config['area_geo_qual_suspect'],
+                self.algorithmic_config['area_geo_qual_degraded'],
+                self.algorithmic_config['area_geo_qual_bad'],
+                self.algorithmic_config['sig0_geo_qual_suspect'],
+                self.algorithmic_config['sig0_geo_qual_degraded'],
+                self.algorithmic_config['sig0_geo_qual_bad'],
+                self.algorithmic_config['wse_class_qual_suspect'],
+                self.algorithmic_config['wse_class_qual_degraded'],
+                self.algorithmic_config['wse_class_qual_bad'],
+                self.algorithmic_config['area_class_qual_suspect'],
+                self.algorithmic_config['area_class_qual_degraded'],
+                self.algorithmic_config['area_class_qual_bad'],
+                self.algorithmic_config['sig0_class_qual_suspect'],
+                self.algorithmic_config['sig0_class_qual_degraded'],
+                self.algorithmic_config['sig0_class_qual_bad'],
                 self.algorithmic_config['sig0_qual_suspect'],
                 self.algorithmic_config['sig0_qual_degraded'],
                 self.algorithmic_config['sig0_qual_bad'],
@@ -192,15 +267,28 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['water_edge_classes'],
                 self.algorithmic_config['land_edge_classes'],
                 self.algorithmic_config['dark_water_classes'],
+                self.algorithmic_config['low_coh_water_classes'],
                 self.algorithmic_config['use_bright_land'],
                 self.algorithmic_config['use_all_classes_for_wse'],
                 self.algorithmic_config['use_all_classes_for_sig0'],
-                self.algorithmic_config['geo_qual_suspect'],
-                self.algorithmic_config['geo_qual_degraded'],
-                self.algorithmic_config['geo_qual_bad'],
-                self.algorithmic_config['class_qual_suspect'],
-                self.algorithmic_config['class_qual_degraded'],
-                self.algorithmic_config['class_qual_bad'],
+                self.algorithmic_config['wse_geo_qual_suspect'],
+                self.algorithmic_config['wse_geo_qual_degraded'],
+                self.algorithmic_config['wse_geo_qual_bad'],
+                self.algorithmic_config['area_geo_qual_suspect'],
+                self.algorithmic_config['area_geo_qual_degraded'],
+                self.algorithmic_config['area_geo_qual_bad'],
+                self.algorithmic_config['sig0_geo_qual_suspect'],
+                self.algorithmic_config['sig0_geo_qual_degraded'],
+                self.algorithmic_config['sig0_geo_qual_bad'],
+                self.algorithmic_config['wse_class_qual_suspect'],
+                self.algorithmic_config['wse_class_qual_degraded'],
+                self.algorithmic_config['wse_class_qual_bad'],
+                self.algorithmic_config['area_class_qual_suspect'],
+                self.algorithmic_config['area_class_qual_degraded'],
+                self.algorithmic_config['area_class_qual_bad'],
+                self.algorithmic_config['sig0_class_qual_suspect'],
+                self.algorithmic_config['sig0_class_qual_degraded'],
+                self.algorithmic_config['sig0_class_qual_bad'],
                 self.algorithmic_config['sig0_qual_suspect'],
                 self.algorithmic_config['sig0_qual_degraded'],
                 self.algorithmic_config['sig0_qual_bad'],
@@ -273,15 +361,28 @@ class L2PixcToRaster(object):
             self.algorithmic_config['water_edge_classes'],
             self.algorithmic_config['land_edge_classes'],
             self.algorithmic_config['dark_water_classes'],
+            self.algorithmic_config['low_coh_water_classes'],
             self.algorithmic_config['use_bright_land'],
             self.algorithmic_config['use_all_classes_for_wse'],
             self.algorithmic_config['use_all_classes_for_sig0'],
-            self.algorithmic_config['geo_qual_suspect'],
-            self.algorithmic_config['geo_qual_degraded'],
-            self.algorithmic_config['geo_qual_bad'],
-            self.algorithmic_config['class_qual_suspect'],
-            self.algorithmic_config['class_qual_degraded'],
-            self.algorithmic_config['class_qual_bad'],
+            self.algorithmic_config['wse_geo_qual_suspect'],
+            self.algorithmic_config['wse_geo_qual_degraded'],
+            self.algorithmic_config['wse_geo_qual_bad'],
+            self.algorithmic_config['area_geo_qual_suspect'],
+            self.algorithmic_config['area_geo_qual_degraded'],
+            self.algorithmic_config['area_geo_qual_bad'],
+            self.algorithmic_config['sig0_geo_qual_suspect'],
+            self.algorithmic_config['sig0_geo_qual_degraded'],
+            self.algorithmic_config['sig0_geo_qual_bad'],
+            self.algorithmic_config['wse_class_qual_suspect'],
+            self.algorithmic_config['wse_class_qual_degraded'],
+            self.algorithmic_config['wse_class_qual_bad'],
+            self.algorithmic_config['area_class_qual_suspect'],
+            self.algorithmic_config['area_class_qual_degraded'],
+            self.algorithmic_config['area_class_qual_bad'],
+            self.algorithmic_config['sig0_class_qual_suspect'],
+            self.algorithmic_config['sig0_class_qual_degraded'],
+            self.algorithmic_config['sig0_class_qual_bad'],
             self.algorithmic_config['sig0_qual_suspect'],
             self.algorithmic_config['sig0_qual_degraded'],
             self.algorithmic_config['sig0_qual_bad'],
