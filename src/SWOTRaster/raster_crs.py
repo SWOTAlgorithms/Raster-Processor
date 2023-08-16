@@ -149,27 +149,24 @@ def utm_crs(utm_zone, mgrs_band):
     return spatial_ref
 
 
-def utm_crs_from_points(points, utm_zone_adjust=0, mgrs_band_adjust=0):
-    # Gets the UTM Coordinate Reference System at the centroid of points
+def utm_crs_from_polygon(poly, utm_zone_adjust=0, mgrs_band_adjust=0):
+    # Gets the UTM Coordinate Reference System at the centroid of a polygon
+    poly = shift_wrapped_longitude_polygon(poly)
+    # Wrap centroid longitude to between -180 to 180 degrees
+    centroid = (poly.centroid.y, lon_360to180(poly.centroid.x))
+    return utm_crs_from_point(centroid, utm_zone_adjust, mgrs_band_adjust)
 
-    # Handle longitude wrap
-    poly_edge_y = [point[0] for point in points]
-    poly_edge_x = shift_wrapped_longitude([point[1] for point in points])
 
-    lat_mid = np.mean(poly_edge_y)
-    lon_mid = np.mean(poly_edge_x)
-
-    # Wrap to between -180 to 180 degrees longitude
-    lon_mid = lon_360to180(lon_mid)
-
-    utm_zone = utm_zone_from_latlon(lat_mid, lon_mid)
-    mgrs_band = mgrs_band_from_latlon(lat_mid, lon_mid)
+def utm_crs_from_point(point, utm_zone_adjust=0, mgrs_band_adjust=0):
+    # Gets the UTM Coordinate Reference System at the centroid point
+    utm_zone = utm_zone_from_latlon(point[0], point[1])
+    mgrs_band = mgrs_band_from_latlon(point[0], point[1])
 
     # Adjust the UTM zone (-1 and +1 as zone numbers are 1 indexed)
     utm_zone = np.mod(utm_zone + utm_zone_adjust - 1, UTM_NUM_ZONES) + 1
 
     # Adjust/shift the mgrs band
-    mgrs_band = mgrs_band_shift(mgrs_band, mgrs_band_adjust, lon_mid)
+    mgrs_band = mgrs_band_shift(mgrs_band, mgrs_band_adjust, point[1])
 
     return utm_crs(utm_zone, mgrs_band), utm_zone, mgrs_band
 

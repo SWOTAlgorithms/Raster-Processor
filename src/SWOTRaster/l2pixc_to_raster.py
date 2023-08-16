@@ -21,11 +21,13 @@ LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
 
 class L2PixcToRaster(object):
     def __init__(self, pixc, algorithmic_config, runtime_config,
-                 polygon_points=None, max_worker_processes=1, scratch_dir=None):
+                 polygon_points=None, data_centroid=None,
+                 max_worker_processes=1, scratch_dir=None):
         self.pixc = pixc
         self.algorithmic_config = algorithmic_config
         self.runtime_config = runtime_config
         self.polygon_points = polygon_points
+        self.data_centroid = data_centroid
         self.max_worker_processes = max_worker_processes
         self.scratch_dir = scratch_dir
 
@@ -149,7 +151,8 @@ class L2PixcToRaster(object):
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, self.polygon_points, use_improved_geoloc=False)
+                self.pixc, self.polygon_points, self.data_centroid,
+                use_improved_geoloc=False)
 
         if self.algorithmic_config['write_internal_files']:
             if self.scratch_dir is None:
@@ -233,7 +236,8 @@ class L2PixcToRaster(object):
 
         height_constrained_geoloc_raster = \
             height_constrained_geoloc_raster_proc.rasterize(
-                self.pixc, self.polygon_points, use_improved_geoloc=False)
+                self.pixc, self.polygon_points, self.data_centroid,
+                use_improved_geoloc=False)
 
         if self.algorithmic_config['write_internal_files']:
             if self.scratch_dir is None:
@@ -311,6 +315,6 @@ class L2PixcToRaster(object):
             debug_flag=self.algorithmic_config['debug_flag'])
 
         out_raster = raster_proc.rasterize(
-            self.pixc, self.polygon_points,
+            self.pixc, self.polygon_points, self.data_centroid,
             use_improved_geoloc=self.use_improved_geoloc)
         return out_raster

@@ -119,7 +119,8 @@ class RasterProcessor(object):
         self.max_worker_processes = max_worker_processes
         self.debug_flag = debug_flag
 
-    def rasterize(self, pixc, polygon_points=None, use_improved_geoloc=True):
+    def rasterize(self, pixc, polygon_points=None, data_centroid=None,
+                  use_improved_geoloc=True):
         """ Rasterize pixc to raster """
         LOGGER.info("rasterizing")
         self.input_crs = raster_crs.wgs84_crs()
@@ -153,10 +154,12 @@ class RasterProcessor(object):
                  (pixc.right_first_latitude, pixc.right_first_longitude),
                  (pixc.right_last_latitude, pixc.right_last_longitude),
                  (pixc.left_last_latitude, pixc.left_last_longitude)]
-            self.create_projection_from_polygon_points(swath_corners)
+            self.create_projection_from_polygon_points(swath_corners,
+                                                       data_centroid)
         else:
             LOGGER.info("creating projection from polygon points")
-            self.create_projection_from_polygon_points(polygon_points)
+            self.create_projection_from_polygon_points(polygon_points,
+                                                       data_centroid)
 
         # Return empty product if pixc is empty
         empty_product = self.build_product(populate_values=False)
@@ -499,8 +502,9 @@ class RasterProcessor(object):
         LOGGER.info("building product")
         return self.build_product(polygon_points=polygon_points)
 
-    def create_projection_from_polygon_points(self, polygon_points):
-        """ Create projection given points defining a bounding polygon """
+    def create_projection_from_polygon_points(self, polygon_points,
+                                              data_centroid=None):
+        """ Create projection given points defining a bounding polygon"""
         if self.projection_type=='geo':
             # Set output crs
             self.output_crs = raster_crs.wgs84_crs()
@@ -514,9 +518,17 @@ class RasterProcessor(object):
 
         elif self.projection_type=='utm':
             # Set output crs
-            self.output_crs, utm_zone, mgrs_band = \
-                raster_crs.utm_crs_from_points(
-                    polygon_points, self.utm_zone_adjust, self.mgrs_band_adjust)
+            if data_centroid is None:
+                crs_poly = Polygon(
+                    [[point[1], point[0]] for point in polygon_points])
+                self.output_crs, utm_zone, mgrs_band = \
+                    raster_crs.utm_crs_from_polygon(
+                        crs_poly, self.utm_zone_adjust, self.mgrs_band_adjust)
+            else:
+                self.output_crs, utm_zone, mgrs_band = \
+                    raster_crs.utm_crs_from_point(
+                        data_centroid, self.utm_zone_adjust, self.mgrs_band_adjust)
+
             self.utm_zone = np.short(utm_zone)
             self.utm_hemisphere = raster_crs.hemisphere_from_mgrs_band(mgrs_band)
             self.mgrs_band = mgrs_band
