@@ -10,37 +10,81 @@ Rasterizes a given pixelcloud using configuration parameters in algorithmic
 and runtime config files
 
 example algorithmic config parameters:
+    # Scene definition controls
     padding                                         (-) = 0
+
+    # Input classification definitions
     interior_water_classes                          (-) = [4, 7]
     water_edge_classes                              (-) = [3, 6]
     land_edge_classes                               (-) = [2]
     dark_water_classes                              (-) = [5, 23, 24]
+    low_coh_water_classes                           (-) = [6, 7]
+
+    # Aggregation methods
     height_agg_method                               (-) = weight
     area_agg_method                                 (-) = composite
     sig0_agg_method                                 (-) = rare
+
+    # Height-constrained geolocation controls
     height_constrained_geoloc_source                (-) = lowres_raster
     lowres_raster_height_constrained_geoloc_method  (-) = taylor
     lowres_raster_scale_factor                      (-) = 0.2
+
+    # Class-use flags
     use_bright_land                                 (-) = True
     use_all_classes_for_wse                         (-) = False
     use_all_classes_for_sig0                        (-) = False
+
+    # Multithreading and debug controls
     height_constrained_geoloc_max_chunk_size        (-) = 100000
     utm_conversion_max_chunk_size                   (-) = 100000
     aggregator_max_chunk_size                       (-) = 100000
     debug_flag                                      (-) = False
     write_internal_files                            (-) = False
+
+    # Default geolocation qual flags
     geo_qual_suspect                                (-) = 0x0000ffff
     geo_qual_degraded                               (-) = 0x01ff0000
     geo_qual_bad                                    (-) = 0xfe000000
+
+    # Override geolocation qual flags
+    wse_geo_qual_suspect                            (-) = 0x0000ffff
+    wse_geo_qual_degraded                           (-) = 0x01ff0000
+    wse_geo_qual_bad                                (-) = 0xfe000000
+    area_geo_qual_suspect                           (-) = 0x0008ffff
+    area_geo_qual_degraded                          (-) = 0x01f70000
+    area_geo_qual_bad                               (-) = 0xfe000000
+    sig0_geo_qual_suspect                           (-) = 0x0000ffff
+    sig0_geo_qual_degraded                          (-) = 0x01ff0000
+    sig0_geo_qual_bad                               (-) = 0xfe000000
+
+    # Default classification qual flags
     class_qual_suspect                              (-) = 0x0000ffff
-    class_qual_degraded                             (-) = 0x01ff0000
-    class_qual_bad                                  (-) = 0xfe000000
+    class_qual_degraded                             (-) = 0x01fb0000
+    class_qual_bad                                  (-) = 0xfe040000
+
+    # Override classification qual flags
+    wse_class_qual_suspect                          (-) = 0x0000ffff
+    wse_class_qual_degraded                         (-) = 0x01fb0000
+    wse_class_qual_bad                              (-) = 0xfe040000
+    area_class_qual_suspect                         (-) = 0x0008ffff
+    area_class_qual_degraded                        (-) = 0x01f30000
+    area_class_qual_bad                             (-) = 0xfe040000
+    sig0_class_qual_suspect                         (-) = 0x0000ffff
+    sig0_class_qual_degraded                        (-) = 0x01fb0000
+    sig0_class_qual_bad                             (-) = 0xfe040000
+
+    # Default sigma0 qual flags
     sig0_qual_suspect                               (-) = 0x0000ffff
     sig0_qual_degraded                              (-) = 0x01ff0000
     sig0_qual_bad                                   (-) = 0xfe000000
+
+    # Minimum thresholds for good/sus pixels to not use degraded pixels
     num_good_sus_pix_thresh_wse                     (-) = 1
     num_good_sus_pix_thresh_water_area              (-) = 1
     num_good_sus_pix_thresh_sig0                    (-) = 1
+
+    # Suspect quality flagging thresholds
     pixc_water_frac_suspect_thresh                  (-) = 3
     num_wse_pix_suspect_thresh                      (-) = 5
     num_water_area_pix_suspect_thresh               (-) = 5
@@ -50,12 +94,16 @@ example algorithmic config parameters:
     wse_uncert_suspect_thresh                       (-) = 5
     water_frac_uncert_suspect_thresh                (-) = 0.5
     sig0_uncert_suspect_thresh                      (-) = 20
+
+    # Bad quality flagging thresholds
     wse_bad_thresh_min                              (-) = -500
     wse_bad_thresh_max                              (-) = 8000
     water_frac_bad_thresh_min                       (-) = -2
     water_frac_bad_thresh_max                       (-) = 3
     sig0_bad_thresh_min                             (-) = -100
     sig0_bad_thresh_max                             (-) = 1000000
+
+    # No-data flagging thresholds
     inner_swath_distance_thresh                     (-) = 10000
     missing_karin_data_time_thresh                  (-) = 0.1
 
