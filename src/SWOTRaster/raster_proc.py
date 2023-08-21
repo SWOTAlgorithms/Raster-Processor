@@ -655,7 +655,7 @@ class RasterProcessor(object):
         good_sus_degraded_mask = np.logical_and(good_sus_degraded_classes_mask,
             np.logical_or.reduce((good_qual_mask, sus_qual_mask, deg_qual_mask)))
 
-        pixc_mask = np.ma.zeros(good_mask.shape, dtype=bool)
+        pixc_mask = np.ma.zeros(good_sus_mask.shape, dtype=bool)
         raster_mask = np.ma.zeros((self.size_y, self.size_x), dtype=bool)
 
         for i in range(0, self.size_y):
