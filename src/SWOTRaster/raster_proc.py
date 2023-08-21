@@ -647,16 +647,13 @@ class RasterProcessor(object):
         sus_qual_mask = [x==products.QUAL_IND_SUSPECT for x in common_qual_flag]
         deg_qual_mask = [x==products.QUAL_IND_DEGRADED for x in common_qual_flag]
 
-        valid_classes_mask = np.logical_or(
+        good_sus_mask = np.logical_and(good_sus_classes_mask,
+            np.logical_or(good_qual_mask, sus_qual_mask))
+
+        good_sus_degraded_classes_mask = np.logical_or(
             good_sus_classes_mask, degraded_classes_mask)
-
-        good_mask = np.logical_and(good_sus_classes_mask, good_qual_mask)
-        suspect_mask = np.logical_and(good_sus_classes_mask, sus_qual_mask)
-        degraded_mask = np.logical_and(valid_classes_mask,
-            np.logical_or(degraded_classes_mask, deg_qual_mask))
-
-        good_sus_mask = np.logical_or(good_mask, suspect_mask)
-        good_sus_degraded_mask = np.logical_or(good_sus_mask, degraded_mask)
+        good_sus_degraded_mask = np.logical_and(good_sus_degraded_classes_mask,
+            np.logical_or.reduce((good_qual_mask, sus_qual_mask, deg_qual_mask)))
 
         pixc_mask = np.ma.zeros(good_mask.shape, dtype=bool)
         raster_mask = np.ma.zeros((self.size_y, self.size_x), dtype=bool)
