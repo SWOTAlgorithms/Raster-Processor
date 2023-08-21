@@ -76,8 +76,8 @@ example algorithmic config parameters:
 
     # Default sigma0 qual flags
     sig0_qual_suspect                               (-) = 0x0000ffff
-    sig0_qual_degraded                              (-) = 0x01ff0000
-    sig0_qual_bad                                   (-) = 0xfe000000
+    sig0_qual_degraded                              (-) = 0x01fb0000
+    sig0_qual_bad                                   (-) = 0xfe040000
 
     # Minimum thresholds for good/sus pixels to not use degraded pixels
     num_good_sus_pix_thresh_wse                     (-) = 1
