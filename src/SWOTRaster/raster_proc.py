@@ -692,10 +692,9 @@ class RasterProcessor(object):
         def get_agg_output(result, mask, fill_value=np.nan):
             """ Get aggregator output on raster grid, with fill_value """
             out = fill_value*np.ma.ones((self.size_y, self.size_x),
-                                        dtype=type(fill_value),
-                                        fill_value=fill_value)
+                                        dtype=type(fill_value), fill_value=0)
             out[mask] = result
-            return np.ma.fix_invalid(np.ma.masked_equal(out, fill_value))
+            return np.ma.fix_invalid(out)
 
         # Call aggregator with multiprocessing if commanded
         if self.max_worker_processes > 1:

@@ -287,7 +287,7 @@ def aggregate_ice_flag(pixc_ice_flag, mask):
         else: # Otherwise, return partial cover value
             ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
     else:
-        ice_flag_out = 255
+        ice_flag_out = np.nan
 
     return ice_flag_out
 
