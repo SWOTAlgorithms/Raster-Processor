@@ -287,7 +287,7 @@ def aggregate_ice_flag(pixc_ice_flag, mask):
         else: # Otherwise, return partial cover value
             ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
     else:
-        ice_flag_out = np.nan
+        ice_flag_out = 255
 
     return ice_flag_out
 
@@ -298,6 +298,7 @@ def aggregate_layover_impact(
     layover_impact = height_weighted_mean_masked(
         pixc_layover_impact, pixc_phase_noise_std, pixc_dh_dphi, mask,
         height_agg_method=height_agg_method)
+
     return layover_impact
 
 def aggregate_wse_qual(
@@ -428,10 +429,10 @@ def aggregate_water_area_qual(
             water_area_qual = max(water_area_qual, products.QUAL_IND_BAD)
             water_area_qual_bitwise += products.QUAL_IND_VALUE_BAD
     else:
-        n_water_area_pix = 0
         water_area_qual = products.QUAL_IND_BAD
         water_area_qual_bitwise = products.QUAL_IND_NO_PIXELS \
                                   + products.QUAL_IND_FEW_PIXELS
+        n_water_area_pix = 0
 
     return water_area_qual, water_area_qual_bitwise, n_water_area_pix
 
@@ -511,4 +512,5 @@ def aggregate_sig0_qual(
 def aggregate_classification(pixc_classif, mask):
     """ Aggregate binary classification """
     classification = simple_masked(pixc_classif, mask, metric='mode')
+
     return classification
