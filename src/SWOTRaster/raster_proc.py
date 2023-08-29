@@ -180,12 +180,6 @@ class RasterProcessor(object):
             self.create_projection_from_polygon_points(polygon_points,
                                                        data_centroid)
 
-        # Return empty product if pixc is empty
-        empty_product = self.build_product(populate_values=False)
-        if len(pixc['pixel_cloud']['height'])==0:
-            LOGGER.warning('Empty Pixel Cloud: returning empty raster')
-            return empty_product
-
         # Get pixc classification masks
         water_classes = np.concatenate((self.interior_water_classes,
                                         self.water_edge_classes,
@@ -228,6 +222,7 @@ class RasterProcessor(object):
             self.sig0_qual_degraded, self.sig0_qual_bad)
 
         # Get raster mapping
+        empty_product = self.build_product(populate_values=False)
         if self.projection_type=='utm':
             self.proj_mapping = empty_product.get_raster_mapping(
                 pixc, all_classes_mask, use_improved_geoloc,
@@ -349,10 +344,14 @@ class RasterProcessor(object):
                     np.deg2rad(pixc['pixel_cloud']['longitude']),
                     pixc['pixel_cloud']['improved_height']))
 
-            flat_ifgram = ag.flatten_interferogram(
-                pixc['pixel_cloud']['interferogram'],
-                tvp_plus_y_antenna_xyz, tvp_minus_y_antenna_xyz, target_xyz,
-                ag.get_sensor_index(pixc), pixc.wavelength)
+            # If no tvp to get sensor index, set it to False
+            if len(pixc['tvp']['time']) > 0:
+                flat_ifgram = ag.flatten_interferogram(
+                    pixc['pixel_cloud']['interferogram'],
+                    tvp_plus_y_antenna_xyz, tvp_minus_y_antenna_xyz, target_xyz,
+                    ag.get_sensor_index(pixc), pixc.wavelength)
+            else:
+                flat_ifgram = pixc['pixel_cloud']['interferogram']
 
             LOGGER.info('aggregating height')
             height, self.wse_u = self.call_aggregator(
@@ -698,10 +697,9 @@ class RasterProcessor(object):
 
         # Call aggregator with multiprocessing if commanded
         if self.max_worker_processes > 1:
-            chunk_size = int(min(
+            chunk_size = int(max(1, min(
                 np.ceil(np.sum(mask) / (self.max_worker_processes*4)),
-                self.aggregator_max_chunk_size))
-
+                self.aggregator_max_chunk_size)))
             _agg_fn = partial(raster_agg.fn_map, agg_fn)
             with multiprocessing.get_context('spawn').Pool(
                     processes=self.max_worker_processes) as pool:
@@ -841,28 +839,31 @@ class RasterProcessor(object):
             products.POLYGON_EXTENT_DIST,
             products.POLYGON_EXTENT_DIST)
 
-        # If polygon points are in geodetic coordinates, swap lat/lon
-        if self.projection_type=='geo':
-            poly = Polygon(
-                [[point[1], point[0]] for point in inner_swath_polygon_points])
+        if len(inner_swath_polygon_points) >= 3:
+            # If polygon points are in geodetic coordinates, swap lat/lon
+            if self.projection_type=='geo':
+                poly = Polygon(
+                    [[point[1], point[0]] for point in inner_swath_polygon_points])
+            else:
+                poly = Polygon(inner_swath_polygon_points)
+
+            # Handle longitude wrap
+            x_max = self.x_max
+            if self.projection_type=='geo' and self.x_min > x_max:
+                x_max = x_max + 360
+                poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+                (min_x, _, max_x, _) = poly.bounds
+                if max_x < self.x_min:
+                    poly = affinity.translate(poly, xoff=360)
+
+            raster_transform = rasterio.transform.from_bounds(
+                self.x_min, self.y_min, x_max, self.y_max, self.size_x,
+                self.size_y)
+            mask = np.flipud(rasterio.features.geometry_mask(
+                [poly], out_shape=(self.size_y, self.size_x),
+                transform=raster_transform, all_touched=True, invert=True))
         else:
-            poly = Polygon(inner_swath_polygon_points)
-
-        # Handle longitude wrap
-        x_max = self.x_max
-        if self.projection_type=='geo' and self.x_min > x_max:
-            x_max = x_max + 360
-            poly = raster_crs.shift_wrapped_longitude_polygon(poly)
-            (min_x, _, max_x, _) = poly.bounds
-            if max_x < self.x_min:
-                poly = affinity.translate(poly, xoff=360)
-
-        raster_transform = rasterio.transform.from_bounds(
-            self.x_min, self.y_min, x_max, self.y_max, self.size_x,
-            self.size_y)
-        mask = np.flipud(rasterio.features.geometry_mask(
-            [poly], out_shape=(self.size_y, self.size_x),
-            transform=raster_transform, all_touched=True, invert=True))
+            mask = np.zeros((self.size_y, self.size_x), dtype=bool)
 
         # Mask the datasets and flag
         if not self.skip_wse:

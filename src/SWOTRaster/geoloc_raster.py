@@ -91,6 +91,18 @@ class GeolocRaster(object):
         """ Improve the height of noisy point (in object sensor) """
         LOGGER.info("doing taylor improved geolocation")
 
+        # Init output vectors
+        self.out_lat_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['latitude']))
+        self.out_lon_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['longitude']))
+        self.out_height_corr = np.ma.masked_all(
+            len(self.pixc['pixel_cloud']['height']))
+
+        # If there are no input pixc samples, return
+        if len(self.pixc['pixel_cloud']['height']) == 0:
+            return
+
         mask = np.logical_not(np.logical_or.reduce((
             np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
             np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
@@ -154,14 +166,6 @@ class GeolocRaster(object):
             np.array([nadir_vx_vect, nadir_vy_vect, nadir_vz_vect]))
 
         # Split the data into more manageable chunks and geolocate
-        # Init output vectors
-        self.out_lat_corr = np.ma.masked_all(
-            len(self.pixc['pixel_cloud']['latitude']))
-        self.out_lon_corr = np.ma.masked_all(
-            len(self.pixc['pixel_cloud']['longitude']))
-        self.out_height_corr = np.ma.masked_all(
-            len(self.pixc['pixel_cloud']['height']))
-
         try:
             max_chunk_size = self.algorithmic_config[
                 'height_constrained_geoloc_max_chunk_size']
@@ -174,8 +178,8 @@ class GeolocRaster(object):
                             verbose=False, max_iter_grad=1, height_goal=1.e-3)
         _geoloc_fn = partial(fn_star, geoloc_fn)
         if self.max_worker_processes > 1:
-            chunk_size = int(min(np.ceil(len(h_new)/(self.max_worker_processes*4)),
-                                 max_chunk_size))
+            chunk_size = int(max(1, min(
+                np.ceil(len(h_new)/(self.max_worker_processes*4)), max_chunk_size)))
             with multiprocessing.get_context('spawn').Pool(
                     processes=self.max_worker_processes) as pool:
                 result_chunks = list(
