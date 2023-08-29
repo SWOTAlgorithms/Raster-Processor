@@ -344,7 +344,6 @@ class RasterProcessor(object):
                     np.deg2rad(pixc['pixel_cloud']['longitude']),
                     pixc['pixel_cloud']['improved_height']))
 
-            # If no tvp to get sensor index, set it to False
             if len(pixc['tvp']['time']) > 0:
                 flat_ifgram = ag.flatten_interferogram(
                     pixc['pixel_cloud']['interferogram'],
