@@ -99,18 +99,17 @@ class GeolocRaster(object):
         self.out_height_corr = np.ma.masked_all(
             len(self.pixc['pixel_cloud']['height']))
 
-        # If there are no input pixc samples, return
-        if len(self.pixc['pixel_cloud']['height']) == 0:
-            return
-
         mask = np.logical_not(np.logical_or.reduce((
             np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
             np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
             np.ma.getmaskarray(self.pixc['pixel_cloud']['longitude']))))
 
         mask_indices = np.where(mask)[0]
-
         nb_pix = np.sum(mask)
+
+        # If there are no input pixc samples, return
+        if nb_pix == 0:
+            return
 
         # Convert geodetic coordinates (lat, lon, height) to
         # cartesian coordinates (x, y, z)
