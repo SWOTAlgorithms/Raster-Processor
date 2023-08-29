@@ -827,18 +827,18 @@ class RasterProcessor(object):
     def flag_inner_swath(self, pixc):
         """ Flag inner swath"""
         # Create polygon for inner swath area (full swath)
-        swath_side = 'F'
-        tvp_velocity_heading = pixc['tvp']['velocity_heading']
-        tvp_xyz = np.row_stack((
-            pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
-        inner_swath_polygon_points = self.get_swath_polygon_points_from_tvp(
-            tvp_xyz, tvp_velocity_heading, swath_side,
-            self.inner_swath_distance_thresh,
-            products.POLYGON_EXTENT_DIST,
+        if len(pixc['tvp']['time']) > 0:
+            tvp_velocity_heading = pixc['tvp']['velocity_heading']
+            tvp_xyz = np.row_stack((
+                pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
+
+            inner_swath_polygon_points = self.get_swath_polygon_points_from_tvp(
+                tvp_xyz, tvp_velocity_heading, 'F',
+                self.inner_swath_distance_thresh,
+                products.POLYGON_EXTENT_DIST,
             products.POLYGON_EXTENT_DIST)
 
-        if len(inner_swath_polygon_points) >= 3:
             # If polygon points are in geodetic coordinates, swap lat/lon
             if self.projection_type=='geo':
                 poly = Polygon(
