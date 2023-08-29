@@ -350,6 +350,7 @@ class RasterProcessor(object):
                     tvp_plus_y_antenna_xyz, tvp_minus_y_antenna_xyz, target_xyz,
                     ag.get_sensor_index(pixc), pixc.wavelength)
             else:
+                LOGGER.warning('Unable to flatten interferogram: Empty TVP...')
                 flat_ifgram = pixc['pixel_cloud']['interferogram']
 
             LOGGER.info('aggregating height')
