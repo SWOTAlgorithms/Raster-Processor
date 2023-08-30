@@ -190,12 +190,15 @@ class RasterProcessor(object):
         all_classes_mask = pixc.get_mask(all_classes, use_improved_geoloc)
         low_coh_water_classes_mask = pixc.get_mask(
             self.low_coh_water_classes, use_improved_geoloc)
+
         bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag']
         if not self.use_bright_land:
             water_classes_mask = np.logical_and(
                 water_classes_mask, np.logical_not(bright_land_pixc_flag))
             all_classes_mask = np.logical_and(
                 all_classes_mask, np.logical_not(bright_land_pixc_flag))
+            low_coh_water_classes_mask = np.logical_and(
+                low_coh_water_classes_mask, np.logical_not(bright_land_pixc_flag))
 
         # Get pixc summary quality flags
         LOGGER.info("getting pixc summary quality flags")
