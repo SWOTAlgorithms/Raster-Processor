@@ -2079,19 +2079,29 @@ class ScenePixelCloud(Product):
             else:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
 
-        # Copy pixcvec variables (set improved llh to pixcvec llh here)
+        # Copy pixcvec variables
+        # set improved llh to pixcvec llh where it exists, otherwise use pixc llh
+        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude']
+        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude']
+        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height']
+
         if pixcvec_tile is not None:
-            scene_pixel_cloud['improved_latitude'] = \
-                pixcvec_tile.latitude_vectorproc[mask]
-            scene_pixel_cloud['improved_longitude'] = \
-                pixcvec_tile.longitude_vectorproc[mask]
-            scene_pixel_cloud['improved_height'] = \
-                pixcvec_tile.height_vectorproc[mask]
+            pixcvec_geoloc_valid = np.logical_not(np.logical_or.reduce((
+                np.ma.getmaskarray(pixcvec_tile['latitude_vectorproc'][mask]),
+                np.ma.getmaskarray(pixcvec_tile['longitude_vectorproc'][mask]),
+                np.ma.getmaskarray(pixcvec_tile['height_vectorproc'][mask]))))
+
+            scene_pixel_cloud['improved_latitude'][pixcvec_geoloc_valid] = \
+                pixcvec_tile['latitude_vectorproc'][mask][pixcvec_geoloc_valid]
+            scene_pixel_cloud['improved_longitude'][pixcvec_geoloc_valid] = \
+                pixcvec_tile['longitude_vectorproc'][mask][pixcvec_geoloc_valid]
+            scene_pixel_cloud['improved_height'][pixcvec_geoloc_valid] = \
+                pixcvec_tile['height_vectorproc'][mask][pixcvec_geoloc_valid]
 
             scene_pixel_cloud['ice_clim_flag'] = \
-                np.ma.MaskedArray(pixcvec_tile.ice_clim_f)[mask]
+                np.ma.MaskedArray(pixcvec_tile['ice_clim_f'])[mask]
             scene_pixel_cloud['ice_dyn_flag'] = \
-                np.ma.MaskedArray(pixcvec_tile.ice_dyn_f)[mask]
+                np.ma.MaskedArray(pixcvec_tile['ice_dyn_f'])[mask]
             ice_clim_flag_mask = np.logical_not(np.isin(
                 scene_pixel_cloud['ice_clim_flag'],
                 COMMON_VARIABLES['ice_clim_flag']['flag_values']))
@@ -2100,13 +2110,6 @@ class ScenePixelCloud(Product):
                 COMMON_VARIABLES['ice_dyn_flag']['flag_values']))
             scene_pixel_cloud['ice_clim_flag'].mask = ice_clim_flag_mask
             scene_pixel_cloud['ice_dyn_flag'].mask = ice_dyn_flag_mask
-        else:
-            scene_pixel_cloud['improved_latitude'] = \
-                scene_pixel_cloud['latitude']
-            scene_pixel_cloud['improved_longitude'] = \
-                scene_pixel_cloud['longitude']
-            scene_pixel_cloud['improved_height'] = \
-                scene_pixel_cloud['height']
 
         # Copy common pixc attributes
         pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
