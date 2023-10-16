@@ -46,6 +46,7 @@ QUAL_IND_NEAR_RANGE_SUSPECT = 16384             # bit 14
 QUAL_IND_SIG0_QUAL_DEGRADED = 131072            # bit 17
 QUAL_IND_CLASS_QUAL_DEGRADED = 262144           # bit 18
 QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
+QUAL_IND_DARK_WATER_DEGRADED = 1048576          # bit 20
 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152 # bit 21
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
@@ -318,6 +319,7 @@ COMMON_VARIABLES = odict([
                 near_range_suspect
                 classification_qual_degraded
                 geolocation_qual_degraded
+                dark_water_degraded
                 low_coherence_water_degraded
                 value_bad
                 no_pixels
@@ -334,6 +336,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_DARK_WATER_DEGRADED,
                 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_NO_PIXELS,
@@ -342,7 +345,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4046221478],
+            ['valid_max', 4047270054],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
