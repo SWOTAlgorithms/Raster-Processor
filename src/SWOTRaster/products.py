@@ -1553,8 +1553,6 @@ class ScenePixc(Product):
         ['right_time_coverage_start', odict([])],
         ['right_time_coverage_end', odict([])],
         ['wavelength', odict([])],
-        ['near_range', odict([])],
-        ['nominal_slant_range_spacing', odict([])],
         ['left_first_longitude', odict([])],
         ['left_last_longitude', odict([])],
         ['left_first_latitude', odict([])],
@@ -1596,9 +1594,6 @@ class ScenePixc(Product):
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
         scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
         scene_pixc.wavelength = pixc_tile.wavelength
-        scene_pixc.near_range = pixc_tile.near_range
-        scene_pixc.nominal_slant_range_spacing = \
-            pixc_tile.nominal_slant_range_spacing
 
         swath_side = pixc_tile.swath_side
 
@@ -1739,14 +1734,11 @@ class ScenePixc(Product):
         scene_pixc.set_extent(swath_edges, swath_polygon_points,
                               granule_start_time, granule_end_time)
 
-        # Copy most attributes from one of the central tiles
+        # Copy attributes from one of the central tiles
         # Central tile is one with the median time
         central_tile_index = granule_start_times.index(
             np.percentile(granule_start_times, 50, interpolation='nearest'))
         scene_pixc.wavelength = tile_objs[central_tile_index].wavelength
-        scene_pixc.near_range = tile_objs[central_tile_index].near_range
-        scene_pixc.nominal_slant_range_spacing = \
-            tile_objs[central_tile_index].nominal_slant_range_spacing
 
         return scene_pixc
 
@@ -1805,7 +1797,7 @@ class ScenePixc(Product):
             qual_flag, qual_flag_mask))
 
         if qual_flag == 'pixc_line_qual':
-            flag = self.pixel_cloud[qual_flag][self.pixel_cloud['azimuth_index']]
+            flag = self.pixel_cloud[qual_flag][self.pixel_cloud['line_index']]
         else:
             flag = self.pixel_cloud[qual_flag]
 
@@ -2009,8 +2001,10 @@ class ScenePixelCloud(Product):
         ['improved_latitude', odict([])],
         ['improved_longitude', odict([])],
         ['improved_height', odict([])],
+        ['line_index', odict([])],
         ['azimuth_index', odict([])],
         ['range_index', odict([])],
+        ['range', odict([])],
         ['interferogram', odict([])],
         ['classification', odict([])],
         ['eff_num_rare_looks', odict([])],
@@ -2082,6 +2076,13 @@ class ScenePixelCloud(Product):
             else:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
 
+        # Get the actual range and an index from pixel to line
+        # (for one tile this is just the azimuth index)
+        scene_pixel_cloud['range'] = \
+            pixc_tile.near_range + (pixc_tile['pixel_cloud']['range_index'][mask]
+                                    * pixc_tile.nominal_slant_range_spacing)
+        scene_pixel_cloud['line_index'] = pixc_tile['pixel_cloud']['azimuth_index'][mask]
+
         # Copy pixcvec variables
         # set improved llh to pixcvec llh where it exists, otherwise use pixc llh
         scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude']
@@ -2127,7 +2128,7 @@ class ScenePixelCloud(Product):
         """ Add other to self """
         klass = ScenePixelCloud()
         for key in klass.VARIABLES:
-            if key in ['azimuth_index']:
+            if key in ['line_index']:
                 setattr(klass, key, np.ma.concatenate((
                     getattr(self, key), len(self.pixc_line_qual) + getattr(other, key))))
             else:
