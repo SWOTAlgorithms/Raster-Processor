@@ -133,7 +133,7 @@ class GeolocRaster(object):
         nadir_vz = self.pixc['tvp']['vz']
 
         # Get distance from satellite to target point
-        ri = self.pixc['pixel_cloud']['range']
+        ri = self.pixc['pixel_cloud']['range'][mask]
 
         # Remap illumination time to nearest sensor index
         sensor_s = ag.get_sensor_index(self.pixc)[mask]
