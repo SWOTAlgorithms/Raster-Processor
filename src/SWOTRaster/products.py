@@ -48,6 +48,7 @@ QUAL_IND_CLASS_QUAL_DEGRADED = 262144           # bit 18
 QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152 # bit 21
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
+QUAL_IND_OUTSIDE_DATA_WINDOW = 67108864         # bit 26
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
 QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912       # bit 29
 QUAL_IND_INNER_SWATH = 1073741824               # bit 30
@@ -320,6 +321,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 low_coherence_water_degraded
                 value_bad
+                outside_data_window
                 no_pixels
                 outside_scene_bounds
                 inner_swath
@@ -336,13 +338,14 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED,
                 QUAL_IND_VALUE_BAD,
+                QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4046221478],
+            ['valid_max', 4113330342],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
@@ -410,6 +413,7 @@ COMMON_VARIABLES = odict([
                 classification_qual_degraded
                 geolocation_qual_degraded
                 value_bad
+                outside_data_window
                 no_pixels
                 outside_scene_bounds
                 inner_swath
@@ -427,13 +431,14 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
+                QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4044124590],
+            ['valid_max', 4111233454],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -527,6 +532,7 @@ COMMON_VARIABLES = odict([
                 classification_qual_degraded
                 geolocation_qual_degraded
                 value_bad
+                outside_data_window
                 no_pixels
                 outside_scene_bounds
                 inner_swath
@@ -545,13 +551,14 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_VALUE_BAD,
+                QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
                 QUAL_IND_OUTSIDE_SCENE_BOUNDS,
                 QUAL_IND_INNER_SWATH,
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4044255655],
+            ['valid_max', 4111364519],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
@@ -2043,13 +2050,19 @@ class ScenePixelCloud(Product):
         ['geolocation_qual', odict([])],
         ['sig0_qual', odict([])],
         ['pixc_line_qual', odict([])],
-        ['pixc_line_to_tvp', odict([])]
+        ['pixc_line_to_tvp', odict([])],
+        ['data_window_first_cross_track', odict([])],
+        ['data_window_last_cross_track', odict([])],
     ])
 
     for name, reference in VARIABLES.items():
         reference['dimensions'] = odict([['points', 0]])
     VARIABLES['pixc_line_qual']['dimensions'] = odict([['num_pixc_lines',0],])
     VARIABLES['pixc_line_to_tvp']['dimensions'] = odict([['num_pixc_lines',0],])
+    VARIABLES['data_window_first_cross_track']['dimensions'] = \
+        odict([['num_pixc_lines',0],])
+    VARIABLES['data_window_last_cross_track']['dimensions'] = \
+        odict([['num_pixc_lines',0],])
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None, mask=None):
@@ -2068,7 +2081,9 @@ class ScenePixelCloud(Product):
                 pixc_tile['pixel_cloud'].VARIABLES.keys()):
             scene_pixel_cloud.VARIABLES[field] = \
                 pixc_tile['pixel_cloud'].VARIABLES[field]
-            if field in ['pixc_line_qual', 'pixc_line_to_tvp']:
+            if field in ['pixc_line_qual', 'pixc_line_to_tvp',
+                         'data_window_first_cross_track',
+                         'data_window_last_cross_track']:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
             else:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]

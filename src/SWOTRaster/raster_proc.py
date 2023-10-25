@@ -728,16 +728,11 @@ class RasterProcessor(object):
             return get_agg_output(results, mask, empty_results)
 
     def flag_missing_karin_data(self, pixc):
-        """ Flag missing karin data"""
-        pixc_line_qual_meanings = \
-            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_meanings'].split()
-        pixc_line_qual_masks = \
-            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_masks']
-        pixc_line_qual_ind_large_karin_gap = pixc_line_qual_masks[
-            pixc_line_qual_meanings.index('large_karin_gap')]
-
-        # Define grouping function
+        """ Flag missing karin data """
+        # Define helper functions
         def _group_by_diff(data, diff, key=None):
+            """ Split dataset into groups based on whether the key (default=data)
+            has a jump greater than a provided difference"""
             if key is None: key = data
             split_idxs = [i+1 for x, y, i in zip(key[:-1], key[1:], range(len(key)))
                           if abs(y-x) > diff]
@@ -746,15 +741,52 @@ class RasterProcessor(object):
             idxs = [np.arange(i, j) for i, j in zip(split_idxs[:-1], split_idxs[1:])]
             return zip(groups, idxs)
 
-        # Create polygons for areas that don't have missing data
-        # Handle the different sides separately
+        def _polygons_points_to_polygons(polygons_points):
+            """ Create list of polygons from list of polygons points """
+            polys = []
+            for this_polygon_points in polygons_points:
+                # If polygon points are in geodetic coordinates, swap lat/lon
+                if self.projection_type=='geo':
+                    this_poly = Polygon(
+                        [[point[1], point[0]] for point in this_polygon_points])
+                else:
+                    this_poly = Polygon(this_polygon_points)
+                polys.append(this_poly)
+            return polys
+
+        def _shift_longitude_wrap_polygons(polygons):
+            """ Shift polygons from list at longitude wrap """
+            shifted_polys = []
+            for poly in polygons:
+                shifted_poly = raster_crs.shift_wrapped_longitude_polygon(poly)
+                (min_x, _, max_x, _) = shifted_poly.bounds
+                if max_x < self.x_min:
+                    shifted_poly = affinity.translate(shifted_poly, xoff=360)
+                shifted_polys.append(shifted_poly)
+            return shifted_polys
+
+        pixc_line_qual_meanings = \
+            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_meanings'].split()
+        pixc_line_qual_masks = \
+            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_masks']
+        pixc_line_qual_ind_large_karin_gap = pixc_line_qual_masks[
+            pixc_line_qual_meanings.index('large_karin_gap')]
+
+        # Create outside data window and extant data polygons
         extant_data_polygons_points = []
+        outside_data_window_polygons_points = []
+
+        # Handle the different sides separately
         for swath_side in ['L', 'R']:
             tvp_side_mask = pixc['tvp']['swath_side']==swath_side
-            pixc_tvp_index = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
-            pixc_side_mask = tvp_side_mask[pixc_tvp_index]
+            pixc_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
+            pixc_side_mask = tvp_side_mask[pixc_tvp_idx]
             pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual'][pixc_side_mask]
-            pixc_tvp_index = pixc_tvp_index[pixc_side_mask]
+            pixc_tvp_idx = pixc_tvp_idx[pixc_side_mask]
+            pixc_data_window_first_cross_track = \
+                pixc['pixel_cloud']['data_window_first_cross_track'][pixc_side_mask]
+            pixc_data_window_last_cross_track = \
+                pixc['pixel_cloud']['data_window_last_cross_track'][pixc_side_mask]
 
             tvp_time = pixc['tvp']['time']
             tvp_velocity_heading = pixc['tvp']['velocity_heading']
@@ -767,69 +799,162 @@ class RasterProcessor(object):
             for k, g in groupby(np.arange(len(pixc_extant_data_mask)),
                                 lambda x: pixc_extant_data_mask[x]):
                 if k:
-                    group_idxs = pixc_tvp_index[list(g)]
-                    group_times = tvp_time[group_idxs]
-                    for idxs, _ in _group_by_diff(
-                            group_idxs, self.missing_karin_data_time_thresh,
+                    group_line_idxs = list(g)
+                    group_times = tvp_time[pixc_tvp_idx[group_line_idxs]]
+                    for line_idxs, _ in _group_by_diff(
+                            group_line_idxs, self.missing_karin_data_time_thresh,
                             key=group_times):
-                        group_tvp_xyz = tvp_xyz[:,idxs]
-                        group_tvp_velocity_heading = tvp_velocity_heading[idxs]
+                        tvp_idxs = pixc_tvp_idx[line_idxs]
+                        group_tvp_xyz = tvp_xyz[:, tvp_idxs]
+                        group_tvp_velocity_heading = tvp_velocity_heading[tvp_idxs]
+                        group_data_window_first_cross_track = \
+                            pixc_data_window_first_cross_track[line_idxs]
+                        group_data_window_last_cross_track = \
+                            pixc_data_window_last_cross_track[line_idxs]
+
+                        # Get max extent and fill/clamp cross track values
+                        if swath_side=='L':
+                            max_extent = -products.POLYGON_EXTENT_DIST
+
+                            # Fill/clamp to 0
+                            group_data_window_first_cross_track.filled(0)
+                            group_data_window_first_cross_track[
+                                group_data_window_first_cross_track > 0] = 0
+                            group_data_window_last_cross_track[
+                                group_data_window_last_cross_track > 0] = 0
+
+                            # Fill/clamp to max extent
+                            group_data_window_last_cross_track.filled(max_extent)
+                            group_data_window_first_cross_track[
+                                group_data_window_first_cross_track < max_extent] \
+                                = max_extent
+                            group_data_window_last_cross_track[
+                                group_data_window_last_cross_track < max_extent] \
+                                = max_extent
+                        else:
+                            max_extent = products.POLYGON_EXTENT_DIST
+
+                            # Fill/clamp to 0
+                            group_data_window_first_cross_track.filled(0)
+                            group_data_window_first_cross_track[
+                                group_data_window_first_cross_track < 0] = 0
+                            group_data_window_last_cross_track[
+                                group_data_window_last_cross_track < 0] = 0
+
+                            # Fill/clamp to max extent
+                            group_data_window_last_cross_track.filled(max_extent)
+                            group_data_window_first_cross_track[
+                                group_data_window_first_cross_track > max_extent] \
+                                = max_extent
+                            group_data_window_last_cross_track[
+                                group_data_window_last_cross_track > max_extent] \
+                                = max_extent
+
+                        # Get extant data polygon points and add to list
                         extant_data_polygons_points.append(
                             self.get_swath_polygon_points_from_tvp(
                                 group_tvp_xyz,
                                 group_tvp_velocity_heading,
-                                swath_side,
-                                products.POLYGON_EXTENT_DIST))
+                                left_crosstrack_dist=np.minimum(
+                                    group_data_window_first_cross_track,
+                                    group_data_window_last_cross_track),
+                                right_crosstrack_dist=np.maximum(
+                                    group_data_window_first_cross_track,
+                                    group_data_window_last_cross_track)))
 
-        polys = []
-        for this_polygon_points in extant_data_polygons_points:
-            # If polygon points are in geodetic coordinates, swap lat/lon
-            if self.projection_type=='geo':
-                this_poly = Polygon(
-                    [[point[1], point[0]] for point in this_polygon_points])
-            else:
-                this_poly = Polygon(this_polygon_points)
-            polys.append(this_poly)
+                        # Get outside data window polygon points
+                        # (inside and outside) and add to list
+                        outside_data_window_polygons_points.append(
+                            self.get_swath_polygon_points_from_tvp(
+                                group_tvp_xyz,
+                                group_tvp_velocity_heading,
+                                left_crosstrack_dist=np.minimum(0,
+                                    group_data_window_first_cross_track),
+                                right_crosstrack_dist=np.maximum(0,
+                                    group_data_window_first_cross_track)))
+
+                        outside_data_window_polygons_points.append(
+                            self.get_swath_polygon_points_from_tvp(
+                                group_tvp_xyz,
+                                group_tvp_velocity_heading,
+                                left_crosstrack_dist=np.minimum(
+                                    group_data_window_last_cross_track,
+                                    max_extent),
+                                right_crosstrack_dist=np.maximum(
+                                    group_data_window_last_cross_track,
+                                    max_extent)))
+
+        # Create polygons from points
+        extant_data_polys = _polygons_points_to_polygons(
+            extant_data_polygons_points)
+        outside_data_window_polys = _polygons_points_to_polygons(
+            outside_data_window_polygons_points)
 
         # Handle longitude wrap
         x_max = self.x_max
         if self.projection_type=='geo' and self.x_min > x_max:
             x_max = x_max + 360
-            shifted_polys = []
-            for poly in polys:
-                shifted_poly = raster_crs.shift_wrapped_longitude_polygon(poly)
-                (min_x, _, max_x, _) = shifted_poly.bounds
-                if max_x < self.x_min:
-                    shifted_poly = affinity.translate(shifted_poly, xoff=360)
-                shifted_polys.append(shifted_poly)
-            polys = shifted_polys
+            extant_data_polys = _shift_longitude_wrap_polygons(
+                extant_data_polys)
+            outside_data_window_polys = _shift_longitude_wrap_polygons(
+                outside_data_window_polys)
 
-        if len(polys) > 0:
-            raster_transform = rasterio.transform.from_bounds(
+        # Create the raster transform from the scene bounds (no wrap)
+        raster_transform = rasterio.transform.from_bounds(
                 self.x_min, self.y_min, x_max, self.y_max, self.size_x,
                 self.size_y)
-            mask = np.flipud(rasterio.features.geometry_mask(
-                polys, out_shape=(self.size_y, self.size_x),
+
+        # Burn the polygons to the missing data mask
+        if len(extant_data_polys) > 0:
+            missing_data_mask = np.flipud(rasterio.features.geometry_mask(
+                extant_data_polys, out_shape=(self.size_y, self.size_x),
                 transform=raster_transform, all_touched=True))
         else:
-            mask = np.ones((self.size_y, self.size_x), dtype=bool)
+            missing_data_mask = np.ones((self.size_y, self.size_x), dtype=bool)
+
+        # Burn the polygons to the outside data window mask
+        if len(outside_data_window_polys) > 0:
+            outside_data_window_mask = np.flipud(rasterio.features.geometry_mask(
+                outside_data_window_polys, out_shape=(self.size_y, self.size_x),
+                transform=raster_transform, all_touched=True, invert=True))
+        else:
+            outside_data_window_mask = np.ones((self.size_y, self.size_x), dtype=bool)
+
+        # Mask the masks by each other to have correct edge behavior
+        outside_data_window_mask[np.logical_not(missing_data_mask)] = False
+        missing_data_mask[outside_data_window_mask] = False
 
         # Mask the datasets and flag
         if not self.skip_wse:
-            wse_mask = np.logical_and(self.wse.mask, mask)
-            self.wse_qual_bitwise[wse_mask] += \
+            wse_missing_data_mask = np.logical_and(
+                self.wse.mask, missing_data_mask)
+            wse_outside_data_window_mask = np.logical_and(
+                self.wse.mask, outside_data_window_mask)
+            self.wse_qual_bitwise[wse_missing_data_mask] += \
                 products.QUAL_IND_MISSING_KARIN_DATA
+            self.wse_qual_bitwise[wse_outside_data_window_mask] += \
+                products.QUAL_IND_OUTSIDE_DATA_WINDOW
         if not self.skip_area:
-            water_area_mask = np.logical_and(self.water_area.mask, mask)
-            self.water_area_qual_bitwise[water_area_mask] += \
+            water_area_missing_data_mask = np.logical_and(
+                self.water_area.mask, missing_data_mask)
+            water_area_outside_data_window_mask = np.logical_and(
+                self.water_area.mask, outside_data_window_mask)
+            self.water_area_qual_bitwise[water_area_missing_data_mask] += \
                 products.QUAL_IND_MISSING_KARIN_DATA
+            self.water_area_qual_bitwise[water_area_outside_data_window_mask] += \
+                products.QUAL_IND_OUTSIDE_DATA_WINDOW
         if not self.skip_sig0:
-            sig0_mask = np.logical_and(self.sig0.mask, mask)
-            self.sig0_qual_bitwise[sig0_mask] += \
+            sig0_missing_data_mask = np.logical_and(
+                self.sig0.mask, missing_data_mask)
+            sig0_outside_data_window_mask = np.logical_and(
+                self.sig0.mask, outside_data_window_mask)
+            self.sig0_qual_bitwise[sig0_missing_data_mask] += \
                 products.QUAL_IND_MISSING_KARIN_DATA
+            self.sig0_qual_bitwise[sig0_outside_data_window_mask] += \
+                products.QUAL_IND_OUTSIDE_DATA_WINDOW
 
     def flag_inner_swath(self, pixc):
-        """ Flag inner swath"""
+        """ Flag inner swath """
         # Create polygon for inner swath area (full swath)
 
         if len(pixc['tvp']['time']) > 0:
@@ -838,10 +963,11 @@ class RasterProcessor(object):
                 pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
             inner_swath_polygon_points = self.get_swath_polygon_points_from_tvp(
-                tvp_xyz, tvp_velocity_heading, 'F',
-                self.inner_swath_distance_thresh,
-                products.POLYGON_EXTENT_DIST,
-            products.POLYGON_EXTENT_DIST)
+                tvp_xyz, tvp_velocity_heading,
+                left_crosstrack_dist=self.inner_swath_distance_thresh,
+                right_crosstrack_dist=-self.inner_swath_distance_thresh,
+                alongtrack_start_buffer_dist=products.POLYGON_EXTENT_DIST,
+                alongtrack_end_buffer_dist=products.POLYGON_EXTENT_DIST)
 
             # If polygon points are in geodetic coordinates, swap lat/lon
             if self.projection_type=='geo':
@@ -884,14 +1010,29 @@ class RasterProcessor(object):
 
     def get_swath_polygon_points_from_tvp(
             self, sc_xyz, sc_velocity_heading,
-            swath_side, crosstrack_dist, alongtrack_start_buffer_dist=None,
-            alongtrack_end_buffer_dist=None, downsample_rate=None):
+            left_crosstrack_dist=products.POLYGON_EXTENT_DIST,
+            right_crosstrack_dist=products.POLYGON_EXTENT_DIST,
+            alongtrack_start_buffer_dist=None, alongtrack_end_buffer_dist=None,
+            downsample_rate=None):
         """ Get swath polygon points from tvp points """
+        # If either crosstrack dist is a single value, extend it
+        if not isinstance(left_crosstrack_dist, (list, np.ndarray)):
+            left_crosstrack_dist = left_crosstrack_dist*np.ones(
+                len(sc_velocity_heading))
+
+        if not isinstance(right_crosstrack_dist, (list, np.ndarray)):
+            right_crosstrack_dist = right_crosstrack_dist*np.ones(
+                len(sc_velocity_heading))
+
         # If there is only one line, repeat it to make a polygon
         if len(sc_velocity_heading)==1:
             sc_xyz = np.column_stack((sc_xyz, sc_xyz))
             sc_velocity_heading = np.append(
                 sc_velocity_heading, sc_velocity_heading)
+            left_crosstrack_dist = np.append(
+                left_crosstrack_dist, left_crosstrack_dist)
+            right_crosstrack_dist = np.append(
+                right_crosstrack_dist, right_crosstrack_dist)
 
         transf = osr.CoordinateTransformation(self.input_crs, self.output_crs)
 
@@ -902,35 +1043,19 @@ class RasterProcessor(object):
         else:
             idx_vec = np.arange(sc_xyz.shape[1])
 
+        crosstrack_angle = np.deg2rad(
+            np.mod(sc_velocity_heading+90, 360))
+        crosstrack_dists = [left_crosstrack_dist, right_crosstrack_dist]
+
         polygon = []
         for polygon_side in [0, 1]:
-            reverse_side = polygon_side*2 - 1
-            if swath_side=='L':
-                this_side_crosstrack_angle = np.deg2rad(
-                    np.mod(sc_velocity_heading-90, 360))
-                this_side_crosstrack_dist = polygon_side*crosstrack_dist
-            elif swath_side=='R':
-                this_side_crosstrack_angle = np.deg2rad(
-                    np.mod(sc_velocity_heading+90, 360))
-                this_side_crosstrack_dist = polygon_side*crosstrack_dist
-            elif swath_side=='F':
-                if polygon_side==0:
-                    this_side_crosstrack_angle = np.deg2rad(
-                        np.mod(sc_velocity_heading-90, 360))
-                    this_side_crosstrack_dist = crosstrack_dist
-                else:
-                    this_side_crosstrack_angle = np.deg2rad(
-                        np.mod(sc_velocity_heading+90, 360))
-                    this_side_crosstrack_dist = crosstrack_dist
-            else:
-                raise ValueError("Invalid Swath Side: {}".format(swath_side))
-
+            crosstrack_dist = crosstrack_dists[polygon_side]
             this_side_polygon_points = []
             for idx in idx_vec:
-                sc_llh = raster_crs.xyz2llh(sc_xyz[:,idx])
+                sc_llh = raster_crs.xyz2llh(sc_xyz[:, idx])
                 this_side_ll = raster_crs.terminal_loc_spherical(
-                    sc_llh[0], sc_llh[1], this_side_crosstrack_dist,
-                    this_side_crosstrack_angle[idx])
+                    sc_llh[0], sc_llh[1], crosstrack_dist[idx],
+                    crosstrack_angle[idx])
                 this_side_points_deg = [[np.rad2deg(this_side_ll[0]),
                                          np.rad2deg(this_side_ll[1]),
                                          sc_llh[2]]]
@@ -963,7 +1088,7 @@ class RasterProcessor(object):
                     [point[:2] for point in
                      transf.TransformPoints(this_side_points_deg)])
 
-            polygon.extend(this_side_polygon_points[::reverse_side])
+            polygon.extend(this_side_polygon_points[::polygon_side*2 - 1])
 
         return polygon
 
