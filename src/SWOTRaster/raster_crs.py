@@ -219,7 +219,7 @@ def split_wrapped_longitude_polygon(polygon, thresh=180):
     split_collection = split(shifted_polygon, splitter)
 
     split_poly_list = []
-    for item in split_collection:
+    for item in split_collection.geoms:
         (min_x, _, max_x, _) = item.bounds
         if min_x < -180:
             split_poly_list.append(affinity.translate(item, xoff=360))
