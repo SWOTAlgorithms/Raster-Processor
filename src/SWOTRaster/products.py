@@ -489,8 +489,8 @@ COMMON_VARIABLES = odict([
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['quality_flag', 'sig0_qual'],
-            ['valid_min', -1000],
-            ['valid_max', 10000000],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Normalized radar cross section (sigma0) in real, linear units
@@ -573,8 +573,8 @@ COMMON_VARIABLES = odict([
             ['long_name', 'uncertainty in sigma0'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
-            ['valid_min', 0],
-            ['valid_max', 1000],
+            ['valid_min', -999999],
+            ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 1-sigma uncertainty in sigma0. The value is provided in
