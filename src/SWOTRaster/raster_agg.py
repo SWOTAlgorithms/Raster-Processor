@@ -303,8 +303,8 @@ def aggregate_layover_impact(
 
 def aggregate_wse_qual(
         wse, wse_u, cross_track, pixc_class_qual, pixc_geo_qual,
-        pixc_bright_land_flag, pixc_low_coh_water_flag, mask,
-        wse_uncert_suspect_thresh, num_wse_pix_suspect_thresh,
+        pixc_bright_land_flag, pixc_dark_water_flag, pixc_low_coh_water_flag,
+        mask, wse_uncert_suspect_thresh, num_wse_pix_suspect_thresh,
         near_range_suspect_thresh, far_range_suspect_thresh,
         wse_bad_thresh_min, wse_bad_thresh_max):
     """ Aggregate wse qual """
@@ -349,6 +349,10 @@ def aggregate_wse_qual(
         if np.any(pixc_geo_qual[mask]==products.QUAL_IND_DEGRADED):
             wse_qual = max(wse_qual, products.QUAL_IND_DEGRADED)
             wse_qual_bitwise += products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
+
+        if np.any(pixc_dark_water_flag[mask]):
+            wse_qual = max(wse_qual, products.QUAL_IND_DEGRADED)
+            wse_qual_bitwise += products.QUAL_IND_DARK_WATER_DEGRADED
 
         if np.any(pixc_low_coh_water_flag[mask]):
             wse_qual = max(wse_qual, products.QUAL_IND_DEGRADED)

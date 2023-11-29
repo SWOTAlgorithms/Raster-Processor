@@ -188,17 +188,22 @@ class RasterProcessor(object):
 
         water_classes_mask = pixc.get_mask(water_classes, use_improved_geoloc)
         all_classes_mask = pixc.get_mask(all_classes, use_improved_geoloc)
+        dark_water_classes_mask = pixc.get_mask(
+            self.dark_water_classes, use_improved_geoloc)
         low_coh_water_classes_mask = pixc.get_mask(
             self.low_coh_water_classes, use_improved_geoloc)
 
         bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag']
         if not self.use_bright_land:
+            not_bright_land = np.logical_not(bright_land_pixc_flat)
             water_classes_mask = np.logical_and(
-                water_classes_mask, np.logical_not(bright_land_pixc_flag))
+                water_classes_mask, not_bright_land)
             all_classes_mask = np.logical_and(
-                all_classes_mask, np.logical_not(bright_land_pixc_flag))
+                all_classes_mask, not_bright_land)
+            dark_water_classes_mask = np.logical_and(
+                dark_water_classes_mask, not_bright_land)
             low_coh_water_classes_mask = np.logical_and(
-                low_coh_water_classes_mask, np.logical_not(bright_land_pixc_flag))
+                low_coh_water_classes_mask, not_bright_land)
 
         # Get pixc summary quality flags
         LOGGER.info("getting pixc summary quality flags")
@@ -238,12 +243,17 @@ class RasterProcessor(object):
         LOGGER.info('getting rasterization masks for wse/water area/sig0')
         # WSE: only water classes are good/sus unless use_all_classes commanded
         #      low coh water is degraded
-        wse_good_sus_classes_mask = np.logical_and(
-            water_classes_mask, np.logical_not(low_coh_water_classes_mask))
-        wse_degraded_classes_mask = low_coh_water_classes_mask
+        wse_good_sus_classes_mask = np.logical_and.reduce((
+            water_classes_mask,
+            np.logical_not(dark_water_classes_mask),
+            np.logical_not(low_coh_water_classes_mask)))
+        wse_degraded_classes_mask = np.logical_or(
+            dark_water_classes_mask, low_coh_water_classes_mask)
         if self.use_all_classes_for_wse:
-            wse_good_sus_classes_mask = np.logical_and(
-                all_classes_mask, np.logical_not(low_coh_water_classes_mask))
+            wse_good_sus_classes_mask = np.logical_and.reduce((
+                all_classes_mask,
+                np.logical_not(dark_water_classes_mask),
+                np.logical_not(low_coh_water_classes_mask)))
 
         wse_pixc_mask, wse_raster_mask = self.get_rasterization_masks(
             wse_good_sus_classes_mask, wse_degraded_classes_mask,
@@ -389,7 +399,8 @@ class RasterProcessor(object):
                          wse_bad_thresh_max=self.wse_bad_thresh_max),
                  self.wse, self.wse_u, self.cross_track,
                  wse_class_qual_pixc_flag, wse_geo_qual_pixc_flag,
-                 bright_land_pixc_flag, low_coh_water_classes_mask,
+                 bright_land_pixc_flag, dark_water_classes_mask,
+                 low_coh_water_classes_mask,
                  wse_pixc_mask, mask=wse_raster_mask)
 
             LOGGER.info('aggregating layover impact')
