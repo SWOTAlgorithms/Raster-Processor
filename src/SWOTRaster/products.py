@@ -1998,6 +1998,15 @@ class ScenePixelCloud(Product):
             'value':'cloud of geolocated interferogram pixels'}],
         ['looks_to_efflooks',{'dtype': 'f8',
             'docstr':'ratio of the number of real looks to the effective number of independent looks'}],
+        ['num_azimuth_looks',{'dtype': 'f8',
+            'docstr': textjoin("""
+                number of real azimuth looks
+                commanded in rare multilooking""")}],
+        ['azimuth_offset',{'dtype': 'i4',
+            'docstr': textjoin("""
+                offset number of slc lines used in rare multilooking to keep
+                overlapping portion of consecutive tiles to be consistent
+                for the 2D rare interferogram images before pruning""")}],
     ])
     ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
     DIMENSIONS = odict([['points', 0], ['num_pixc_lines', 0]])
@@ -2182,6 +2191,7 @@ class SceneTVP(Product):
         ['minus_y_antenna_x', odict([])],
         ['minus_y_antenna_y', odict([])],
         ['minus_y_antenna_z', odict([])],
+        ['record_counter', odict([])],
         ['swath_side', odict([])],
     ])
     for name, reference in VARIABLES.items():
