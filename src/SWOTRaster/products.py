@@ -2100,9 +2100,9 @@ class ScenePixelCloud(Product):
 
         # Copy pixcvec variables
         # set improved llh to pixcvec llh where it exists, otherwise use pixc llh
-        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude']
-        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude']
-        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height']
+        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude'].copy()
+        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude'].copy()
+        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height'].copy()
 
         if pixcvec_tile is not None:
             pixcvec_geoloc_valid = np.logical_not(np.logical_or.reduce((
