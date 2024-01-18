@@ -100,7 +100,7 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str' ,'value':'SWOT',
       'docstr': 'SWOT'}],
     ['references',
-     {'dtype': 'str', 'value': 'V1.2',
+     {'dtype': 'str', 'value': 'V1.2.1',
       'docstr': textjoin("""
           Published or web-based references that describe
           the data or methods used to product it. Provides version number of
@@ -166,7 +166,7 @@ COMMON_ATTRIBUTES = odict([
           Composite release identifier (CRID) of the data system used to
           generate this file""")}],
     ['product_version',
-     {'dtype': 'str', 'value': 'V1.2',
+     {'dtype': 'str', 'value': 'V1.2.1',
       'docstr': 'Version identifier of this data file'}],
     ['pge_name',
      {'dtype': 'str',
