@@ -2083,11 +2083,11 @@ class ScenePixelCloud(Product):
         for field in pixel_cloud_vars.intersection(
                 pixc_tile['pixel_cloud'].VARIABLES.keys()):
             scene_pixel_cloud.VARIABLES[field] = \
-                pixc_tile['pixel_cloud'].VARIABLES[field]
+                pixc_tile['pixel_cloud'].VARIABLES[field].copy()
             if field in ['pixc_line_qual', 'pixc_line_to_tvp',
                          'data_window_first_cross_track',
                          'data_window_last_cross_track']:
-                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
+                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field].copy()
             else:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
 
@@ -2198,7 +2198,7 @@ class SceneTVP(Product):
         tvp_vars = set(scene_tvp.VARIABLES.keys())
         for field in tvp_vars.intersection(
                 pixc_tile['tvp'].VARIABLES.keys()):
-            scene_tvp[field] = pixc_tile['tvp'][field]
+            scene_tvp[field] = pixc_tile['tvp'][field].copy()
 
         # Copy common attributes
         tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
