@@ -614,6 +614,7 @@ COMMON_VARIABLES = odict([
             ['calendar','gregorian'],
             ['tai_utc_difference', '[Value of TAI-UTC at time of first record]'],
             ['leap_second','YYYY-MM-DDThh:mm:ssZ'],
+            ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
                 Time of measurement in seconds
@@ -629,6 +630,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'time of illumination of each pixel (TAI)'],
             ['standard_name','time'],
             ['calendar','gregorian'],
+            ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
                 Time of measurement in seconds
