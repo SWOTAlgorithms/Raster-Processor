@@ -106,7 +106,7 @@ COMMON_ATTRIBUTES = odict([
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'JPL D-56416 - Revision C - December 8, 2023',
+     {'dtype': 'str', 'value':'D-56416_SWOT_Product_Description_L2_HR_Raster',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
