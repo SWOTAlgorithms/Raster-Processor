@@ -195,7 +195,7 @@ class RasterProcessor(object):
 
         bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag']
         if not self.use_bright_land:
-            not_bright_land = np.logical_not(bright_land_pixc_flat)
+            not_bright_land = np.logical_not(bright_land_pixc_flag)
             water_classes_mask = np.logical_and(
                 water_classes_mask, not_bright_land)
             all_classes_mask = np.logical_and(

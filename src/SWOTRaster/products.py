@@ -100,13 +100,13 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str' ,'value':'SWOT',
       'docstr': 'SWOT'}],
     ['references',
-     {'dtype': 'str', 'value': 'V1.2',
+     {'dtype': 'str', 'value': 'V1.2.1',
       'docstr': textjoin("""
           Published or web-based references that describe
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'JPL D-56416 - Revision C - December 8, 2023',
+     {'dtype': 'str', 'value':'D-56416_SWOT_Product_Description_L2_HR_Raster',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -166,7 +166,7 @@ COMMON_ATTRIBUTES = odict([
           Composite release identifier (CRID) of the data system used to
           generate this file""")}],
     ['product_version',
-     {'dtype': 'str', 'value': 'V1.2',
+     {'dtype': 'str', 'value': 'V1.2.1',
       'docstr': 'Version identifier of this data file'}],
     ['pge_name',
      {'dtype': 'str',
@@ -614,6 +614,7 @@ COMMON_VARIABLES = odict([
             ['calendar','gregorian'],
             ['tai_utc_difference', '[Value of TAI-UTC at time of first record]'],
             ['leap_second','YYYY-MM-DDThh:mm:ssZ'],
+            ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
                 Time of measurement in seconds
@@ -629,6 +630,7 @@ COMMON_VARIABLES = odict([
             ['long_name', 'time of illumination of each pixel (TAI)'],
             ['standard_name','time'],
             ['calendar','gregorian'],
+            ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
                 Time of measurement in seconds
@@ -2092,11 +2094,11 @@ class ScenePixelCloud(Product):
         for field in pixel_cloud_vars.intersection(
                 pixc_tile['pixel_cloud'].VARIABLES.keys()):
             scene_pixel_cloud.VARIABLES[field] = \
-                pixc_tile['pixel_cloud'].VARIABLES[field]
+                pixc_tile['pixel_cloud'].VARIABLES[field].copy()
             if field in ['pixc_line_qual', 'pixc_line_to_tvp',
                          'data_window_first_cross_track',
                          'data_window_last_cross_track']:
-                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field]
+                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field].copy()
             else:
                 scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
 
@@ -2109,9 +2111,9 @@ class ScenePixelCloud(Product):
 
         # Copy pixcvec variables
         # set improved llh to pixcvec llh where it exists, otherwise use pixc llh
-        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude']
-        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude']
-        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height']
+        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude'].copy()
+        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude'].copy()
+        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height'].copy()
 
         if pixcvec_tile is not None:
             pixcvec_geoloc_valid = np.logical_not(np.logical_or.reduce((
@@ -2208,7 +2210,7 @@ class SceneTVP(Product):
         tvp_vars = set(scene_tvp.VARIABLES.keys())
         for field in tvp_vars.intersection(
                 pixc_tile['tvp'].VARIABLES.keys()):
-            scene_tvp[field] = pixc_tile['tvp'][field]
+            scene_tvp[field] = pixc_tile['tvp'][field].copy()
 
         # Copy common attributes
         tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
