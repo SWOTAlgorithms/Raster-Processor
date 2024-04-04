@@ -22,31 +22,33 @@ from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
 LOGGER = logging.getLogger(__name__)
 
 class GeolocRaster(object):
-    def __init__(self, pixc, raster, algorithmic_config, max_worker_processes=1):
+    def __init__(self, pixc, algorithmic_config, max_worker_processes=1):
         self.pixc = pixc
-        self.raster = raster
         self.algorithmic_config = algorithmic_config
         self.max_worker_processes = max_worker_processes
 
-    def process(self):
+    def process(self, raster=None):
         """ Do improved raster geolocation """
         LOGGER.info("processing")
 
-        self.update_heights_from_raster()
         self.apply_improved_geoloc()
-
         return (self.out_lat_corr,
                 self.out_lon_corr,
                 self.out_height_corr)
 
-    def update_heights_from_raster(self):
-        """ Update pixelcloud heights from raster """
-        LOGGER.info("updating heights from raster")
+    def set_new_height(self, height):
+        """ Set new pixelcloud height """
+        LOGGER.info("setting new height")
+        self.new_height = height
+
+    def set_new_height_from_raster(self, raster):
+        """ Set new pixelcloud height from raster """
+        LOGGER.info("setting new height from raster")
 
         self.new_height = self.pixc['pixel_cloud']['height'].copy()
 
         all_classes = np.concatenate(
-            (self.algorithmic_config['interior_water_classes'],
+g            (self.algorithmic_config['interior_water_classes'],
              self.algorithmic_config['water_edge_classes'],
              self.algorithmic_config['land_edge_classes'],
              self.algorithmic_config['dark_water_classes']))
@@ -54,20 +56,20 @@ class GeolocRaster(object):
         all_classes_mask = self.pixc.get_mask(
             all_classes, use_improved_geoloc=False)
 
-        if isinstance(self.raster, RasterUTM):
+        if isinstance(raster, RasterUTM):
             try:
                 max_chunk_size = self.algorithmic_config[
                     'utm_conversion_max_chunk_size']
             except KeyError:
                 max_chunk_size = DEFAULT_MAX_CHUNK_SIZE
 
-            proj_mapping = self.raster.get_raster_mapping(
+            proj_mapping = raster.get_raster_mapping(
                 self.pixc, all_classes_mask, False, max_chunk_size)
         else:
-            proj_mapping = self.raster.get_raster_mapping(
+            proj_mapping = raster.get_raster_mapping(
                 self.pixc, all_classes_mask, False)
 
-        raster_uncorrected_height = self.raster.get_uncorrected_height()
+        raster_uncorrected_height = raster.get_uncorrected_height()
 
         for i in range(0, len(proj_mapping)):
             for j in range(0, len(proj_mapping[0])):
@@ -79,8 +81,7 @@ class GeolocRaster(object):
         """ Compute the new lat, lon, height using the new heights """
         LOGGER.info("applying improved geolocation")
 
-        method = self.algorithmic_config[ \
-            'lowres_raster_height_constrained_geoloc_method']
+        method = self.algorithmic_config['height_constrained_geoloc_method']
         if method == 'taylor':
             self.taylor_improved_geoloc()
         else:

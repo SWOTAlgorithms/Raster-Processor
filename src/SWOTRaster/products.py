@@ -1562,6 +1562,7 @@ class ScenePixc(Product):
         ['right_time_coverage_start', odict([])],
         ['right_time_coverage_end', odict([])],
         ['wavelength', odict([])],
+        ['nominal_slant_range_spacing', odict([])],
         ['left_first_longitude', odict([])],
         ['left_last_longitude', odict([])],
         ['left_first_latitude', odict([])],
@@ -1603,6 +1604,7 @@ class ScenePixc(Product):
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
         scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
         scene_pixc.wavelength = pixc_tile.wavelength
+        scene_pixc.nominal_slant_range_spacing = pixc_tile.nominal_slant_range_spacing
 
         swath_side = pixc_tile.swath_side
 
@@ -1748,7 +1750,7 @@ class ScenePixc(Product):
         central_tile_index = granule_start_times.index(
             np.percentile(granule_start_times, 50, interpolation='nearest'))
         scene_pixc.wavelength = tile_objs[central_tile_index].wavelength
-
+        scene_pixc.nominal_slant_range_spacing = tile_objs[central_tile_index].nominal_slant_range_spacing
         return scene_pixc
 
     def set_extent(self, swath_edges, swath_polygon_points,

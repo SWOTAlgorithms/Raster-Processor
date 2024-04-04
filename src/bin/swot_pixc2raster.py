@@ -26,9 +26,15 @@ example algorithmic config parameters:
     sig0_agg_method                                 (-) = rare
 
     # Height-constrained geolocation controls
-    height_constrained_geoloc_source                (-) = lowres_raster
-    lowres_raster_height_constrained_geoloc_method  (-) = taylor
+    height_constrained_geoloc_source                (-) = smoothed_slant_plane
+    height_constrained_geoloc_method                (-) = taylor
+
+    # Height-constrained geolocation source specific controls
     lowres_raster_scale_factor                      (-) = 0.2
+    slant_plane_smoothing_footprint                 (-) = [5, 10]
+    slant_plane_smoothing_good_classes              (-) = [3, 4]
+    slant_plane_smoothing_sus_classes               (-) = [2, 5, 6, 7, 23, 24]
+    slant_plane_smoothing_method                    (-) = composite_with_sus_classes
 
     # Class-use flags
     use_bright_land                                 (-) = True
@@ -36,6 +42,7 @@ example algorithmic config parameters:
     use_all_classes_for_sig0                        (-) = False
 
     # Multithreading and debug controls
+    slant_plane_smoothing_max_chunk_shape           (-) = [2000, 2000]
     height_constrained_geoloc_max_chunk_size        (-) = 100000
     utm_conversion_max_chunk_size                   (-) = 100000
     aggregator_max_chunk_size                       (-) = 100000
@@ -187,11 +194,6 @@ def main():
         scratch_dir=args.internal_files_dir)
 
     product = proc.process()
-
-    if 'write_internal_files' in alg_cfg and alg_cfg['write_internal_files']:
-        proc.pixc.to_ncfile(os.path.join(args.internal_files_dir,
-                                         'internal_scene_pixc.nc'))
-
     product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
