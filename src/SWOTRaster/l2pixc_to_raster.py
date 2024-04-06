@@ -279,6 +279,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['wse_geo_qual_suspect'],
             self.algorithmic_config['wse_geo_qual_degraded'],
             self.algorithmic_config['wse_geo_qual_bad'],
+            self.algorithmic_config['use_bright_land'],
             self.algorithmic_config['slant_plane_smoothing_method'],
             max_worker_processes=self.max_worker_processes)
 
@@ -306,6 +307,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['wse_geo_qual_suspect'],
             self.algorithmic_config['wse_geo_qual_degraded'],
             self.algorithmic_config['wse_geo_qual_bad'],
+            self.algorithmic_config['use_bright_land'],
             self.algorithmic_config['slant_plane_smoothing_method'],
             max_worker_processes=self.max_worker_processes)
 

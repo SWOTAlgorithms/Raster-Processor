@@ -39,6 +39,7 @@ def smooth_slant_plane(
         geo_qual_suspect=0,
         geo_qual_degraded=0,
         geo_qual_bad=0,
+        use_bright_land=True,
         method='composite_with_sus_classes',
         max_worker_processes=1):
     """ Smoothes in slant plane """
@@ -57,6 +58,7 @@ def smooth_slant_plane(
     geolocation_qual = scene_pixc.get_summary_qual_flag(
         'geolocation_qual', geo_qual_suspect,
         geo_qual_degraded, geo_qual_bad)
+    bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag']
     pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][az_idx].astype(int)
     record_counter = scene_pixc['tvp']['record_counter'][pixc_line_to_tvp]
     recomputed_az_idx = ((record_counter-scene_pixc['pixel_cloud'].azimuth_offset) \
@@ -69,6 +71,7 @@ def smooth_slant_plane(
                         smoothing_footprint=smoothing_footprint,
                         good_klasses=good_klasses,
                         sus_klasses=sus_klasses,
+                        use_bright_land=use_bright_land,
                         method=method)
     _smooth_fn = partial(fn_star, smooth_fn)
     if max_worker_processes > 1:
@@ -81,13 +84,15 @@ def smooth_slant_plane(
                 processes=max_worker_processes) as pool:
             results = list(pool.imap(_smooth_fn, chunk_slant_map(
                 var, recomputed_az_idx, recomputed_rng_idx, classif,
-                classif_qual, geolocation_qual, swath_side, chunk_shape,
+                classif_qual, geolocation_qual, bright_land_flag, swath_side,
+                chunk_shape,
                 (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))))
     else:
         chunk_shape = max_chunk_shape
         results = [_smooth_fn(arglist) for arglist in chunk_slant_map(
             var, recomputed_az_idx, recomputed_rng_idx, classif,
-            classif_qual, geolocation_qual, swath_side, chunk_shape,
+            classif_qual, geolocation_qual, bright_land_flag, swath_side,
+            chunk_shape,
             (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))]
 
     var_out = np.ma.masked_all_like(var)
@@ -95,8 +100,8 @@ def smooth_slant_plane(
         var_out[indices] = data
     return var_out
 
-def chunk_slant_map(var, az_idx, rng_idx, classif,
-                    classif_qual, geolocation_qual, swath_side,
+def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
+                    geolocation_qual, bright_land_flag, swath_side,
                     chunk_shape, chunk_buffer=(0,0)):
     """ Takes a variable in the slant plane (both sides) and splits it into
         chunks, with a buffer """
@@ -110,6 +115,7 @@ def chunk_slant_map(var, az_idx, rng_idx, classif,
         side_classif = classif[side_mask]
         side_classif_qual = classif_qual[side_mask]
         side_geolocation_qual = geolocation_qual[side_mask]
+        side_bright_land_flag = bright_land_flag[side_mask]
 
         # Group into az/rng squares of chunk_shape[0]*chunk_shape[1],
         # throw away any chunks without data
@@ -155,28 +161,32 @@ def chunk_slant_map(var, az_idx, rng_idx, classif,
                        side_classif[mask],
                        side_classif_qual[mask],
                        side_geolocation_qual[mask],
+                       side_bright_land_flag[mask],
                        side_indices[mask],
                        use_mask[mask])
 
-def smooth_chunk_and_mask(var, az_idx, rng_idx, classif,
-                          classif_qual,geolocation_qual,
+def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
+                          geolocation_qual, bright_land_flag,
                           side_sort_indices, use_mask,
                           smoothing_footprint,
                           good_klasses=DEFAULT_GOOD_CLASSES,
                           sus_klasses=DEFAULT_SUS_CLASSES,
+                          use_bright_land=True,
                           method='composite_with_sus_classes'):
     """ Smoothes a chunk and returns only pixels in use_mask """
     LOGGER.debug('Smoothing az: {} to {}, rng: {} to {}'.format(
         np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx)))
     smoothed_chunk = smooth_chunk(
         var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
-        smoothing_footprint, good_klasses, sus_klasses, method)
+        bright_land_flag, smoothing_footprint, good_klasses, sus_klasses,
+        use_bright_land, method)
     return smoothed_chunk[use_mask], side_sort_indices[use_mask]
 
 def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
-                 smoothing_footprint,
+                 bright_land_flag, smoothing_footprint,
                  good_klasses=DEFAULT_GOOD_CLASSES,
                  sus_klasses=DEFAULT_SUS_CLASSES,
+                 use_bright_land=True,
                  method='composite_with_sus_classes'):
     """ Smoothes a chunk """
     # Median filter with nans doesn't behave the way we want,
@@ -198,6 +208,11 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
 
     # Get mask of good/sus quality pixels
     good_sus_qual_mask = np.logical_and(classif_qual < 2, geolocation_qual < 2)
+
+    # Treat bright land as degraded/bad if use_bright_land is false
+    if not use_bright_land:
+        good_sus_qual_mask = np.logical_and(
+            good_sus_qual_mask, np.logical_not(bright_land_flag))
 
     # Get the start/end and relative az/rng indices
     start_az_idx = np.min(az_idx)
