@@ -27,6 +27,15 @@ DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
 
 LOGGER = logging.getLogger(__name__)
 
+def unwrap_idx(idx, unwrap_vec, wrap_buffer=0):
+    """ Unwraps an index based on a vector """
+    sort_idx = np.argsort(unwrap_vec)
+    sorted_idx = idx[sort_idx]
+    wrap_indices = np.where(sorted_idx[:-1] > sorted_idx[1:])[0]
+    for idx in wrap_indices:
+        sorted_idx[idx+1:] = sorted_idx[idx+1:] + sorted_idx[idx] + wrap_buffer
+    return sorted_idx[np.argsort(sort_idx)]
+
 def smooth_slant_plane(
         scene_pixc, var_name='height',
         max_chunk_shape=(2000, 2000),
@@ -49,8 +58,8 @@ def smooth_slant_plane(
     smoothing_footprint = np.ones((smoothing_filter_shape[0],
                                    smoothing_filter_shape[1]))
 
-    az_idx = scene_pixc['pixel_cloud']['line_index']
-    rng = scene_pixc['pixel_cloud']['range']
+    # Get input variables
+    var = scene_pixc['pixel_cloud'][var_name]
     classif = scene_pixc['pixel_cloud']['classification']
     classif_qual = scene_pixc.get_summary_qual_flag(
         'classification_qual', class_qual_suspect,
@@ -59,14 +68,26 @@ def smooth_slant_plane(
         'geolocation_qual', geo_qual_suspect,
         geo_qual_degraded, geo_qual_bad)
     bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag']
-    pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][az_idx].astype(int)
+
+    line_idx = scene_pixc['pixel_cloud']['line_index']
+    pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][line_idx].astype(int)
     record_counter = scene_pixc['tvp']['record_counter'][pixc_line_to_tvp]
+    tvp_time = scene_pixc['tvp']['time'][pixc_line_to_tvp]
+    swath_side = scene_pixc['tvp']['swath_side'][pixc_line_to_tvp]
+
+    # Recompute an azimuth index using the record counter, re-reference it to 0
+    # and unwrap it
     recomputed_az_idx = ((record_counter-scene_pixc['pixel_cloud'].azimuth_offset) \
                          / scene_pixc['pixel_cloud'].num_azimuth_looks).astype(int)
-    recomputed_rng_idx = (rng/scene_pixc.nominal_slant_range_spacing).astype(int)
-    swath_side = scene_pixc['tvp']['swath_side'][pixc_line_to_tvp]
-    var = scene_pixc['pixel_cloud'][var_name]
+    recomputed_az_idx = recomputed_az_idx-np.min(recomputed_az_idx)
+    recomputed_az_idx = unwrap_idx(recomputed_az_idx, tvp_time,
+                                   wrap_buffer=smoothing_filter_shape[0])
 
+    # Recompute a range index using the pixelwise range
+    rng = scene_pixc['pixel_cloud']['range']
+    recomputed_rng_idx = (rng / scene_pixc.nominal_slant_range_spacing).astype(int)
+
+    # Split into chunks and smooth, with multiprocessing if commanded
     smooth_fn = partial(smooth_chunk_and_mask,
                         smoothing_footprint=smoothing_footprint,
                         good_klasses=good_klasses,
