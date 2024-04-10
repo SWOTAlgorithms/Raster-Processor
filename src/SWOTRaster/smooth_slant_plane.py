@@ -27,10 +27,12 @@ DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
 
 LOGGER = logging.getLogger(__name__)
 
-def unwrap_idx(idx, unwrap_vec, wrap_buffer=0):
+def unwrap_idx(idx, unwrap_vec, wrap_buffer=0, ref_to_zero=False):
     """ Unwraps an index based on a vector """
     sort_idx = np.argsort(unwrap_vec)
     sorted_idx = idx[sort_idx]
+    if ref_to_zero:
+        sorted_idx = sorted_idx-sorted_idx[0]
     wrap_indices = np.where(sorted_idx[:-1] > sorted_idx[1:])[0]
     for idx in wrap_indices:
         sorted_idx[idx+1:] = sorted_idx[idx+1:] + sorted_idx[idx] + wrap_buffer
@@ -79,9 +81,9 @@ def smooth_slant_plane(
     # and unwrap it
     recomputed_az_idx = ((record_counter-scene_pixc['pixel_cloud'].azimuth_offset) \
                          / scene_pixc['pixel_cloud'].num_azimuth_looks).astype(int)
-    recomputed_az_idx = recomputed_az_idx-np.min(recomputed_az_idx)
     recomputed_az_idx = unwrap_idx(recomputed_az_idx, tvp_time,
-                                   wrap_buffer=smoothing_filter_shape[0])
+                                   wrap_buffer=smoothing_filter_shape[0],
+                                   ref_to_zero=True)
 
     # Recompute a range index using the pixelwise range
     rng = scene_pixc['pixel_cloud']['range']
