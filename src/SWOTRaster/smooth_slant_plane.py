@@ -27,15 +27,29 @@ DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
 
 LOGGER = logging.getLogger(__name__)
 
-def unwrap_idx(idx, unwrap_vec, wrap_buffer=0, ref_to_zero=False):
-    """ Unwraps an index based on a vector """
+def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
+               max_idx_val=None, wrap_buffer=0):
+    """ Unwraps an integer index based on a vector
+        ref_to_zero makes the resulting index start at 0
+        max_idx_val controls the wrap point of the index, default is dtype max
+        wrap_buffer is added if there is a gap at the wrap point """
+    if max_idx_val is None:
+        max_idx_val = np.iinfo(idx.dtype).max
+
     sort_idx = np.argsort(unwrap_vec)
     sorted_idx = idx[sort_idx]
     if ref_to_zero:
         sorted_idx = sorted_idx-sorted_idx[0]
+
     wrap_indices = np.where(sorted_idx[:-1] > sorted_idx[1:])[0]
+
     for idx in wrap_indices:
-        sorted_idx[idx+1:] = sorted_idx[idx+1:] + sorted_idx[idx] + wrap_buffer
+        this_buff = wrap_buffer
+        if sorted_idx[idx]==max_idx_val and sorted_idx[idx+1]==0:
+            this_buff = 0
+
+        sorted_idx[idx+1:] = sorted_idx[idx+1:] + sorted_idx[idx] + this_buff
+
     return sorted_idx[np.argsort(sort_idx)]
 
 def smooth_slant_plane(
@@ -55,13 +69,17 @@ def smooth_slant_plane(
         max_worker_processes=1):
     """ Smoothes in slant plane """
     LOGGER.info('Smoothing {} in slant plane'.format(var_name))
-    # TODO: verify that this doesn't crash if no pixels are in the input
+
+    # If all input pixels are masked, return fully masked array
+    var = scene_pixc['pixel_cloud'][var_name]
+    var_out = np.ma.masked_all_like(var)
+    if np.all(var.mask):
+        return var_out
 
     smoothing_footprint = np.ones((smoothing_filter_shape[0],
                                    smoothing_filter_shape[1]))
 
     # Get input variables
-    var = scene_pixc['pixel_cloud'][var_name]
     classif = scene_pixc['pixel_cloud']['classification']
     classif_qual = scene_pixc.get_summary_qual_flag(
         'classification_qual', class_qual_suspect,
@@ -72,22 +90,21 @@ def smooth_slant_plane(
     bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag']
 
     line_idx = scene_pixc['pixel_cloud']['line_index']
-    pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][line_idx].astype(int)
+    pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][line_idx].astype('i4')
     record_counter = scene_pixc['tvp']['record_counter'][pixc_line_to_tvp]
     tvp_time = scene_pixc['tvp']['time'][pixc_line_to_tvp]
     swath_side = scene_pixc['tvp']['swath_side'][pixc_line_to_tvp]
 
-    # Recompute an azimuth index using the record counter, re-reference it to 0
-    # and unwrap it
+    # Recompute an azimuth index using the record counter
     recomputed_az_idx = ((record_counter-scene_pixc['pixel_cloud'].azimuth_offset) \
-                         / scene_pixc['pixel_cloud'].num_azimuth_looks).astype(int)
-    recomputed_az_idx = unwrap_idx(recomputed_az_idx, tvp_time,
-                                   wrap_buffer=smoothing_filter_shape[0],
-                                   ref_to_zero=True)
+                         / scene_pixc['pixel_cloud'].num_azimuth_looks).astype('i4')
+    recomputed_az_idx = unwrap_idx(
+        recomputed_az_idx, tvp_time, ref_to_zero=True,
+        wrap_buffer=smoothing_filter_shape[0])
 
     # Recompute a range index using the pixelwise range
     rng = scene_pixc['pixel_cloud']['range']
-    recomputed_rng_idx = (rng / scene_pixc.nominal_slant_range_spacing).astype(int)
+    recomputed_rng_idx = (rng / scene_pixc.nominal_slant_range_spacing).astype('i4')
 
     # Split into chunks and smooth, with multiprocessing if commanded
     smooth_fn = partial(smooth_chunk_and_mask,
@@ -118,7 +135,6 @@ def smooth_slant_plane(
             chunk_shape,
             (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))]
 
-    var_out = np.ma.masked_all_like(var)
     for data, indices in results:
         var_out[indices] = data
     return var_out
