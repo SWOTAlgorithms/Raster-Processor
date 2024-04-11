@@ -1224,12 +1224,11 @@ class RasterUTM(ProductTesterMixIn, Product):
 
     def is_empty(self):
         """ Check if the raster is empty """
-
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
             if np.logical_not(np.all(var_data.mask)):
-                return 0
-        return 1
+                return False
+        return True
 
 
 class RasterGeo(ProductTesterMixIn, Product):
@@ -1487,12 +1486,11 @@ class RasterGeo(ProductTesterMixIn, Product):
 
     def is_empty(self):
         """ Check if the raster is empty """
-
         for variable in COMMON_VARIABLES:
             var_data = getattr(self, variable)
             if np.logical_not(np.all(var_data.mask)):
-                return 0
-        return 1
+                return False
+        return True
 
 
 class RasterUTMDebug(RasterUTM):
@@ -1756,6 +1754,8 @@ class ScenePixc(Product):
     def set_extent(self, swath_edges, swath_polygon_points,
                    granule_start_time, granule_end_time):
         """ Sets the geospatial and temporal extent attributes """
+        LOGGER.info('setting extent')
+
         # Set the first/last lats/lons from the swath edges
         # swath_edges = ((left_first_lat, left_first_lon),
         #                (right_first_lat, right_first_lon),
