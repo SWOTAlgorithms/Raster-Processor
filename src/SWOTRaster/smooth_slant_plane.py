@@ -38,17 +38,27 @@ def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
 
     sort_idx = np.argsort(unwrap_vec)
     sorted_idx = idx[sort_idx]
+
+    # Get the shift needed to reference output to 0
+    ref_shift = 0
     if ref_to_zero:
-        sorted_idx = sorted_idx-sorted_idx[0]
+        ref_shift = sorted_idx[0]
 
+    # Get the indices where the index wraps, return with ref shift if no wraps
     wrap_indices = np.where(sorted_idx[:-1] > sorted_idx[1:])[0]
+    if wrap_indices.size==0:
+        return idx-ref_shift
 
-    for idx in wrap_indices:
-        this_buff = wrap_buffer
-        if sorted_idx[idx]==max_idx_val and sorted_idx[idx+1]==0:
-            this_buff = 0
+    # Use sorted_idx before ref shift to figure out if we need to add wrap_buffer
+    # But use sorted_idx with ref shift to figure out what the offset should be
+    buffs = np.logical_or(sorted_idx[wrap_indices]!=max_idx_val,
+                          sorted_idx[wrap_indices+1]!=0) * wrap_buffer
+    sorted_idx[:wrap_indices[0]+1] -= ref_shift
+    offsets = sorted_idx[wrap_indices]
 
-        sorted_idx[idx+1:] = sorted_idx[idx+1:] + sorted_idx[idx] + this_buff
+    # Unwrap
+    for idx, offset, buff in zip(wrap_indices, offsets, buffs):
+        sorted_idx[idx+1:] += offset + buff + 1
 
     return sorted_idx[np.argsort(sort_idx)]
 
