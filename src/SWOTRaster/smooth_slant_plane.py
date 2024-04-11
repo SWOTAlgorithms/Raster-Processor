@@ -32,7 +32,8 @@ def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
     """ Unwraps an integer index based on a vector
         ref_to_zero makes the resulting index start at 0
         max_idx_val controls the wrap point of the index, default is dtype max
-        wrap_buffer is added if there is a gap at the wrap point """
+        wrap_buffer is added if there is a gap at the wrap point greater than
+        wrap_buffer """
     if max_idx_val is None:
         max_idx_val = np.iinfo(idx.dtype).max
 
@@ -51,14 +52,14 @@ def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
 
     # Use sorted_idx before ref shift to figure out if we need to add wrap_buffer
     # But use sorted_idx with ref shift to figure out what the offset should be
-    buffs = np.logical_or(sorted_idx[wrap_indices]!=max_idx_val,
-                          sorted_idx[wrap_indices+1]!=0) * wrap_buffer
+    gap_size = max_idx_val - sorted_idx[wrap_indices] + sorted_idx[wrap_indices+1]
+    buffs = np.minimum(gap_size, wrap_buffer)
     sorted_idx[:wrap_indices[0]+1] -= ref_shift
-    offsets = sorted_idx[wrap_indices]
+    offsets = sorted_idx[wrap_indices] - sorted_idx[wrap_indices+1] + 1
 
     # Unwrap
     for idx, offset, buff in zip(wrap_indices, offsets, buffs):
-        sorted_idx[idx+1:] += offset + buff + 1
+        sorted_idx[idx+1:] += offset + buff
 
     return sorted_idx[np.argsort(sort_idx)]
 
