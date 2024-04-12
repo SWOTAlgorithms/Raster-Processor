@@ -205,7 +205,8 @@ def load_raster_configs(alg_config_file, runtime_config_file):
     for key in alg_cfg.keys():
         if key in ['height_agg_method', 'area_agg_method', 'sig0_agg_method',
                    'height_constrained_geoloc_source',
-                   'lowres_raster_height_constrained_geoloc_method']:
+                   'height_constrained_geoloc_method',
+                   'slant_plane_smoothing_method']:
             continue
         alg_cfg[key] = ast.literal_eval(alg_cfg[key])
 
