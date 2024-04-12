@@ -109,7 +109,7 @@ g            (self.algorithmic_config['interior_water_classes'],
 
         # Get the swath side (from tvp index, not nearest sensor idx)
         line_index = self.pixc['pixel_cloud']['line_index']
-        tvp_index = self.pixc['pixel_cloud']['pixc_line_to_tvp'][line_index]
+        tvp_index = self.pixc['pixel_cloud']['pixc_line_to_tvp'][line_index].astype('i4')
         swath_side = np.char.upper(self.pixc['tvp']['swath_side'][tvp_index])
 
         for side in ['L', 'R']:

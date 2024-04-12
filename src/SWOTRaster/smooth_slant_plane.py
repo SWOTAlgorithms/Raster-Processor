@@ -80,7 +80,6 @@ def smooth_slant_plane(
         max_worker_processes=1):
     """ Smoothes in slant plane """
     LOGGER.info('Smoothing {} in slant plane'.format(var_name))
-
     # If all input pixels are masked, return fully masked array
     var = scene_pixc['pixel_cloud'][var_name]
     var_out = np.ma.masked_all_like(var)
@@ -129,8 +128,10 @@ def smooth_slant_plane(
         sz_az = np.max(recomputed_az_idx)-np.min(recomputed_az_idx)+1
         sz_rng = np.max(recomputed_rng_idx)-np.min(recomputed_rng_idx)+1
         chunk_shape = (
-            int(min(np.sqrt((sz_az*sz_rng)/(max_worker_processes*2)), max_chunk_shape[0])),
-            int(min(np.sqrt((sz_az*sz_rng)/(max_worker_processes*2)), max_chunk_shape[1])))
+            int(max(1, min(np.sqrt((sz_az*sz_rng)/(max_worker_processes*2)),
+                           max_chunk_shape[0]))),
+            int(max(1, min(np.sqrt((sz_az*sz_rng)/(max_worker_processes*2)),
+                           max_chunk_shape[1]))))
         with multiprocessing.get_context('spawn').Pool(
                 processes=max_worker_processes) as pool:
             results = list(pool.imap(_smooth_fn, chunk_slant_map(
@@ -158,6 +159,11 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
     indices = np.arange(len(var))
     for this_side in ['L', 'R']:
         side_mask = swath_side==this_side
+
+        # Skip if side_mask has no valid points
+        if not np.any(side_mask):
+            continue
+
         side_az_idx = az_idx[side_mask]
         side_rng_idx = rng_idx[side_mask]
         side_indices = indices[side_mask]
