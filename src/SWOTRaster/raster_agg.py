@@ -381,10 +381,10 @@ def aggregate_wse_qual(
 
 def aggregate_water_area_qual(
         water_frac, water_frac_u, cross_track, pixc_class_qual, pixc_geo_qual,
-        pixc_bright_land_flag, pixc_low_coh_water_flag,
+        pixc_bright_land_flag, pixc_dark_water_flag, pixc_low_coh_water_flag,
         pixc_specular_ringing_qual, pixc_water_frac, mask,
-        pixc_water_frac_suspect_thresh,
-        water_frac_uncert_suspect_thresh, num_water_area_pix_suspect_thresh,
+        pixc_water_frac_suspect_thresh, water_frac_uncert_suspect_thresh,
+        num_water_area_pix_suspect_thresh,
         near_range_suspect_thresh, far_range_suspect_thresh,
         water_frac_bad_thresh_min, water_frac_bad_thresh_max):
     """ Aggregate water area qual """
@@ -409,6 +409,10 @@ def aggregate_water_area_qual(
         if water_frac_u > water_frac_uncert_suspect_thresh:
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
             water_area_qual_bitwise += products.QUAL_IND_LARGE_UNCERT_SUSPECT
+
+        if np.any(pixc_dark_water_flag[mask]):
+            water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
+            water_area_qual_bitwise += products.QUAL_IND_DARK_WATER_SUSPECT
 
         if np.any(pixc_bright_land_flag[mask]):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
@@ -460,7 +464,7 @@ def aggregate_water_area_qual(
 
 def aggregate_sig0_qual(
         sig0, sig0_u, cross_track, pixc_sig0_qual, pixc_class_qual,
-        pixc_geo_qual, pixc_bright_land_flag,
+        pixc_geo_qual, pixc_bright_land_flag, pixc_dark_water_flag,
         pixc_low_coh_water_flag, pixc_specular_ringing_qual, mask,
         sig0_uncert_suspect_thresh, num_sig0_pix_suspect_thresh,
         near_range_suspect_thresh, far_range_suspect_thresh,
@@ -487,6 +491,10 @@ def aggregate_sig0_qual(
         if sig0_u > sig0_uncert_suspect_thresh:
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
             sig0_qual_bitwise += products.QUAL_IND_LARGE_UNCERT_SUSPECT
+
+        if np.any(pixc_dark_water_flag[mask]):
+            sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
+            sig0_qual_bitwise += products.QUAL_IND_DARK_WATER_SUSPECT
 
         if np.any(pixc_bright_land_flag[mask]):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)

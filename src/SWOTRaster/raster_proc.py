@@ -500,8 +500,9 @@ class RasterProcessor(object):
                              self.water_frac_bad_thresh_max),
                  self.water_frac, self.water_frac_u, self.cross_track,
                  area_class_qual_pixc_flag, area_geo_qual_pixc_flag,
-                 bright_land_pixc_flag, low_coh_water_classes_mask,
-                 specular_ringing_qual, pixc['pixel_cloud']['water_frac'],
+                 bright_land_pixc_flag, dark_water_classes_mask,
+                 low_coh_water_classes_mask, specular_ringing_qual,
+                 pixc['pixel_cloud']['water_frac'],
                  water_area_pixc_mask, mask=water_area_raster_mask)
 
             LOGGER.info('aggregating dark water fraction')
@@ -546,8 +547,8 @@ class RasterProcessor(object):
                          sig0_bad_thresh_max=self.sig0_bad_thresh_max),
                  self.sig0, self.sig0_u, self.cross_track, sig0_qual_pixc_flag,
                  sig0_class_qual_pixc_flag, sig0_geo_qual_pixc_flag,
-                 bright_land_pixc_flag, low_coh_water_classes_mask,
-                 specular_ringing_qual,
+                 bright_land_pixc_flag, dark_water_classes_mask,
+                 low_coh_water_classes_mask, specular_ringing_qual,
                  sig0_pixc_mask, mask=sig0_raster_mask)
 
         if self.debug_flag:

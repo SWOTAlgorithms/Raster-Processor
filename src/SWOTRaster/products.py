@@ -38,6 +38,7 @@ QUAL_IND_CLASS_QUAL_SUSPECT = 2                 # bit 1
 QUAL_IND_GEOLOCATION_QUAL_SUSPECT = 4           # bit 2
 QUAL_IND_WATER_FRACTION_SUSPECT = 8             # bit 3
 QUAL_IND_LARGE_UNCERT_SUSPECT = 32              # bit 5
+QUAL_IND_DARK_WATER_SUSPECT = 64                # bit 6
 QUAL_IND_BRIGHT_LAND = 128                      # bit 7
 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256      # bit 8
 QUAL_IND_SPECULAR_RINGING_SUSPECT = 512         # bit 9
@@ -414,6 +415,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_suspect
                 water_fraction_suspect
                 large_uncert_suspect
+                dark_water_suspect
                 bright_land
                 low_coherence_water_suspect
                 specular_ringing_suspect
@@ -434,6 +436,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
                 QUAL_IND_WATER_FRACTION_SUSPECT,
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
+                QUAL_IND_DARK_WATER_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
                 QUAL_IND_SPECULAR_RINGING_SUSPECT,
@@ -451,7 +454,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4115428270],
+            ['valid_max', 4115428334],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -536,6 +539,7 @@ COMMON_VARIABLES = odict([
                 classification_qual_suspect
                 geolocation_qual_suspect
                 large_uncert_suspect
+                dark_water_suspect
                 bright_land
                 low_coherence_water_suspect
                 specular_ringing_suspect
@@ -557,6 +561,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_CLASS_QUAL_SUSPECT,
                 QUAL_IND_GEOLOCATION_QUAL_SUSPECT,
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
+                QUAL_IND_DARK_WATER_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
                 QUAL_IND_SPECULAR_RINGING_SUSPECT,
@@ -575,7 +580,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4115559335],
+            ['valid_max', 4115559399],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
