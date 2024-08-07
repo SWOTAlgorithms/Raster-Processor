@@ -40,6 +40,7 @@ QUAL_IND_WATER_FRACTION_SUSPECT = 8             # bit 3
 QUAL_IND_LARGE_UNCERT_SUSPECT = 32              # bit 5
 QUAL_IND_BRIGHT_LAND = 128                      # bit 7
 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256      # bit 8
+QUAL_IND_SPECULAR_RINGING_SUSPECT = 512         # bit 9
 QUAL_IND_FEW_PIXELS = 4096                      # bit 12
 QUAL_IND_FAR_RANGE_SUSPECT = 8192               # bit 13
 QUAL_IND_NEAR_RANGE_SUSPECT = 16384             # bit 14
@@ -48,6 +49,7 @@ QUAL_IND_CLASS_QUAL_DEGRADED = 262144           # bit 18
 QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288     # bit 19
 QUAL_IND_DARK_WATER_DEGRADED = 1048576          # bit 20
 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152 # bit 21
+QUAL_IND_SPECULAR_RINGING_DEGRADED = 4194304    # bit 22
 QUAL_IND_VALUE_BAD = 16777216                   # bit 24
 QUAL_IND_OUTSIDE_DATA_WINDOW = 67108864         # bit 26
 QUAL_IND_NO_PIXELS = 268435456                  # bit 28
@@ -315,6 +317,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_suspect
                 large_uncert_suspect
                 bright_land
+                specular_ringing_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -322,6 +325,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 dark_water_degraded
                 low_coherence_water_degraded
+                specular_ringing_degraded
                 value_bad
                 outside_data_window
                 no_pixels
@@ -334,12 +338,14 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_FEW_PIXELS,
+                QUAL_IND_SPECULAR_RINGING_SUSPECT,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
                 QUAL_IND_DARK_WATER_DEGRADED,
                 QUAL_IND_LOW_COHERENCE_WATER_DEGRADED,
+                QUAL_IND_SPECULAR_RINGING_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
@@ -348,7 +354,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4114378918],
+            ['valid_max', 4118573734],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface elevation quantities.
@@ -410,11 +416,13 @@ COMMON_VARIABLES = odict([
                 large_uncert_suspect
                 bright_land
                 low_coherence_water_suspect
+                specular_ringing_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
                 classification_qual_degraded
                 geolocation_qual_degraded
+                specular_ringing_degraded
                 value_bad
                 outside_data_window
                 no_pixels
@@ -428,11 +436,13 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
+                QUAL_IND_SPECULAR_RINGING_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_SPECULAR_RINGING_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
@@ -441,7 +451,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4111233454],
+            ['valid_max', 4115428270],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
@@ -528,12 +538,14 @@ COMMON_VARIABLES = odict([
                 large_uncert_suspect
                 bright_land
                 low_coherence_water_suspect
+                specular_ringing_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
                 sig0_qual_degraded
                 classification_qual_degraded
                 geolocation_qual_degraded
+                specular_ringing_degraded
                 value_bad
                 outside_data_window
                 no_pixels
@@ -547,12 +559,14 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
+                QUAL_IND_SPECULAR_RINGING_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_SIG0_QUAL_DEGRADED,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
                 QUAL_IND_GEOLOCATION_QUAL_DEGRADED,
+                QUAL_IND_SPECULAR_RINGING_DEGRADED,
                 QUAL_IND_VALUE_BAD,
                 QUAL_IND_OUTSIDE_DATA_WINDOW,
                 QUAL_IND_NO_PIXELS,
@@ -561,7 +575,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_MISSING_KARIN_DATA
             ]).astype('u4')],
             ['valid_min', 0],
-            ['valid_max', 4111364519],
+            ['valid_max', 4115559335],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
@@ -1788,6 +1802,17 @@ class ScenePixc(Product):
         self.time_granule_end = \
             granule_end_time.strftime(DATETIME_FORMAT_STR)
 
+    def get_qual_flag_bit(self, qual_flag, qual_bit):
+        """ Get mask of points from quality flag with specific bit """
+        # Note that this function intentionally doesn't remap pixc_line_qual
+        # to pixels
+        qual_meanings = \
+            self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
+        qual_masks = \
+            self.pixel_cloud.VARIABLES[qual_flag]['flag_masks']
+        qual_ind = qual_masks[qual_meanings.index(qual_bit)]
+        return np.bitwise_and(self.pixel_cloud[qual_flag], qual_ind) > 0
+
     def get_summary_qual_flag(self, qual_flag, suspect_qual_flag_mask,
                               degraded_qual_flag_mask, bad_qual_flag_mask):
         """ Get summary quality flag from quality bitflag """
@@ -2049,6 +2074,7 @@ class ScenePixelCloud(Product):
         ['illumination_time_tai', odict([])],
         ['ice_clim_flag', odict([])],
         ['ice_dyn_flag', odict([])],
+        ['prior_water_prob', odict([])],
         ['bright_land_flag', odict([])],
         ['layover_impact', odict([])],
         ['sig0_cor_atmos_model', odict([])],

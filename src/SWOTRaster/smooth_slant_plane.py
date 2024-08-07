@@ -10,6 +10,7 @@ import logging
 import bottleneck
 import numpy as np
 import multiprocessing
+import SWOTRaster.products as products
 
 from functools import partial
 from scipy.ndimage import generic_filter
@@ -76,6 +77,7 @@ def smooth_slant_plane(
         geo_qual_degraded=0,
         geo_qual_bad=0,
         use_bright_land=True,
+        specular_not_intersecting_prior_thresh=0.2,
         method='composite_with_sus_classes',
         max_worker_processes=1):
     """ Smoothes in slant plane """
@@ -98,6 +100,24 @@ def smooth_slant_plane(
         'geolocation_qual', geo_qual_suspect,
         geo_qual_degraded, geo_qual_bad)
     bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag']
+    specular_ringing_flag = scene_pixc.get_qual_flag_bit(
+            'classification_qual', 'specular_ringing_degraded')
+    if specular_not_intersecting_prior_thresh is None:
+        no_prior_water = scene_pixc.get_qual_flag_bit(
+            'classification_qual', 'detected_water_but_no_prior_water')
+    else:
+        no_prior_water = scene_pixc['pixel_cloud']['prior_water_prob'] \
+                         < specular_not_intersecting_prior_thresh
+    specular_intersecting_prior = np.logical_and(
+        specular_ringing_flag, np.logical_not(no_prior_water))
+    specular_not_intersecting_prior = np.logical_and(
+        specular_ringing_flag, no_prior_water)
+    specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
+        np.shape(specular_ringing_flag))
+    specular_ringing_qual[specular_intersecting_prior] = \
+        products.QUAL_IND_SUSPECT
+    specular_ringing_qual[specular_not_intersecting_prior] = \
+        products.QUAL_IND_DEGRADED
 
     line_idx = scene_pixc['pixel_cloud']['line_index']
     pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][line_idx].astype('i4')
@@ -136,15 +156,15 @@ def smooth_slant_plane(
                 processes=max_worker_processes) as pool:
             results = list(pool.imap(_smooth_fn, chunk_slant_map(
                 var, recomputed_az_idx, recomputed_rng_idx, classif,
-                classif_qual, geolocation_qual, bright_land_flag, swath_side,
-                chunk_shape,
+                classif_qual, geolocation_qual, bright_land_flag,
+                specular_ringing_qual, swath_side, chunk_shape,
                 (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))))
     else:
         chunk_shape = max_chunk_shape
         results = [_smooth_fn(arglist) for arglist in chunk_slant_map(
             var, recomputed_az_idx, recomputed_rng_idx, classif,
-            classif_qual, geolocation_qual, bright_land_flag, swath_side,
-            chunk_shape,
+            classif_qual, geolocation_qual, bright_land_flag,
+            specular_ringing_qual, swath_side, chunk_shape,
             (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))]
 
     for data, indices in results:
@@ -152,7 +172,8 @@ def smooth_slant_plane(
     return var_out
 
 def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
-                    geolocation_qual, bright_land_flag, swath_side,
+                    geolocation_qual, bright_land_flag,
+                    specular_ringing_qual, swath_side,
                     chunk_shape, chunk_buffer=(0,0)):
     """ Takes a variable in the slant plane (both sides) and splits it into
         chunks, with a buffer """
@@ -172,6 +193,7 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
         side_classif_qual = classif_qual[side_mask]
         side_geolocation_qual = geolocation_qual[side_mask]
         side_bright_land_flag = bright_land_flag[side_mask]
+        side_specular_ringing_qual = specular_ringing_qual[side_mask]
 
         # Group into az/rng squares of chunk_shape[0]*chunk_shape[1],
         # throw away any chunks without data
@@ -218,11 +240,13 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
                        side_classif_qual[mask],
                        side_geolocation_qual[mask],
                        side_bright_land_flag[mask],
+                       side_specular_ringing_qual[mask],
                        side_indices[mask],
                        use_mask[mask])
 
 def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
                           geolocation_qual, bright_land_flag,
+                          specular_ringing_qual,
                           side_sort_indices, use_mask,
                           smoothing_footprint,
                           good_klasses=DEFAULT_GOOD_CLASSES,
@@ -234,12 +258,13 @@ def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
         np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx)))
     smoothed_chunk = smooth_chunk(
         var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
-        bright_land_flag, smoothing_footprint, good_klasses, sus_klasses,
+        bright_land_flag, specular_ringing_qual, smoothing_footprint,
+        good_klasses, sus_klasses,
         use_bright_land, method)
     return smoothed_chunk[use_mask], side_sort_indices[use_mask]
 
 def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
-                 bright_land_flag, smoothing_footprint,
+                 bright_land_flag, specular_ringing_qual, smoothing_footprint,
                  good_klasses=DEFAULT_GOOD_CLASSES,
                  sus_klasses=DEFAULT_SUS_CLASSES,
                  use_bright_land=True,
@@ -263,7 +288,10 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         return slant_plane_var
 
     # Get mask of good/sus quality pixels
-    good_sus_qual_mask = np.logical_and(classif_qual < 2, geolocation_qual < 2)
+    good_sus_qual_mask = np.logical_and(
+        classif_qual < products.QUAL_IND_DEGRADED,
+        geolocation_qual < products.QUAL_IND_DEGRADED,
+        specular_ringing_qual < products.QUAL_IND_DEGRADED)
 
     # Treat bright land as degraded/bad if use_bright_land is false
     if not use_bright_land:

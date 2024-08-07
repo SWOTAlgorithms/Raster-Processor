@@ -31,7 +31,9 @@ class RasterProcessor(object):
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, sig0_agg_method,
                  interior_water_classes, water_edge_classes, land_edge_classes,
-                 dark_water_classes, low_coh_water_classes, use_bright_land,
+                 dark_water_classes, low_coh_water_classes,
+                 use_bright_land, use_specular_not_intersecting_prior,
+                 specular_not_intersecting_prior_thresh,
                  use_all_classes_for_wse, use_all_classes_for_sig0,
                  wse_geo_qual_suspect, wse_geo_qual_degraded, wse_geo_qual_bad,
                  area_geo_qual_suspect, area_geo_qual_degraded, area_geo_qual_bad,
@@ -79,6 +81,10 @@ class RasterProcessor(object):
         self.dark_water_classes = dark_water_classes
         self.low_coh_water_classes = low_coh_water_classes
         self.use_bright_land = use_bright_land
+        self.use_specular_not_intersecting_prior = \
+            use_specular_not_intersecting_prior
+        self.specular_not_intersecting_prior_thresh = \
+            specular_not_intersecting_prior_thresh
         self.use_all_classes_for_wse = use_all_classes_for_wse
         self.use_all_classes_for_sig0 = use_all_classes_for_sig0
 
@@ -205,6 +211,39 @@ class RasterProcessor(object):
             low_coh_water_classes_mask = np.logical_and(
                 low_coh_water_classes_mask, not_bright_land)
 
+        # Handle specular ringing
+        # Suspect if intersecting prior water, otherwise degraded
+        specular_ringing_pixc_flag = pixc.get_qual_flag_bit(
+            'classification_qual', 'specular_ringing_degraded')
+        if self.specular_not_intersecting_prior_thresh is None:
+            no_prior_water = pixc.get_qual_flag_bit(
+                'classification_qual', 'detected_water_but_no_prior_water')
+        else:
+            no_prior_water = pixc['pixel_cloud']['prior_water_prob'] \
+                             < self.specular_not_intersecting_prior_thresh
+        specular_intersecting_prior = np.logical_and(
+            specular_ringing_pixc_flag, np.logical_not(no_prior_water))
+        specular_not_intersecting_prior = np.logical_and(
+            specular_ringing_pixc_flag, no_prior_water)
+        specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
+            np.shape(specular_ringing_pixc_flag))
+        specular_ringing_qual[specular_intersecting_prior] = \
+            products.QUAL_IND_SUSPECT
+        specular_ringing_qual[specular_not_intersecting_prior] = \
+            products.QUAL_IND_DEGRADED
+
+        if not self.use_specular_not_intersecting_prior:
+            not_specular_not_intersecting_prior = np.logical_not(
+                specular_not_intersecting_prior)
+            water_classes_mask = np.logical_and(
+                water_classes_mask, not_specular_not_intersecting_prior)
+            all_classes_mask = np.logical_and(
+                all_classes_mask, not_specular_not_intersecting_prior)
+            dark_water_classes_mask = np.logical_and(
+                dark_water_classes_mask, not_specular_not_intersecting_prior)
+            low_coh_water_classes_mask = np.logical_and(
+                low_coh_water_classes_mask, not_specular_not_intersecting_prior)
+
         # Get pixc summary quality flags
         LOGGER.info("getting pixc summary quality flags")
         wse_geo_qual_pixc_flag = pixc.get_summary_qual_flag(
@@ -242,44 +281,52 @@ class RasterProcessor(object):
         # Get rasterization masks
         LOGGER.info('getting rasterization masks for wse/water area/sig0')
         # WSE: only water classes are good/sus unless use_all_classes commanded
-        #      low coh water is degraded
+        #      dark water and low coh water are degraded
+        #      specular ringing quality derived from prior water intersection
+        wse_base_classes_mask = water_classes_mask
+        if self.use_all_classes_for_wse:
+            wse_base_classes_mask = all_classes_mask
+
         wse_good_sus_classes_mask = np.logical_and.reduce((
-            water_classes_mask,
+            wse_base_classes_mask,
             np.logical_not(dark_water_classes_mask),
             np.logical_not(low_coh_water_classes_mask)))
         wse_degraded_classes_mask = np.logical_or(
             dark_water_classes_mask, low_coh_water_classes_mask)
-        if self.use_all_classes_for_wse:
-            wse_good_sus_classes_mask = np.logical_and.reduce((
-                all_classes_mask,
-                np.logical_not(dark_water_classes_mask),
-                np.logical_not(low_coh_water_classes_mask)))
 
         wse_pixc_mask, wse_raster_mask = self.get_rasterization_masks(
             wse_good_sus_classes_mask, wse_degraded_classes_mask,
-            (wse_geo_qual_pixc_flag, wse_class_qual_pixc_flag),
+            (wse_geo_qual_pixc_flag, wse_class_qual_pixc_flag,
+             specular_ringing_qual),
             self.num_good_sus_pix_thresh_wse)
 
         # Area: all classes are good/sus
-        #       low coh water is not degraded
-        area_good_sus_classes_mask = all_classes_mask
+        #       dark water and low coh water are not degraded
+        #       specular ringing quality derived from prior water intersection
+        area_base_classes_mask = all_classes_mask
+        area_good_sus_classes_mask = area_base_classes_mask
         area_degraded_classes_mask = np.zeros_like(area_good_sus_classes_mask)
         water_area_pixc_mask, water_area_raster_mask = \
             self.get_rasterization_masks(
                 area_good_sus_classes_mask, area_degraded_classes_mask,
-                (area_geo_qual_pixc_flag, area_class_qual_pixc_flag),
+                (area_geo_qual_pixc_flag, area_class_qual_pixc_flag,
+                 specular_ringing_qual),
                 self.num_good_sus_pix_thresh_water_area)
 
         # Sig0: only water classes are good/sus unless use_all_classes commanded
-        #       low coh water is not degraded
-        sig0_good_sus_classes_mask = water_classes_mask
-        sig0_degraded_classes_mask = np.zeros_like(sig0_good_sus_classes_mask)
+        #       dark water and low coh water are not degraded
+        #       specular ringing quality derived from prior water intersection
+        sig0_base_classes_mask = water_classes_mask
         if self.use_all_classes_for_sig0:
-            sig0_good_sus_classes_mask = all_classes_mask
+            sig0_base_classes_mask = all_classes_mask
+
+        sig0_good_sus_classes_mask = sig0_base_classes_mask
+        sig0_degraded_classes_mask = np.zeros_like(sig0_good_sus_classes_mask)
 
         sig0_pixc_mask, sig0_raster_mask = self.get_rasterization_masks(
             sig0_good_sus_classes_mask, sig0_degraded_classes_mask,
-            (sig0_geo_qual_pixc_flag, sig0_class_qual_pixc_flag, sig0_qual_pixc_flag),
+            (sig0_geo_qual_pixc_flag, sig0_class_qual_pixc_flag,
+             sig0_qual_pixc_flag, specular_ringing_qual),
             self.num_good_sus_pix_thresh_sig0)
 
         all_pixc_mask = np.logical_or.reduce((
@@ -400,7 +447,7 @@ class RasterProcessor(object):
                  self.wse, self.wse_u, self.cross_track,
                  wse_class_qual_pixc_flag, wse_geo_qual_pixc_flag,
                  bright_land_pixc_flag, dark_water_classes_mask,
-                 low_coh_water_classes_mask,
+                 low_coh_water_classes_mask, specular_ringing_qual,
                  wse_pixc_mask, mask=wse_raster_mask)
 
             LOGGER.info('aggregating layover impact')
@@ -454,7 +501,7 @@ class RasterProcessor(object):
                  self.water_frac, self.water_frac_u, self.cross_track,
                  area_class_qual_pixc_flag, area_geo_qual_pixc_flag,
                  bright_land_pixc_flag, low_coh_water_classes_mask,
-                 pixc['pixel_cloud']['water_frac'],
+                 specular_ringing_qual, pixc['pixel_cloud']['water_frac'],
                  water_area_pixc_mask, mask=water_area_raster_mask)
 
             LOGGER.info('aggregating dark water fraction')
@@ -500,6 +547,7 @@ class RasterProcessor(object):
                  self.sig0, self.sig0_u, self.cross_track, sig0_qual_pixc_flag,
                  sig0_class_qual_pixc_flag, sig0_geo_qual_pixc_flag,
                  bright_land_pixc_flag, low_coh_water_classes_mask,
+                 specular_ringing_qual,
                  sig0_pixc_mask, mask=sig0_raster_mask)
 
         if self.debug_flag:
@@ -776,13 +824,6 @@ class RasterProcessor(object):
                 shifted_polys.append(shifted_poly)
             return shifted_polys
 
-        pixc_line_qual_meanings = \
-            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_meanings'].split()
-        pixc_line_qual_masks = \
-            pixc['pixel_cloud'].VARIABLES['pixc_line_qual']['flag_masks']
-        pixc_line_qual_ind_large_karin_gap = pixc_line_qual_masks[
-            pixc_line_qual_meanings.index('large_karin_gap')]
-
         # Create outside data window and extant data polygons
         extant_data_polygons_points = []
         outside_data_window_polygons_points = []
@@ -792,7 +833,6 @@ class RasterProcessor(object):
             tvp_side_mask = pixc['tvp']['swath_side']==swath_side
             pixc_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
             pixc_side_mask = tvp_side_mask[pixc_tvp_idx]
-            pixc_line_qual = pixc['pixel_cloud']['pixc_line_qual'][pixc_side_mask]
             pixc_tvp_idx = pixc_tvp_idx[pixc_side_mask]
             pixc_data_window_first_cross_track = \
                 pixc['pixel_cloud']['data_window_first_cross_track'][pixc_side_mask]
@@ -804,8 +844,8 @@ class RasterProcessor(object):
             tvp_xyz = np.row_stack((
                 pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
-            pixc_extant_data_mask = \
-                (pixc_line_qual & pixc_line_qual_ind_large_karin_gap)==0
+            pixc_extant_data_mask = np.logical_not(pixc.get_qual_flag_bit(
+                'pixc_line_qual', 'large_karin_gap')[pixc_side_mask])
 
             for k, g in groupby(np.arange(len(pixc_extant_data_mask)),
                                 lambda x: pixc_extant_data_mask[x]):

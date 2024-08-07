@@ -111,6 +111,11 @@ class L2PixcToRaster(object):
             self.algorithmic_config['sig0_class_qual_bad'] = \
                 self.algorithmic_config['class_qual_bad']
 
+        # Use pixc class qual to get specular not intersecting prior if
+        # no threshold is given
+        if 'specular_not_intersecting_prior_thresh' not in self.algorithmic_config:
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = None
+
     def process(self):
         """ Process L2Pixc to Raster """
         LOGGER.info("processing l2pixc to raster")
@@ -183,6 +188,8 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['dark_water_classes'],
                 self.algorithmic_config['low_coh_water_classes'],
                 self.algorithmic_config['use_bright_land'],
+                self.algorithmic_config['use_specular_not_intersecting_prior'],
+                self.algorithmic_config['specular_not_intersecting_prior_thresh'],
                 self.algorithmic_config['use_all_classes_for_wse'],
                 self.algorithmic_config['use_all_classes_for_sig0'],
                 self.algorithmic_config['wse_geo_qual_suspect'],
@@ -280,6 +287,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['wse_geo_qual_degraded'],
             self.algorithmic_config['wse_geo_qual_bad'],
             self.algorithmic_config['use_bright_land'],
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'],
             self.algorithmic_config['slant_plane_smoothing_method'],
             max_worker_processes=self.max_worker_processes)
 
@@ -308,6 +316,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['wse_geo_qual_degraded'],
             self.algorithmic_config['wse_geo_qual_bad'],
             self.algorithmic_config['use_bright_land'],
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'],
             self.algorithmic_config['slant_plane_smoothing_method'],
             max_worker_processes=self.max_worker_processes)
 
@@ -330,6 +339,8 @@ class L2PixcToRaster(object):
             self.algorithmic_config['dark_water_classes'],
             self.algorithmic_config['low_coh_water_classes'],
             self.algorithmic_config['use_bright_land'],
+            self.algorithmic_config['use_specular_not_intersecting_prior'],
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'],
             self.algorithmic_config['use_all_classes_for_wse'],
             self.algorithmic_config['use_all_classes_for_sig0'],
             self.algorithmic_config['wse_geo_qual_suspect'],
