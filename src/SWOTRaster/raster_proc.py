@@ -1247,13 +1247,14 @@ class RasterProcessor(object):
             if not self.skip_wse:
                 product['wse'] = self.wse
                 product['wse_qual_bitwise'] = self.wse_qual_bitwise
-                product['wse_qual_bitwise']['classification_qual_suspect_mask'] = \
+                wse_qual_bitwise_var = product.VARIABLES['wse_qual_bitwise']
+                wse_qual_bitwise_var['classification_qual_suspect_mask'] = \
                     products.val2hex(self.wse_class_qual_suspect)
-                product['wse_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                wse_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
                     products.val2hex(self.wse_geo_qual_suspect)
-                product['wse_qual_bitwise']['classification_qual_degraded_mask'] = \
+                wse_qual_bitwise_var['classification_qual_degraded_mask'] = \
                     products.val2hex(self.wse_class_qual_suspect)
-                product['wse_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                wse_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
                     products.val2hex(self.wse_geo_qual_suspect)
                 product['wse_qual'] = self.wse_qual
                 product['wse_uncert'] = self.wse_u
@@ -1272,13 +1273,14 @@ class RasterProcessor(object):
             if not self.skip_area:
                 product['water_area'] = self.water_area
                 product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
-                product['water_area_qual_bitwise']['classification_qual_suspect_mask'] = \
+                area_qual_bitwise_var = product.VARIABLES['water_area_qual_bitwise']
+                area_qual_bitwise_var['classification_qual_suspect_mask'] = \
                     products.val2hex(self.area_class_qual_suspect)
-                product['water_area_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                area_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
                     products.val2hex(self.area_geo_qual_suspect)
-                product['water_area_qual_bitwise']['classification_qual_degraded_mask'] = \
+                area_qual_bitwise_var['classification_qual_degraded_mask'] = \
                     products.val2hex(self.area_class_qual_suspect)
-                product['water_area_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                area_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
                     products.val2hex(self.area_geo_qual_suspect)
                 product['water_area_qual'] = self.water_area_qual
                 product['water_area_uncert'] = self.water_area_u
@@ -1290,13 +1292,14 @@ class RasterProcessor(object):
             if not self.skip_sig0:
                 product['sig0'] = self.sig0
                 product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
-                product['sig0_qual_bitwise']['classification_qual_suspect_mask'] = \
+                sig0_qual_bitwise_var = product.VARIABLES['sig0_qual_bitwise']
+                sig0_qual_bitwise_var['classification_qual_suspect_mask'] = \
                     products.val2hex(self.sig0_class_qual_suspect)
-                product['sig0_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                sig0_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
                     products.val2hex(self.sig0_geo_qual_suspect)
-                product['sig0_qual_bitwise']['classification_qual_degraded_mask'] = \
+                sig0_qual_bitwise_var['classification_qual_degraded_mask'] = \
                     products.val2hex(self.sig0_class_qual_suspect)
-                product['sig0_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                sig0_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
                     products.val2hex(self.sig0_geo_qual_suspect)
                 product['sig0_qual'] = self.sig0_qual
                 product['sig0_uncert'] = self.sig0_u
