@@ -333,7 +333,7 @@ def aggregate_wse_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
-            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_SUSPECT
+            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
 
         if n_wse_pix < num_wse_pix_suspect_thresh:
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
@@ -365,7 +365,7 @@ def aggregate_wse_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
             wse_qual = max(wse_qual, products.QUAL_IND_DEGRADED)
-            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_DEGRADED
+            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_DEGRADED
 
         if wse < wse_bad_thresh_min \
            or wse > wse_bad_thresh_max:
@@ -424,7 +424,11 @@ def aggregate_water_area_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
-            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_SUSPECT
+            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
+
+        if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
+            water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
+            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT
 
         if n_water_area_pix < num_water_area_pix_suspect_thresh:
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
@@ -445,10 +449,6 @@ def aggregate_water_area_qual(
         if np.any(pixc_geo_qual[mask]==products.QUAL_IND_DEGRADED):
             water_area_qual = max(water_area_qual, products.QUAL_IND_DEGRADED)
             water_area_qual_bitwise += products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
-
-        if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
-            water_area_qual = max(water_area_qual, products.QUAL_IND_DEGRADED)
-            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_DEGRADED
 
         if water_frac < water_frac_bad_thresh_min \
            or water_frac > water_frac_bad_thresh_max:
@@ -506,7 +506,11 @@ def aggregate_sig0_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
-            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_SUSPECT
+            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
+
+        if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
+            sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
+            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT
 
         if n_sig0_pix < num_sig0_pix_suspect_thresh:
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
@@ -531,10 +535,6 @@ def aggregate_sig0_qual(
         if np.any(pixc_geo_qual[mask]==products.QUAL_IND_DEGRADED):
             sig0_qual = max(sig0_qual, products.QUAL_IND_DEGRADED)
             sig0_qual_bitwise += products.QUAL_IND_GEOLOCATION_QUAL_DEGRADED
-
-        if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
-            sig0_qual = max(sig0_qual, products.QUAL_IND_DEGRADED)
-            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_DEGRADED
 
         if sig0 < sig0_bad_thresh_min \
            or sig0 > sig0_bad_thresh_max:

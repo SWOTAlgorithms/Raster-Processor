@@ -213,7 +213,7 @@ class RasterProcessor(object):
 
         # Handle specular ringing
         # Suspect if intersecting prior water, otherwise degraded
-        specular_ringing_pixc_flag = pixc.get_qual_flag_bit(
+        specular_ringing_flag = pixc.get_qual_flag_bit(
             'classification_qual', 'specular_ringing_degraded')
         if self.specular_not_intersecting_prior_thresh is None:
             no_prior_water = pixc.get_qual_flag_bit(
@@ -222,11 +222,11 @@ class RasterProcessor(object):
             no_prior_water = pixc['pixel_cloud']['prior_water_prob'] \
                              < self.specular_not_intersecting_prior_thresh
         specular_intersecting_prior = np.logical_and(
-            specular_ringing_pixc_flag, np.logical_not(no_prior_water))
+            specular_ringing_flag, np.logical_not(no_prior_water))
         specular_not_intersecting_prior = np.logical_and(
-            specular_ringing_pixc_flag, no_prior_water)
+            specular_ringing_flag, no_prior_water)
         specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
-            np.shape(specular_ringing_pixc_flag))
+            np.shape(specular_ringing_flag))
         specular_ringing_qual[specular_intersecting_prior] = \
             products.QUAL_IND_SUSPECT
         specular_ringing_qual[specular_not_intersecting_prior] = \
@@ -302,20 +302,21 @@ class RasterProcessor(object):
 
         # Area: all classes are good/sus
         #       dark water and low coh water are not degraded
-        #       specular ringing quality derived from prior water intersection
+        #       specular ringing always suspect
         area_base_classes_mask = all_classes_mask
         area_good_sus_classes_mask = area_base_classes_mask
         area_degraded_classes_mask = np.zeros_like(area_good_sus_classes_mask)
+
         water_area_pixc_mask, water_area_raster_mask = \
             self.get_rasterization_masks(
                 area_good_sus_classes_mask, area_degraded_classes_mask,
                 (area_geo_qual_pixc_flag, area_class_qual_pixc_flag,
-                 specular_ringing_qual),
+                 specular_ringing_flag),
                 self.num_good_sus_pix_thresh_water_area)
 
         # Sig0: only water classes are good/sus unless use_all_classes commanded
         #       dark water and low coh water are not degraded
-        #       specular ringing quality derived from prior water intersection
+        #       specular ringing always suspect
         sig0_base_classes_mask = water_classes_mask
         if self.use_all_classes_for_sig0:
             sig0_base_classes_mask = all_classes_mask
@@ -326,7 +327,7 @@ class RasterProcessor(object):
         sig0_pixc_mask, sig0_raster_mask = self.get_rasterization_masks(
             sig0_good_sus_classes_mask, sig0_degraded_classes_mask,
             (sig0_geo_qual_pixc_flag, sig0_class_qual_pixc_flag,
-             sig0_qual_pixc_flag, specular_ringing_qual),
+             sig0_qual_pixc_flag, specular_ringing_flag),
             self.num_good_sus_pix_thresh_sig0)
 
         all_pixc_mask = np.logical_or.reduce((
@@ -1246,6 +1247,14 @@ class RasterProcessor(object):
             if not self.skip_wse:
                 product['wse'] = self.wse
                 product['wse_qual_bitwise'] = self.wse_qual_bitwise
+                product['wse_qual_bitwise']['classification_qual_suspect_mask'] = \
+                    products.val2hex(self.wse_class_qual_suspect)
+                product['wse_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                    products.val2hex(self.wse_geo_qual_suspect)
+                product['wse_qual_bitwise']['classification_qual_degraded_mask'] = \
+                    products.val2hex(self.wse_class_qual_suspect)
+                product['wse_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                    products.val2hex(self.wse_geo_qual_suspect)
                 product['wse_qual'] = self.wse_qual
                 product['wse_uncert'] = self.wse_u
                 product['n_wse_pix'] = self.n_wse_pix
@@ -1263,6 +1272,14 @@ class RasterProcessor(object):
             if not self.skip_area:
                 product['water_area'] = self.water_area
                 product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
+                product['water_area_qual_bitwise']['classification_qual_suspect_mask'] = \
+                    products.val2hex(self.area_class_qual_suspect)
+                product['water_area_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                    products.val2hex(self.area_geo_qual_suspect)
+                product['water_area_qual_bitwise']['classification_qual_degraded_mask'] = \
+                    products.val2hex(self.area_class_qual_suspect)
+                product['water_area_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                    products.val2hex(self.area_geo_qual_suspect)
                 product['water_area_qual'] = self.water_area_qual
                 product['water_area_uncert'] = self.water_area_u
                 product['water_frac'] = self.water_frac
@@ -1273,6 +1290,14 @@ class RasterProcessor(object):
             if not self.skip_sig0:
                 product['sig0'] = self.sig0
                 product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
+                product['sig0_qual_bitwise']['classification_qual_suspect_mask'] = \
+                    products.val2hex(self.sig0_class_qual_suspect)
+                product['sig0_qual_bitwise']['geolocation_qual_suspect_mask'] = \
+                    products.val2hex(self.sig0_geo_qual_suspect)
+                product['sig0_qual_bitwise']['classification_qual_degraded_mask'] = \
+                    products.val2hex(self.sig0_class_qual_suspect)
+                product['sig0_qual_bitwise']['geolocation_qual_degraded_mask'] = \
+                    products.val2hex(self.sig0_geo_qual_suspect)
                 product['sig0_qual'] = self.sig0_qual
                 product['sig0_uncert'] = self.sig0_u
                 product['sig0_cor_atmos_model'] = self.sig0_cor_atmos_model
