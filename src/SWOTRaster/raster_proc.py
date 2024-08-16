@@ -231,6 +231,8 @@ class RasterProcessor(object):
             products.QUAL_IND_SUSPECT
         specular_ringing_qual[specular_not_intersecting_prior] = \
             products.QUAL_IND_DEGRADED
+        suspect_specular_ringing_qual = \
+            products.QUAL_IND_SUSPECT*specular_ringing_mask
 
         if not self.use_specular_not_intersecting_prior:
             not_specular_not_intersecting_prior = np.logical_not(
@@ -293,12 +295,11 @@ class RasterProcessor(object):
             np.logical_not(low_coh_water_classes_mask)))
         wse_degraded_classes_mask = np.logical_or(
             dark_water_classes_mask, low_coh_water_classes_mask)
-        wse_specular_ringing_qual = specular_ringing_qual
 
         wse_pixc_mask, wse_raster_mask = self.get_rasterization_masks(
             wse_good_sus_classes_mask, wse_degraded_classes_mask,
             (wse_geo_qual_pixc_flag, wse_class_qual_pixc_flag,
-             wse_specular_ringing_qual),
+             specular_ringing_qual),
             self.num_good_sus_pix_thresh_wse)
 
         # Area: all classes are good/sus
@@ -307,13 +308,12 @@ class RasterProcessor(object):
         area_base_classes_mask = all_classes_mask
         area_good_sus_classes_mask = area_base_classes_mask
         area_degraded_classes_mask = np.zeros_like(area_good_sus_classes_mask)
-        area_specular_ringing_qual = products.QUAL_IND_SUSPECT*specular_ringing_mask
 
         water_area_pixc_mask, water_area_raster_mask = \
             self.get_rasterization_masks(
                 area_good_sus_classes_mask, area_degraded_classes_mask,
                 (area_geo_qual_pixc_flag, area_class_qual_pixc_flag,
-                 area_specular_ringing_qual),
+                 suspect_specular_ringing_qual),
                 self.num_good_sus_pix_thresh_water_area)
 
         # Sig0: only water classes are good/sus unless use_all_classes commanded
@@ -325,12 +325,11 @@ class RasterProcessor(object):
 
         sig0_good_sus_classes_mask = sig0_base_classes_mask
         sig0_degraded_classes_mask = np.zeros_like(sig0_good_sus_classes_mask)
-        sig0_specular_ringing_qual = product.QUAL_IND_SUSPECT*specular_ringing_mask
 
         sig0_pixc_mask, sig0_raster_mask = self.get_rasterization_masks(
             sig0_good_sus_classes_mask, sig0_degraded_classes_mask,
             (sig0_geo_qual_pixc_flag, sig0_class_qual_pixc_flag,
-             sig0_qual_pixc_flag, sig0_specular_ringing_qual),
+             sig0_qual_pixc_flag, suspect_specular_ringing_qual),
             self.num_good_sus_pix_thresh_sig0)
 
         all_pixc_mask = np.logical_or.reduce((
