@@ -31,13 +31,15 @@ example algorithmic config parameters:
 
     # Height-constrained geolocation source specific controls
     lowres_raster_scale_factor                      (-) = 0.2
-    slant_plane_smoothing_footprint                 (-) = [5, 10]
+    slant_plane_smoothing_filter_shape              (-) = [5, 10]
     slant_plane_smoothing_good_classes              (-) = [3, 4]
     slant_plane_smoothing_sus_classes               (-) = [2, 5, 6, 7, 23, 24]
     slant_plane_smoothing_method                    (-) = composite_with_sus_classes
 
     # Class-use flags
     use_bright_land                                 (-) = True
+    use_specular_not_intersecting_prior             (-) = True
+    specular_not_intersecting_prior_thresh          (-) = 0.2
     use_all_classes_for_wse                         (-) = False
     use_all_classes_for_sig0                        (-) = False
 
@@ -50,40 +52,40 @@ example algorithmic config parameters:
     write_internal_files                            (-) = False
 
     # Default geolocation qual flags
-    geo_qual_suspect                                (-) = 0x0000ffff
-    geo_qual_degraded                               (-) = 0x01ff0000
+    geo_qual_suspect                                (-) = 0x0000fffc
+    geo_qual_degraded                               (-) = 0x01f70000
     geo_qual_bad                                    (-) = 0xfe000000
 
     # Override geolocation qual flags
-    wse_geo_qual_suspect                            (-) = 0x0000ffff
-    wse_geo_qual_degraded                           (-) = 0x01ff0000
+    wse_geo_qual_suspect                            (-) = 0x0000fffc
+    wse_geo_qual_degraded                           (-) = 0x01f70000
     wse_geo_qual_bad                                (-) = 0xfe000000
-    area_geo_qual_suspect                           (-) = 0x0008ffff
+    area_geo_qual_suspect                           (-) = 0x0000fffc
     area_geo_qual_degraded                          (-) = 0x01f70000
     area_geo_qual_bad                               (-) = 0xfe000000
-    sig0_geo_qual_suspect                           (-) = 0x0000ffff
-    sig0_geo_qual_degraded                          (-) = 0x01ff0000
+    sig0_geo_qual_suspect                           (-) = 0x0000fffc
+    sig0_geo_qual_degraded                          (-) = 0x01f70000
     sig0_geo_qual_bad                               (-) = 0xfe000000
 
     # Default classification qual flags
-    class_qual_suspect                              (-) = 0x0000ffff
-    class_qual_degraded                             (-) = 0x01fb0000
+    class_qual_suspect                              (-) = 0x0000fff0
+    class_qual_degraded                             (-) = 0x01f30000
     class_qual_bad                                  (-) = 0xfe040000
 
     # Override classification qual flags
-    wse_class_qual_suspect                          (-) = 0x0000ffff
-    wse_class_qual_degraded                         (-) = 0x01fb0000
+    wse_class_qual_suspect                          (-) = 0x0000fff0
+    wse_class_qual_degraded                         (-) = 0x01f30000
     wse_class_qual_bad                              (-) = 0xfe040000
-    area_class_qual_suspect                         (-) = 0x0008ffff
+    area_class_qual_suspect                         (-) = 0x0000fff0
     area_class_qual_degraded                        (-) = 0x01f30000
     area_class_qual_bad                             (-) = 0xfe040000
-    sig0_class_qual_suspect                         (-) = 0x0000ffff
-    sig0_class_qual_degraded                        (-) = 0x01fb0000
+    sig0_class_qual_suspect                         (-) = 0x0000fff0
+    sig0_class_qual_degraded                        (-) = 0x01f30000
     sig0_class_qual_bad                             (-) = 0xfe040000
 
     # Default sigma0 qual flags
-    sig0_qual_suspect                               (-) = 0x0000ffff
-    sig0_qual_degraded                              (-) = 0x01fb0000
+    sig0_qual_suspect                               (-) = 0x0000fffe
+    sig0_qual_degraded                              (-) = 0x01f30000
     sig0_qual_bad                                   (-) = 0xfe040000
 
     # Minimum thresholds for good/sus pixels to not use degraded pixels
