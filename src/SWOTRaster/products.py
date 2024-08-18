@@ -41,7 +41,7 @@ QUAL_IND_LARGE_UNCERT_SUSPECT = 32                      # bit 5
 QUAL_IND_DARK_WATER_SUSPECT = 64                        # bit 6
 QUAL_IND_BRIGHT_LAND = 128                              # bit 7
 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256              # bit 8
-QUAL_IND_SPECULAR_RINGING_PRIOR_WATER = 512             # bit 9
+QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT = 512     # bit 9
 QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT = 1024     # bit 10
 QUAL_IND_FEW_PIXELS = 4096                              # bit 12
 QUAL_IND_FAR_RANGE_SUSPECT = 8192                       # bit 13
@@ -75,9 +75,17 @@ def textjoin(text):
     text = text.strip()
     return text
 
-def val2hex(val, pad_sz=8):
-    """ Convert a value to a hex string """
-    return '0x{0:0{1}x}'.format(val, pad_sz)
+def int2hexattr(val):
+    """ Convert an int to an attribute string
+        with both the decimal int value and 32-bit hex word """
+    return "{0} ({1})".format(val, int2hex(val, 8, upper=True))
+
+def int2hex(val, pad_sz, upper=False):
+    """ Convert an int to a hex string """
+    fmt = 'x'
+    if upper:
+        fmt = 'X'
+    return '0x{0:0{1}{2}}'.format(val, pad_sz, fmt)
 
 COMMON_ATTRIBUTES = odict([
     ['Conventions',
@@ -327,7 +335,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_suspect
                 large_uncert_suspect
                 bright_land
-                specular_ringing_prior_water
+                specular_ringing_prior_water_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -335,7 +343,7 @@ COMMON_VARIABLES = odict([
                 geolocation_qual_degraded
                 dark_water_degraded
                 low_coherence_water_degraded
-                specular_ringing_prior_land
+                specular_ringing_prior_land_degraded
                 value_bad
                 outside_data_window
                 no_pixels
@@ -348,7 +356,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_LARGE_UNCERT_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_FEW_PIXELS,
-                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER,
+                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT,
                 QUAL_IND_FAR_RANGE_SUSPECT,
                 QUAL_IND_NEAR_RANGE_SUSPECT,
                 QUAL_IND_CLASS_QUAL_DEGRADED,
@@ -431,8 +439,8 @@ COMMON_VARIABLES = odict([
                 dark_water_suspect
                 bright_land
                 low_coherence_water_suspect
-                specular_ringing_prior_water
-                specular_ringing_prior_land
+                specular_ringing_prior_water_suspect
+                specular_ringing_prior_land_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -452,7 +460,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_DARK_WATER_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
-                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER,
+                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT,
                 QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,
@@ -559,8 +567,8 @@ COMMON_VARIABLES = odict([
                 dark_water_suspect
                 bright_land
                 low_coherence_water_suspect
-                specular_ringing_prior_water
-                specular_ringing_prior_land
+                specular_ringing_prior_water_suspect
+                specular_ringing_prior_land_suspect
                 few_pixels
                 far_range_suspect
                 near_range_suspect
@@ -581,7 +589,7 @@ COMMON_VARIABLES = odict([
                 QUAL_IND_DARK_WATER_SUSPECT,
                 QUAL_IND_BRIGHT_LAND,
                 QUAL_IND_LOW_COHERENCE_WATER_SUSPECT,
-                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER,
+                QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT,
                 QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT,
                 QUAL_IND_FEW_PIXELS,
                 QUAL_IND_FAR_RANGE_SUSPECT,

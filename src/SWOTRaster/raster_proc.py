@@ -1251,13 +1251,13 @@ class RasterProcessor(object):
                 product['wse_qual_bitwise'] = self.wse_qual_bitwise
                 wse_qual_bitwise_var = product.VARIABLES['wse_qual_bitwise']
                 wse_qual_bitwise_var['classification_qual_suspect_mask'] = \
-                    products.val2hex(self.wse_class_qual_suspect)
+                    products.int2hexattr(self.wse_class_qual_suspect)
                 wse_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
-                    products.val2hex(self.wse_geo_qual_suspect)
+                    products.int2hexattr(self.wse_geo_qual_suspect)
                 wse_qual_bitwise_var['classification_qual_degraded_mask'] = \
-                    products.val2hex(self.wse_class_qual_degraded)
+                    products.int2hexattr(self.wse_class_qual_degraded)
                 wse_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
-                    products.val2hex(self.wse_geo_qual_degraded)
+                    products.int2hexattr(self.wse_geo_qual_degraded)
                 product['wse_qual'] = self.wse_qual
                 product['wse_uncert'] = self.wse_u
                 product['n_wse_pix'] = self.n_wse_pix
@@ -1277,13 +1277,13 @@ class RasterProcessor(object):
                 product['water_area_qual_bitwise'] = self.water_area_qual_bitwise
                 area_qual_bitwise_var = product.VARIABLES['water_area_qual_bitwise']
                 area_qual_bitwise_var['classification_qual_suspect_mask'] = \
-                    products.val2hex(self.area_class_qual_suspect)
+                    products.int2hexattr(self.area_class_qual_suspect)
                 area_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
-                    products.val2hex(self.area_geo_qual_suspect)
+                    products.int2hexattr(self.area_geo_qual_suspect)
                 area_qual_bitwise_var['classification_qual_degraded_mask'] = \
-                    products.val2hex(self.area_class_qual_degraded)
+                    products.int2hexattr(self.area_class_qual_degraded)
                 area_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
-                    products.val2hex(self.area_geo_qual_degraded)
+                    products.int2hexattr(self.area_geo_qual_degraded)
                 product['water_area_qual'] = self.water_area_qual
                 product['water_area_uncert'] = self.water_area_u
                 product['water_frac'] = self.water_frac
@@ -1296,13 +1296,13 @@ class RasterProcessor(object):
                 product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
                 sig0_qual_bitwise_var = product.VARIABLES['sig0_qual_bitwise']
                 sig0_qual_bitwise_var['classification_qual_suspect_mask'] = \
-                    products.val2hex(self.sig0_class_qual_suspect)
+                    products.int2hexattr(self.sig0_class_qual_suspect)
                 sig0_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
-                    products.val2hex(self.sig0_geo_qual_suspect)
+                    products.int2hexattr(self.sig0_geo_qual_suspect)
                 sig0_qual_bitwise_var['classification_qual_degraded_mask'] = \
-                    products.val2hex(self.sig0_class_qual_degraded)
+                    products.int2hexattr(self.sig0_class_qual_degraded)
                 sig0_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
-                    products.val2hex(self.sig0_geo_qual_degraded)
+                    products.int2hexattr(self.sig0_geo_qual_degraded)
                 product['sig0_qual'] = self.sig0_qual
                 product['sig0_uncert'] = self.sig0_u
                 product['sig0_cor_atmos_model'] = self.sig0_cor_atmos_model

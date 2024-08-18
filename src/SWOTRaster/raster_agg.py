@@ -333,7 +333,7 @@ def aggregate_wse_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
-            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
+            wse_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT
 
         if n_wse_pix < num_wse_pix_suspect_thresh:
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
@@ -424,7 +424,7 @@ def aggregate_water_area_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
-            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
+            water_area_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
@@ -506,7 +506,7 @@ def aggregate_sig0_qual(
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_SUSPECT):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
-            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER
+            sig0_qual_bitwise += products.QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT
 
         if np.any(pixc_specular_ringing_qual[mask]==products.QUAL_IND_DEGRADED):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
