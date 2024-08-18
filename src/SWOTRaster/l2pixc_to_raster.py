@@ -53,6 +53,14 @@ class L2PixcToRaster(object):
         if 'low_coh_water_classes' not in self.algorithmic_config:
             self.algorithmic_config['low_coh_water_classes'] = []
 
+        # Add default values for specular ringing not intersecting prior
+        if 'use_specular_not_intersecting_prior' not in self.algorithmic_config:
+            self.algorithmic_config['use_specular_not_intersecting_prior'] = True
+        # Use pixc class qual to get specular not intersecting prior if
+        # no threshold is given
+        if 'specular_not_intersecting_prior_thresh' not in self.algorithmic_config:
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = None
+
         # Use default geo qual values if not overridden
         if 'wse_geo_qual_suspect' not in self.algorithmic_config:
             self.algorithmic_config['wse_geo_qual_suspect'] = \
@@ -110,11 +118,6 @@ class L2PixcToRaster(object):
         if 'sig0_class_qual_bad' not in self.algorithmic_config:
             self.algorithmic_config['sig0_class_qual_bad'] = \
                 self.algorithmic_config['class_qual_bad']
-
-        # Use pixc class qual to get specular not intersecting prior if
-        # no threshold is given
-        if 'specular_not_intersecting_prior_thresh' not in self.algorithmic_config:
-            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = None
 
     def process(self):
         """ Process L2Pixc to Raster """
