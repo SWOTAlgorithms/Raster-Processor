@@ -17,6 +17,8 @@ from scipy.ndimage import generic_filter
 from SWOTRaster.raster_agg import fn_star
 from SWOTWater.constants import PIXC_CLASSES
 
+DEFAULT_MAX_CHUNK_SHAPE=(2000, 2000)
+DEFAULT_SMOOTHING_FILTER_SHAPE=(5, 10)
 DEFAULT_GOOD_CLASSES=[PIXC_CLASSES['water_near_land'],
                       PIXC_CLASSES['open_water']]
 DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
@@ -66,8 +68,7 @@ def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
 
 def smooth_slant_plane(
         scene_pixc, var_name='height',
-        max_chunk_shape=(2000, 2000),
-        smoothing_filter_shape=(5, 10),
+        smoothing_filter_shape=DEFAULT_SMOOTHING_FILTER_SHAPE,
         good_klasses=DEFAULT_GOOD_CLASSES,
         sus_klasses=DEFAULT_SUS_CLASSES,
         class_qual_suspect=0,
@@ -79,6 +80,7 @@ def smooth_slant_plane(
         use_bright_land=True,
         specular_not_intersecting_prior_thresh=0.2,
         method='composite_with_sus_classes',
+        max_chunk_shape=DEFAULT_MAX_CHUNK_SHAPE,
         max_worker_processes=1):
     """ Smoothes in slant plane """
     LOGGER.info('Smoothing {} in slant plane'.format(var_name))

@@ -14,7 +14,8 @@ import SWOTRaster.raster_proc
 
 from SWOTRaster.errors import RasterUsageException
 from SWOTRaster.products import DEFAULT_MAX_CHUNK_SIZE
-from SWOTRaster.smooth_slant_plane import smooth_slant_plane
+from SWOTRaster.smooth_slant_plane import smooth_slant_plane, \
+    DEFAULT_MAX_CHUNK_SHAPE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,30 +35,26 @@ class L2PixcToRaster(object):
         self.scratch_dir = scratch_dir
 
         # Add default optional values to configs
+        if 'slant_plane_smoothing_max_chunk_shape' not in self.algorithmic_config:
+            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'] = \
+                DEFAULT_MAX_CHUNK_SHAPE
+        if 'height_constrained_geoloc_max_chunk_size' not in self.algorithmic_config:
+            self.algorithmic_config['height_constrained_geoloc_max_chunk_size'] = \
+                DEFAULT_MAX_CHUNK_SIZE
         if 'utm_conversion_max_chunk_size' not in self.algorithmic_config:
             self.algorithmic_config['utm_conversion_max_chunk_size'] = \
                 DEFAULT_MAX_CHUNK_SIZE
         if 'aggregator_max_chunk_size' not in self.algorithmic_config:
             self.algorithmic_config['aggregator_max_chunk_size'] = \
                 DEFAULT_MAX_CHUNK_SIZE
-        if 'write_internal_files' not in self.algorithmic_config:
-            self.algorithmic_config['write_internal_files'] = False
         if 'debug_flag' not in self.algorithmic_config:
             self.algorithmic_config['debug_flag'] = False
+        if 'write_internal_files' not in self.algorithmic_config:
+            self.algorithmic_config['write_internal_files'] = False
         if 'utm_zone_adjust' not in self.runtime_config:
             self.runtime_config['utm_zone_adjust'] = 0
         if 'mgrs_band_adjust' not in self.runtime_config:
             self.runtime_config['mgrs_band_adjust'] = 0
-
-        # Add default values for low coherence classes
-        if 'low_coh_water_classes' not in self.algorithmic_config:
-            self.algorithmic_config['low_coh_water_classes'] = []
-
-        # Add default values for specular ringing not intersecting prior
-        if 'use_specular_not_intersecting_prior' not in self.algorithmic_config:
-            self.algorithmic_config['use_specular_not_intersecting_prior'] = True
-        if 'specular_not_intersecting_prior_thresh' not in self.algorithmic_config:
-            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = 0.2
 
         # Use default geo qual values if not overridden
         if 'wse_geo_qual_suspect' not in self.algorithmic_config:
@@ -277,7 +274,6 @@ class L2PixcToRaster(object):
 
         smoothed_slant_plane_height = smooth_slant_plane(
             self.pixc, 'height',
-            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'],
             self.algorithmic_config['slant_plane_smoothing_filter_shape'],
             self.algorithmic_config['slant_plane_smoothing_good_classes'],
             self.algorithmic_config['slant_plane_smoothing_sus_classes'],
@@ -290,6 +286,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['use_bright_land'],
             self.algorithmic_config['specular_not_intersecting_prior_thresh'],
             self.algorithmic_config['slant_plane_smoothing_method'],
+            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'],
             max_worker_processes=self.max_worker_processes)
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
@@ -306,7 +303,6 @@ class L2PixcToRaster(object):
 
         smoothed_slant_plane_height = smooth_slant_plane(
             self.pixc, 'height',
-            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'],
             self.algorithmic_config['slant_plane_smoothing_filter_shape'],
             self.algorithmic_config['slant_plane_smoothing_good_classes'],
             self.algorithmic_config['slant_plane_smoothing_sus_classes'],
@@ -319,6 +315,7 @@ class L2PixcToRaster(object):
             self.algorithmic_config['use_bright_land'],
             self.algorithmic_config['specular_not_intersecting_prior_thresh'],
             self.algorithmic_config['slant_plane_smoothing_method'],
+            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'],
             max_worker_processes=self.max_worker_processes)
 
         return smoothed_slant_plane_height

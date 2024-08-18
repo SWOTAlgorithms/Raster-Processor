@@ -57,11 +57,8 @@ g            (self.algorithmic_config['interior_water_classes'],
             all_classes, use_improved_geoloc=False)
 
         if isinstance(raster, RasterUTM):
-            try:
-                max_chunk_size = self.algorithmic_config[
-                    'utm_conversion_max_chunk_size']
-            except KeyError:
-                max_chunk_size = DEFAULT_MAX_CHUNK_SIZE
+            max_chunk_size = self.algorithmic_config[
+                'utm_conversion_max_chunk_size']
 
             proj_mapping = raster.get_raster_mapping(
                 self.pixc, all_classes_mask, False, max_chunk_size)
@@ -100,12 +97,8 @@ g            (self.algorithmic_config['interior_water_classes'],
         self.out_height_corr = np.ma.masked_all(
             len(self.pixc['pixel_cloud']['height']))
 
-        # Get the maximum chunk size
-        try:
-            max_chunk_size = self.algorithmic_config[
-                'height_constrained_geoloc_max_chunk_size']
-        except KeyError:
-            max_chunk_size = DEFAULT_MAX_CHUNK_SIZE
+        max_chunk_size = self.algorithmic_config[
+            'height_constrained_geoloc_max_chunk_size']
 
         # Get the swath side (from tvp index, not nearest sensor idx)
         line_index = self.pixc['pixel_cloud']['line_index']
