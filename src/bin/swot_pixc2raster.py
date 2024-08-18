@@ -162,9 +162,9 @@ def main():
                         help="logging level, one of: debug info warning error",
                         default="info")
     parser.add_argument("--crid", type=str,
-                        help='command reference id', default=None)
+                        help='command reference id', default="None")
     parser.add_argument("--contact", type=str,
-                        help='contact information', default=None)
+                        help='contact information', default="None")
     parser.add_argument("--product_counter", type=int,
                         help='product_counter', default=1)
     args = parser.parse_args()
@@ -211,7 +211,7 @@ def main():
     product.product_version = '{:02}'.format(args.product_counter)
     product.xref_l2_hr_pixc_files = args.pixc_file
     product.xref_l2_hr_pixcvec_files = args.pixcvec_file
-    product.param_l2_hr_raster_file = args.alg_config_file
+    product.xref_param_l2_hr_raster_file = args.alg_config_file
     product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
