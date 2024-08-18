@@ -211,8 +211,6 @@ def main():
     product.xref_l2_hr_pixc_files = args.pixc_file
     product.xref_l2_hr_pixcvec_files = args.pixcvec_file
     product.param_l2_hr_raster_file = args.alg_config_file
-    descriptor_string = get_descriptor_string(product, args.rt_cfg)
-    product.descriptor_string = descriptor_string
     product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
@@ -240,26 +238,6 @@ def load_raster_configs(alg_config_file, runtime_config_file):
         rt_cfg[key] = ast.literal_eval(rt_cfg[key])
 
     return alg_cfg, rt_cfg
-
-def get_descriptor_string(raster, runtime_config):
-    """Gets the raster descriptor string"""
-    res_tag = runtime_config['raster_resolution']
-
-    crs_tag = runtime_config['output_sampling_grid_type'].upper()
-    if crs_tag=='UTM':
-        unit_tag = 'm'
-        crs_tag = '{0}{1:02}{2}'.format(
-            crs_tag, raster.utm_zone_num, raster.mgrs_latitude_band)
-    elif crs_tag=='GEO':
-        unit_tag = 'arcsec'
-
-    if runtime_config['output_granule_extent_flag']:
-        granule_tag = 'O'
-    else:
-        granule_tag = 'N'
-
-    return '{0}{1}_{2}_{3}_x_x_x'.format(res_tag, unit_tag, crs_tag,
-                                         granule_tag)
 
 if __name__ == '__main__':
     main()
