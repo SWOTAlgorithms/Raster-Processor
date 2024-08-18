@@ -131,10 +131,12 @@ import argparse
 import numpy as np
 import SWOTRaster.l2pixc_to_raster
 
-from SWOTRaster.products import ScenePixc
+from SWOTRaster.products import ScenePixc, VERSION_ID
 from SWOTWater.products.product import MutableProduct
 
 LOGGER = logging.getLogger(__name__)
+
+PGE_NAME = 'swot_pixc2raster'
 
 def main():
     parser = argparse.ArgumentParser(
@@ -159,6 +161,12 @@ def main():
     parser.add_argument('-l', '--log-level', type=str,
                         help="logging level, one of: debug info warning error",
                         default="info")
+    parser.add_argument("--crid", type=str,
+                        help='command reference id', default=None)
+    parser.add_argument("--contact", type=str,
+                        help='contact information', default=None)
+    parser.add_argument("--product_counter", type=str,
+                        help='product_counter', default=None)
     args = parser.parse_args()
 
     level = {'debug': logging.DEBUG, 'info': logging.INFO,
@@ -196,6 +204,15 @@ def main():
         scratch_dir=args.internal_files_dir)
 
     product = proc.process()
+    product.contact = args.contact
+    product.crid = args.crid
+    product.pge_name = PGE_NAME
+    product.pge_version = VERSION_ID
+    product.xref_l2_hr_pixc_files = args.pixc_file
+    product.xref_l2_hr_pixcvec_files = args.pixcvec_file
+    product.param_l2_hr_raster_file = args.alg_config_file
+    descriptor_string = get_descriptor_string(product, args.rt_cfg)
+    product.descriptor_string = descriptor_string
     product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
@@ -223,6 +240,26 @@ def load_raster_configs(alg_config_file, runtime_config_file):
         rt_cfg[key] = ast.literal_eval(rt_cfg[key])
 
     return alg_cfg, rt_cfg
+
+def get_descriptor_string(raster, runtime_config):
+    """Gets the raster descriptor string"""
+    res_tag = runtime_config['raster_resolution']
+
+    crs_tag = runtime_config['output_sampling_grid_type'].upper()
+    if crs_tag=='UTM':
+        unit_tag = 'm'
+        crs_tag = '{0}{1:02}{2}'.format(
+            crs_tag, raster.utm_zone_num, raster.mgrs_latitude_band)
+    elif crs_tag=='GEO':
+        unit_tag = 'arcsec'
+
+    if runtime_config['output_granule_extent_flag']:
+        granule_tag = 'O'
+    else:
+        granule_tag = 'N'
+
+    return '{0}{1}_{2}_{3}_x_x_x'.format(res_tag, unit_tag, crs_tag,
+                                         granule_tag)
 
 if __name__ == '__main__':
     main()

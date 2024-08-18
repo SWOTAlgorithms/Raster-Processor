@@ -19,6 +19,8 @@ from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product, ProductTesterMixIn
 
+VERSION_ID = 'V1.3'
+
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
 DATETIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
@@ -116,7 +118,7 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'str' ,'value':'SWOT',
       'docstr': 'SWOT'}],
     ['references',
-     {'dtype': 'str', 'value': 'V1.3',
+     {'dtype': 'str', 'value': VERSION_ID,
       'docstr': textjoin("""
           Published or web-based references that describe
           the data or methods used to product it. Provides version number of
@@ -182,7 +184,7 @@ COMMON_ATTRIBUTES = odict([
           Composite release identifier (CRID) of the data system used to
           generate this file""")}],
     ['product_version',
-     {'dtype': 'str', 'value': 'V1.3',
+     {'dtype': 'str', 'value': VERSION_ID,
       'docstr': 'Version identifier of this data file'}],
     ['pge_name',
      {'dtype': 'str',
