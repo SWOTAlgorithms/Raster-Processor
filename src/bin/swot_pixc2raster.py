@@ -165,7 +165,7 @@ def main():
                         help='command reference id', default=None)
     parser.add_argument("--contact", type=str,
                         help='contact information', default=None)
-    parser.add_argument("--product_counter", type=str,
+    parser.add_argument("--product_counter", type=int,
                         help='product_counter', default=1)
     args = parser.parse_args()
 
@@ -208,7 +208,7 @@ def main():
     product.crid = args.crid
     product.pge_name = PGE_NAME
     product.pge_version = VERSION_ID
-    product.product_version = args.product_counter
+    product.product_version = '{:02}'.format(args.product_counter)
     product.xref_l2_hr_pixc_files = args.pixc_file
     product.xref_l2_hr_pixcvec_files = args.pixcvec_file
     product.param_l2_hr_raster_file = args.alg_config_file
