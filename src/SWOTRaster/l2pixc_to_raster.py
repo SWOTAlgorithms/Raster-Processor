@@ -56,10 +56,8 @@ class L2PixcToRaster(object):
         # Add default values for specular ringing not intersecting prior
         if 'use_specular_not_intersecting_prior' not in self.algorithmic_config:
             self.algorithmic_config['use_specular_not_intersecting_prior'] = True
-        # Use pixc class qual to get specular not intersecting prior if
-        # no threshold is given
         if 'specular_not_intersecting_prior_thresh' not in self.algorithmic_config:
-            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = None
+            self.algorithmic_config['specular_not_intersecting_prior_thresh'] = 0.2
 
         # Use default geo qual values if not overridden
         if 'wse_geo_qual_suspect' not in self.algorithmic_config:

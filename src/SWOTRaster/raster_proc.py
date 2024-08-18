@@ -215,12 +215,8 @@ class RasterProcessor(object):
         # Suspect if intersecting prior water, otherwise degraded
         specular_ringing_mask = pixc.get_qual_flag_bit(
             'classification_qual', 'specular_ringing_degraded')
-        if self.specular_not_intersecting_prior_thresh is None:
-            no_prior_water = pixc.get_qual_flag_bit(
-                'classification_qual', 'detected_water_but_no_prior_water')
-        else:
-            no_prior_water = pixc['pixel_cloud']['prior_water_prob'] \
-                             < self.specular_not_intersecting_prior_thresh
+        no_prior_water = pixc['pixel_cloud']['prior_water_prob'] \
+                         < self.specular_not_intersecting_prior_thresh
         specular_intersecting_prior = np.logical_and(
             specular_ringing_mask, np.logical_not(no_prior_water))
         specular_not_intersecting_prior = np.logical_and(
