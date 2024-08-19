@@ -16,6 +16,7 @@ from functools import partial
 from scipy.ndimage import generic_filter
 from SWOTRaster.raster_agg import fn_star
 from SWOTWater.constants import PIXC_CLASSES
+from SWOTRaster.errors import RasterUsageException
 
 DEFAULT_MAX_CHUNK_SHAPE=(2000, 2000)
 DEFAULT_SMOOTHING_FILTER_SHAPE=(5, 10)
@@ -84,6 +85,10 @@ def smooth_slant_plane(
         max_worker_processes=1):
     """ Smoothes in slant plane """
     LOGGER.info('Smoothing {} in slant plane'.format(var_name))
+    if method not in ['simple', 'composite', 'composite_with_sus_classes']:
+        raise RasterUsageException(
+            'Unknown slant plane smoothing method: {}'.format(method))
+
     # If all input pixels are masked, return fully masked array
     var = scene_pixc['pixel_cloud'][var_name]
     var_out = np.ma.masked_all_like(var)
@@ -308,13 +313,13 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         (end_az_idx - start_az_idx + 1,
          end_rng_idx - start_rng_idx + 1), np.nan)
 
-    if method in ['composite', 'composite_with_land']:
+    if method in ['composite', 'composite_with_sus_classes']:
         # Smooth good/sus quality and good klasses only
         mask = np.logical_and(good_sus_qual_mask, np.isin(classif, good_klasses))
         slant_plane_var_sm = _smooth_stage(
             var, rel_az_idx, rel_rng_idx, slant_plane_var_sm, mask,
             smoothing_footprint)
-        if method == 'composite_with_land':
+        if method == 'composite_with_sus_classes':
             # Smooth good/sus quality and sus klasses
             # along with smoothed good/sus quality and good klasses
             mask = np.logical_and(good_sus_qual_mask, np.isin(classif, sus_klasses))
