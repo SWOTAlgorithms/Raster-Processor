@@ -5,13 +5,16 @@ This is a package written by [Alexander Corben](mailto:alexander.t.corben@jpl.na
 
 # Usage
 
-For generating data products that are most similar to the SWOT project's data products, the following script is recommended (found in src/bin):
+For generating data products that are most similar to the SWOT project's data products, the following script is recommended (found in src/bin). Note that this script will generate a raster product corresponding to a single pixel cloud product tile, not a raster scene like the official SWOT project's data products:
 ```
 usage: swot_pixc2raster.py [-h] [-pv PIXCVEC_FILE] [-id INTERNAL_FILES_DIR]
+                           [-mp MAX_WORKER_PROCESSES] [-l LOG_LEVEL]
+                           [--crid CRID] [--contact CONTACT]
+                           [--product_counter PRODUCT_COUNTER]
                            pixc_file alg_config_file runtime_config_file
-                           out_file
+                           output_file
 ```
-where ```pixc_file``` is the SWOT high-resolution pixel-cloud data product, ```alg_config_file``` is the algorithmic configuration file, ```runtime_config_file``` is the runtime configuration file, and ```out_file``` is the filename of the output raster data product. See [this_link](https://github.com/SWOTAlgorithms/Raster-Processor/blob/develop/src/bin/swot_pixc2raster.py) for the recommended configuration. Additionally there are some optional arguments: ```-pv PIXCVEC_FILE``` will specify a pixel-cloud vector data product to use for aggregation of ice flags and improved height-constrained geolocation if commanded in the algorithmic configuration file, and ```-id INTERNAL_FILES_DIR``` will specify a directory in which internal files will be written.
+where ```pixc_file``` is the SWOT high-resolution pixel-cloud data product, ```alg_config_file``` is the algorithmic configuration file, ```runtime_config_file``` is the runtime configuration file, and ```output_file``` is the filename of the output raster data product. See [this_link](https://github.com/SWOTAlgorithms/Raster-Processor/blob/develop/src/bin/swot_pixc2raster.py) for the recommended configuration. Additionally there are some optional arguments: ```-pv PIXCVEC_FILE``` will specify a pixel-cloud vector data product to use for aggregation of ice flags and improved height-constrained geolocation if commanded in the algorithmic configuration file, ```-id INTERNAL_FILES_DIR``` will specify the directory in which internal files will be written, ```-mp MAX_WORKER_PROCESSES``` will specify the maximum number of worker processes to spawn for multithreading, ```-l LOG_LEVEL``` will specify the level of log messages to report, ```--crid CRID``` will specify a command reference id to report in the output product attributes, ```--contact CONTACT``` will specify contact information to report in the output product attributes, and ```--product_counter PRODUCT_COUNTER``` will specify a product counter to report in the output product attributes.
 
 The software is dependent on the open source RiverObs code at https://github.com/SWOTAlgorithms/RiverObs and the SWOT Hydrology Toolbox at https://github.com/CNES/swot-hydrology-toolbox.
 
