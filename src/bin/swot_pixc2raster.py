@@ -31,7 +31,7 @@ example algorithmic config parameters:
 
     # Height-constrained geolocation source specific controls
     lowres_raster_scale_factor                      (-) = 0.2
-    slant_plane_smoothing_filter_shape              (-) = [5, 10]
+    slant_plane_smoothing_filter_shape              (-) = [5, 13]
     slant_plane_smoothing_good_classes              (-) = [3, 4]
     slant_plane_smoothing_sus_classes               (-) = [2, 5, 6, 7, 23, 24]
     slant_plane_smoothing_method                    (-) = composite_with_sus_classes
