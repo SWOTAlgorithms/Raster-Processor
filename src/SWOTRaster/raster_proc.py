@@ -199,7 +199,7 @@ class RasterProcessor(object):
         low_coh_water_classes_mask = pixc.get_mask(
             self.low_coh_water_classes, use_improved_geoloc)
 
-        bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag']
+        bright_land_pixc_flag = pixc['pixel_cloud']['bright_land_flag'].filled(0)
         if not self.use_bright_land:
             not_bright_land = np.logical_not(bright_land_pixc_flag)
             water_classes_mask = np.logical_and(
@@ -215,7 +215,7 @@ class RasterProcessor(object):
         # Suspect if intersecting prior water, otherwise degraded
         specular_ringing_mask = pixc.get_qual_flag_bit(
             'classification_qual', 'specular_ringing_degraded')
-        no_prior_water = pixc['pixel_cloud']['prior_water_prob'] \
+        no_prior_water = pixc['pixel_cloud']['prior_water_prob'].filled(0) \
                          < self.specular_not_intersecting_prior_thresh
         specular_intersecting_prior = np.logical_and(
             specular_ringing_mask, np.logical_not(no_prior_water))

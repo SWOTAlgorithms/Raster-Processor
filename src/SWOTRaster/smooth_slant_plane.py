@@ -106,10 +106,10 @@ def smooth_slant_plane(
     geolocation_qual = scene_pixc.get_summary_qual_flag(
         'geolocation_qual', geo_qual_suspect,
         geo_qual_degraded, geo_qual_bad)
-    bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag']
+    bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag'].filled(0)
     specular_ringing_flag = scene_pixc.get_qual_flag_bit(
             'classification_qual', 'specular_ringing_degraded')
-    no_prior_water = scene_pixc['pixel_cloud']['prior_water_prob'] \
+    no_prior_water = scene_pixc['pixel_cloud']['prior_water_prob'].filled(0) \
                      < specular_not_intersecting_prior_thresh
     specular_intersecting_prior = np.logical_and(
         specular_ringing_flag, np.logical_not(no_prior_water))
