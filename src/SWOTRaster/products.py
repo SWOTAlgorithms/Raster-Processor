@@ -1874,7 +1874,7 @@ class ScenePixc(Product):
         if include_zero_qual_value:
             mask = np.logical_or(mask, flag==0)
 
-        return mask==1
+        return mask
 
     def get_mask(self, valid_classes, use_improved_geoloc=True):
         """ Get mask of valid pixc points for aggregation """
@@ -1891,21 +1891,21 @@ class ScenePixc(Product):
         lons = self.pixel_cloud[lon_keyword]
         pixc_classif = self.pixel_cloud['classification']
 
-        mask = np.ones(np.shape(lats))
+        mask = np.ones(np.shape(lats), dtype=bool)
 
         if np.ma.is_masked(lats):
-            mask[lats.mask] = 0
+            mask[lats.mask] = False
         if np.ma.is_masked(lons):
-            mask[lons.mask] = 0
+            mask[lons.mask] = False
 
-        mask[np.isnan(lats)] = 0
-        mask[np.isnan(lons)] = 0
-        mask[np.isnan(pixc_classif)] = 0
+        mask[np.isnan(lats)] = False
+        mask[np.isnan(lons)] = False
+        mask[np.isnan(pixc_classif)] = False
 
         classif_mask = np.isin(pixc_classif, valid_classes)
-        mask[np.logical_not(classif_mask)] = 0
+        mask[np.logical_not(classif_mask)] = False
 
-        return mask==1
+        return mask
 
     def __add__(self, other):
         """ Add other to self """
