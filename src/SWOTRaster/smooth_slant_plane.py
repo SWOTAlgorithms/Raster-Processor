@@ -92,7 +92,7 @@ def smooth_slant_plane(
     # If all input pixels are masked, return fully masked array
     var = scene_pixc['pixel_cloud'][var_name]
     var_out = np.ma.masked_all_like(var)
-    if np.all(var.mask):
+    if len(var) == 0 or np.all(var.mask):
         return var_out
 
     smoothing_footprint = np.ones((smoothing_filter_shape[0],
