@@ -279,8 +279,9 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
                       slant_plane_var, mask, smoothing_footprint):
         _slant_plane_var = slant_plane_var.copy()
         smoothed_mask = np.isfinite(slant_plane_var)
-        _mask = np.logical_and(
-            mask, np.logical_not(smoothed_mask[rel_az_idx, rel_rng_idx]))
+        _mask = np.logical_and.reduce((
+            mask, np.logical_not(smoothed_mask[rel_az_idx, rel_rng_idx]),
+            np.logical_not(np.ma.getmaskarray(var))))
         _slant_plane_var[rel_az_idx[_mask], rel_rng_idx[_mask]] = var[_mask]
         slant_plane_var_sm = generic_filter(
             _slant_plane_var, function=bottleneck.nanmedian,
@@ -332,4 +333,4 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
     slant_plane_var_sm = _smooth_stage(
         var, rel_az_idx, rel_rng_idx, slant_plane_var_sm, mask,
         smoothing_footprint)
-    return slant_plane_var_sm[rel_az_idx, rel_rng_idx]
+    return np.ma.fix_invalid(slant_plane_var_sm[rel_az_idx, rel_rng_idx])
