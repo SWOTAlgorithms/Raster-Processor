@@ -1835,45 +1835,40 @@ class ScenePixc(Product):
             granule_end_time.strftime(DATETIME_FORMAT_STR)
 
     def get_qual_flag_bit(self, qual_flag, qual_bit):
-        """ Get mask of points from quality flag with specific bit """
-        # Note that this function intentionally doesn't remap pixc_line_qual
-        # to pixels
+        """ Get mask from quality flag with specific bit """
+        LOGGER.info('getting qual bit: {} - {}'.format(
+            qual_flag, qual_bit))
         qual_meanings = \
             self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
         qual_masks = \
             self.pixel_cloud.VARIABLES[qual_flag]['flag_masks']
         qual_ind = qual_masks[qual_meanings.index(qual_bit)]
-        return np.bitwise_and(self.pixel_cloud[qual_flag], qual_ind) > 0
+        flag = self.pixel_cloud[qual_flag]
+        mask = np.bitwise_and(flag, qual_ind) > 0
+        mask[flag.mask] = False
+        return mask
 
     def get_summary_qual_flag(self, qual_flag, suspect_qual_flag_mask,
                               degraded_qual_flag_mask, bad_qual_flag_mask):
         """ Get summary quality flag from quality bitflag """
         LOGGER.info('getting summary quality flag: {}'.format(qual_flag))
         flag = QUAL_IND_GOOD*np.ones(np.shape(self.pixel_cloud['latitude']))
-        flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask, False)] = \
+        flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask)] = \
             QUAL_IND_SUSPECT
-        flag[self.get_qual_mask(qual_flag, degraded_qual_flag_mask, False)] = \
+        flag[self.get_qual_mask(qual_flag, degraded_qual_flag_mask)] = \
             QUAL_IND_DEGRADED
-        flag[self.get_qual_mask(qual_flag, bad_qual_flag_mask, False)] = \
+        flag[self.get_qual_mask(qual_flag, bad_qual_flag_mask)] = \
             QUAL_IND_BAD
+        flag[self.pixel_cloud[qual_flag].mask] = QUAL_IND_BAD
         return flag
 
-    def get_qual_mask(self, qual_flag, qual_flag_mask,
-                      include_zero_qual_value=True):
-        """ Get mask of valid pixc points from quality flag """
+    def get_qual_mask(self, qual_flag, qual_flag_mask):
+        """ Get mask from quality flag with a specific bit mask"""
         LOGGER.info('getting qual mask: {} - {}'.format(
             qual_flag, qual_flag_mask))
-
-        if qual_flag == 'pixc_line_qual':
-            flag = self.pixel_cloud[qual_flag][self.pixel_cloud['line_index']]
-        else:
-            flag = self.pixel_cloud[qual_flag]
-
+        flag = self.pixel_cloud[qual_flag]
         mask = np.bitwise_and(flag, qual_flag_mask) > 0
-
-        if include_zero_qual_value:
-            mask = np.logical_or(mask, flag==0)
-
+        mask[flag.mask] = False
         return mask
 
     def get_mask(self, valid_classes, use_improved_geoloc=True):
