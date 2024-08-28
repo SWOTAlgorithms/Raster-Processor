@@ -1836,8 +1836,8 @@ class ScenePixc(Product):
 
     def get_qual_flag_bit(self, qual_flag, qual_bit):
         """ Get mask from quality flag with specific bit """
-        LOGGER.info('getting qual bit: {} - {}'.format(
-            qual_flag, qual_bit))
+        LOGGER.info('getting qual bit: {} - {}'.format(qual_flag, qual_bit))
+
         qual_meanings = \
             self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
         qual_masks = \
@@ -1852,6 +1852,7 @@ class ScenePixc(Product):
                               degraded_qual_flag_mask, bad_qual_flag_mask):
         """ Get summary quality flag from quality bitflag """
         LOGGER.info('getting summary quality flag: {}'.format(qual_flag))
+
         flag = QUAL_IND_GOOD*np.ones(np.shape(self.pixel_cloud['latitude']))
         flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask)] = \
             QUAL_IND_SUSPECT
@@ -1866,6 +1867,7 @@ class ScenePixc(Product):
         """ Get mask from quality flag with a specific bit mask"""
         LOGGER.info('getting qual mask: {} - {}'.format(
             qual_flag, qual_flag_mask))
+
         flag = self.pixel_cloud[qual_flag]
         mask = np.bitwise_and(flag, qual_flag_mask) > 0
         mask[flag.mask] = False
@@ -1884,22 +1886,16 @@ class ScenePixc(Product):
 
         lats = self.pixel_cloud[lat_keyword]
         lons = self.pixel_cloud[lon_keyword]
-        pixc_classif = self.pixel_cloud['classification']
+        classif = self.pixel_cloud['classification']
 
-        mask = np.ones(np.shape(lats), dtype=bool)
-
-        if np.ma.is_masked(lats):
-            mask[lats.mask] = False
-        if np.ma.is_masked(lons):
-            mask[lons.mask] = False
-
-        mask[np.isnan(lats)] = False
-        mask[np.isnan(lons)] = False
-        mask[np.isnan(pixc_classif)] = False
-
-        classif_mask = np.isin(pixc_classif, valid_classes)
-        mask[np.logical_not(classif_mask)] = False
-
+        mask = np.logical_and.reduce((
+            np.logical_not(np.ma.getmaskarray(lats)),
+            np.logical_not(np.ma.getmaskarray(lons)),
+            np.logical_not(np.ma.getmaskarray(classif)),
+            np.isfinite(lats),
+            np.isfinite(lons),
+            np.isfinite(classif),
+            np.isin(classif, valid_classes)))
         return mask
 
     def __add__(self, other):

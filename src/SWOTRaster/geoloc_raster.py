@@ -39,6 +39,7 @@ class GeolocRaster(object):
     def set_new_height(self, height):
         """ Set new pixelcloud height """
         LOGGER.info("setting new height")
+
         self.new_height = height
 
     def set_new_height_from_raster(self, raster):
