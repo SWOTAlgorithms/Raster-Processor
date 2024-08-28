@@ -1842,8 +1842,14 @@ class ScenePixc(Product):
             self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
         qual_masks = \
             self.pixel_cloud.VARIABLES[qual_flag]['flag_masks']
-        qual_ind = qual_masks[qual_meanings.index(qual_bit)]
         flag = self.pixel_cloud[qual_flag]
+
+        if qual_bit not in qual_meanings:
+            LOGGER.warning('{} not defined for {}: Setting to False...'.format(
+                qual_bit, qual_flag))
+            return np.zeros(flag.shape, dtype=bool)
+
+        qual_ind = qual_masks[qual_meanings.index(qual_bit)]
         mask = np.bitwise_and(flag, qual_ind) > 0
         mask[flag.mask] = False
         return mask
