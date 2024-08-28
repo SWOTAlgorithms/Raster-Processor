@@ -828,6 +828,11 @@ class RasterProcessor(object):
         extant_data_polygons_points = []
         outside_data_window_polygons_points = []
 
+        pixc_line_qual_large_karin_gap = pixc.get_qual_flag_bit(
+            'pixc_line_qual', 'large_karin_gap')
+        pixc_line_qual_not_in_tile = pixc.get_qual_flag_bit(
+            'pixc_line_qual', 'not_in_tile')
+
         # Handle the different sides separately
         for swath_side in ['L', 'R']:
             tvp_side_mask = pixc['tvp']['swath_side']==swath_side
@@ -844,8 +849,9 @@ class RasterProcessor(object):
             tvp_xyz = np.row_stack((
                 pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
 
-            pixc_extant_data_mask = np.logical_not(pixc.get_qual_flag_bit(
-                'pixc_line_qual', 'large_karin_gap')[pixc_side_mask])
+            pixc_extant_data_mask = np.logical_not(np.logical_or(
+                pixc_line_qual_large_karin_gap[pixc_side_mask],
+                pixc_line_qual_not_in_tile[pixc_side_mask]))
 
             for k, g in groupby(np.arange(len(pixc_extant_data_mask)),
                                 lambda x: pixc_extant_data_mask[x]):
@@ -904,7 +910,6 @@ class RasterProcessor(object):
                                     max_extent
 
                         # Get extant data polygon points and add to list
-
                         extant_data_polygons_points.append(
                             self.get_swath_polygon_points_from_tvp(
                                 group_tvp_xyz,
