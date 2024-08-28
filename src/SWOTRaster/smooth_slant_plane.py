@@ -316,14 +316,20 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
 
     if method in ['composite', 'composite_with_sus_classes']:
         # Smooth good/sus quality and good klasses only
-        mask = np.logical_and(good_sus_qual_mask, np.isin(classif, good_klasses))
+        good_classes_mask = np.logical_and(
+            np.isin(classif, good_klasses),
+            np.logical_not(np.ma.getmaskarray(classif)))
+        mask = np.logical_and(good_sus_qual_mask, good_classes_mask)
         slant_plane_var_sm = _smooth_stage(
             var, rel_az_idx, rel_rng_idx, slant_plane_var_sm, mask,
             smoothing_footprint)
         if method == 'composite_with_sus_classes':
             # Smooth good/sus quality and sus klasses
             # along with smoothed good/sus quality and good klasses
-            mask = np.logical_and(good_sus_qual_mask, np.isin(classif, sus_klasses))
+            sus_classes_mask = np.logical_and(
+                np.isin(classif, sus_klasses),
+                np.logical_not(np.ma.getmaskarray(classif)))
+            mask = np.logical_and(good_sus_qual_mask, sus_classes_mask)
             slant_plane_var_sm = _smooth_stage(
                 var, rel_az_idx, rel_rng_idx, slant_plane_var_sm, mask,
                 smoothing_footprint)
