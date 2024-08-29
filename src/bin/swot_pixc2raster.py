@@ -134,9 +134,8 @@ import SWOTRaster.l2pixc_to_raster
 from SWOTRaster.products import ScenePixc, VERSION_ID
 from SWOTWater.products.product import MutableProduct
 
-LOGGER = logging.getLogger(__name__)
-
 PGE_NAME = 'swot_pixc2raster'
+LOGGER = logging.getLogger(PGE_NAME)
 
 def main():
     parser = argparse.ArgumentParser(
