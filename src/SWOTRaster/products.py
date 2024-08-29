@@ -1718,7 +1718,11 @@ class ScenePixc(Product):
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
             pixc_tile, pixcvec_tile, mask)
+        scene_pixc['pixel_cloud'].VARIABLES['illumination_time']['leap_second'] = \
+            scene_pixc.leap_second
         scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
+        scene_pixc['tvp'].VARIABLES['time']['leap_second'] = \
+            scene_pixc.leap_second
 
         return scene_pixc
 
