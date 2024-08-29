@@ -2267,6 +2267,8 @@ class SceneTVP(Product):
         tvp_vars = set(scene_tvp.VARIABLES.keys())
         for field in tvp_vars.intersection(
                 pixc_tile['tvp'].VARIABLES.keys()):
+            scene_tvp.VARIABLES[field] = \
+                pixc_tile['tvp'].VARIABLES[field].copy()
             scene_tvp[field] = pixc_tile['tvp'][field].copy()
 
         # Copy common attributes
