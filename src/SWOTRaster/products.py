@@ -1709,7 +1709,7 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lon_min = raster_crs.lon_360to180(lon_min)
         scene_pixc.geospatial_lon_max = raster_crs.lon_360to180(lon_max)
 
-        leap_second = pixc_tile.pixel_cloud.VARIABLES['illumination_time']['leap_second']
+        leap_second = pixc_tile['pixel_cloud'].VARIABLES['illumination_time']['leap_second']
         if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
             scene_pixc.leap_second = leap_second
         else:
@@ -1911,20 +1911,20 @@ class ScenePixc(Product):
     def __add__(self, other):
         """ Add other to self """
         klass = ScenePixc()
-        klass.tvp = self.tvp + other.tvp
-        klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
+        klass['tvp'] = self.tvp + other.tvp
+        klass['pixel_cloud'] = self.pixel_cloud + other.pixel_cloud
 
         # Handle merged TVP with overlap discarded
-        tvp_time = np.ma.concatenate((self.tvp.time, other.tvp.time))
+        tvp_time = np.ma.concatenate((self.tvp['time'], other.tvp['time']))
         tvp_swath_side = np.ma.concatenate(
-            (self.tvp.swath_side, other.tvp.swath_side))
+            (self.tvp['swath_side'], other.tvp['swath_side']))
         [junk, rev_indx] = np.unique(
             np.column_stack((tvp_time, tvp_swath_side=='R')),
             axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
-            self.pixel_cloud.pixc_line_to_tvp,
-            len(self.tvp.time) + other.pixel_cloud.pixc_line_to_tvp)).astype(int)
-        klass.pixel_cloud.pixc_line_to_tvp = rev_indx[unsorted_pixc_line_to_tvp]
+            self.pixel_cloud['pixc_line_to_tvp'],
+            len(self.tvp['time']) + other.pixel_cloud['pixc_line_to_tvp'])).astype(int)
+        klass['pixel_cloud']['pixc_line_to_tvp'] = rev_indx[unsorted_pixc_line_to_tvp]
 
         # Set attributes from self
         for field in self.ATTRIBUTES.keys():
@@ -2050,6 +2050,11 @@ class ScenePixc(Product):
             klass.leap_second = other.leap_second
         if klass.leap_second is None or klass.leap_second.lower()=='none':
             klass.leap_second = EMPTY_LEAPSEC
+
+        klass['pixel_cloud'].VARIABLES['illumination_time']['leap_second'] = \
+            klass.leap_second
+        klass['tvp'].VARIABLES['illumination_time']['leap_second'] = \
+            klass.leap_second
 
         return klass
 
