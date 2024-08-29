@@ -2053,7 +2053,7 @@ class ScenePixc(Product):
 
         klass['pixel_cloud'].VARIABLES['illumination_time']['leap_second'] = \
             klass.leap_second
-        klass['tvp'].VARIABLES['illumination_time']['leap_second'] = \
+        klass['tvp'].VARIABLES['time']['leap_second'] = \
             klass.leap_second
 
         return klass
