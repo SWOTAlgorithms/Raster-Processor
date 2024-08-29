@@ -49,7 +49,7 @@ class GeolocRaster(object):
         self.new_height = self.pixc['pixel_cloud']['height'].copy()
 
         all_classes = np.concatenate(
-g            (self.algorithmic_config['interior_water_classes'],
+            (self.algorithmic_config['interior_water_classes'],
              self.algorithmic_config['water_edge_classes'],
              self.algorithmic_config['land_edge_classes'],
              self.algorithmic_config['dark_water_classes']))
