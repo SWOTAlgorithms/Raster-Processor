@@ -551,5 +551,7 @@ def aggregate_sig0_qual(
 def aggregate_classification(pixc_classif, mask):
     """ Aggregate binary classification """
     classification = simple_masked(pixc_classif, mask, metric='mode')
-
-    return classification
+    try:
+        return classification[0]
+    except TypeError:
+        return np.nan
