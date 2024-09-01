@@ -327,10 +327,10 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'bitwise quality indicator for the water surface elevation'],
             ['standard_name', 'status_flag'],
-            ['classification_qual_suspect_mask', '[classification_qual_suspect_mask]'],
-            ['geolocation_qual_suspect_mask', '[geolocation_qual_suspect_mask]'],
-            ['classification_qual_degraded_mask', '[classification_qual_degraded_mask]'],
-            ['geolocation_qual_degraded_mask', '[geolocation_qual_degraded_mask]'],
+            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 classification_qual_suspect
@@ -438,10 +438,10 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'bitwise quality indicator for the water surface area'],
             ['standard_name', 'status_flag'],
-            ['classification_qual_suspect_mask', '[classification_qual_suspect_mask]'],
-            ['geolocation_qual_suspect_mask', '[geolocation_qual_suspect_mask]'],
-            ['classification_qual_degraded_mask', '[classification_qual_degraded_mask]'],
-            ['geolocation_qual_degraded_mask', '[geolocation_qual_degraded_mask]'],
+            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 classification_qual_suspect
@@ -577,11 +577,11 @@ COMMON_VARIABLES = odict([
             ['long_name', 'bitwise quality indicator for the sigma0'],
             ['standard_name', 'status_flag'],
             ['sig0_qual_suspect_mask', '[sig0_qual_suspect_mask]'],
-            ['classification_qual_suspect_mask', '[classification_qual_suspect_mask]'],
-            ['geolocation_qual_suspect_mask', '[geolocation_qual_suspect_mask]'],
-            ['sig0_qual_degraded_mask', '[sig0_qual_degraded_mask]'],
-            ['classification_qual_degraded_mask', '[classification_qual_degraded_mask]'],
-            ['geolocation_qual_degraded_mask', '[geolocation_qual_degraded_mask]'],
+            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['sig0_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 sig0_qual_suspect
