@@ -382,7 +382,17 @@ COMMON_VARIABLES = odict([
                 indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
-                greater than or equal to 8388608 represent bad data.""")],
+                greater than or equal to 8388608 represent bad data.
+                The masks used to determine which L2_HR_PIXC classification and
+                geolocation quality flag bits contribute to
+                classification_qual_suspect, geolocation_qual_suspect,
+                classification_qual_degraded, and geolocation_qual_degraded
+                are provided both as decimal and hexadecimal integers in the
+                [wse_qual_bitwise:classification_qual_suspect_mask],
+                [wse_qual_bitwise:geolocation_qual_suspect_mask],
+                [wse_qual_bitwise:classification_qual_degraded_mask], and
+                [wse_qual_bitwise:geolocation_qual_degraded_mask]
+                attributes, respectively.""")],
         ])],
     ['wse_uncert',
      odict([['dtype', 'f4'],
@@ -486,7 +496,17 @@ COMMON_VARIABLES = odict([
                 indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
-                greater than or equal to 8388608 represent bad data.""")],
+                greater than or equal to 8388608 represent bad data.
+                The masks used to determine which L2_HR_PIXC classification and
+                geolocation quality flag bits contribute to
+                classification_qual_suspect, geolocation_qual_suspect,
+                classification_qual_degraded, and geolocation_qual_degraded
+                are provided both as decimal and hexadecimal integers in the
+                [water_area_qual_bitwise:classification_qual_suspect_mask],
+                [water_area_qual_bitwise:geolocation_qual_suspect_mask],
+                [water_area_qual_bitwise:classification_qual_degraded_mask], and
+                [water_area_qual_bitwise:geolocation_qual_degraded_mask]
+                attributes, respectively.""")],
         ])],
     ['water_area_uncert',
      odict([['dtype', 'f4'],
@@ -556,8 +576,10 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'bitwise quality indicator for the sigma0'],
             ['standard_name', 'status_flag'],
+            ['sig0_qual_suspect_mask', '[sig0_qual_suspect_mask]'],
             ['classification_qual_suspect_mask', '[classification_qual_suspect_mask]'],
             ['geolocation_qual_suspect_mask', '[geolocation_qual_suspect_mask]'],
+            ['sig0_qual_degraded_mask', '[sig0_qual_degraded_mask]'],
             ['classification_qual_degraded_mask', '[classification_qual_degraded_mask]'],
             ['geolocation_qual_degraded_mask', '[geolocation_qual_degraded_mask]'],
             ['grid_mapping', 'crs'],
@@ -615,7 +637,20 @@ COMMON_VARIABLES = odict([
                 indicates good data, positive values less than 32768 represent
                 suspect data, values greater than or equal to 32768 but
                 less than 8388608 represent degraded data, and values
-                greater than or equal to 8388608 represent bad data.""")],
+                greater than or equal to 8388608 represent bad data.
+                The masks used to determine which L2_HR_PIXC sigma0,
+                classification, and geolocation quality flag bits contribute to
+                sig0_qual_suspect, classification_qual_suspect,
+                geolocation_qual_suspect, sig0_qual_degraded,
+                classification_qual_degraded, and geolocation_qual_degraded
+                are provided both as decimal and hexadecimal integers in the
+                [sig0_qual_bitwise:sig0_qual_suspect_mask],
+                [sig0_qual_bitwise:classification_qual_suspect_mask],
+                [sig0_qual_bitwise:geolocation_qual_suspect_mask],
+                [sig0_qual_bitwise:sig0_qual_degraded_mask],
+                [sig0_qual_bitwise:classification_qual_degraded_mask], and
+                [sig0_qual_bitwise:geolocation_qual_degraded_mask]
+                attributes, respectively.""")],
         ])],
     ['sig0_uncert',
      odict([['dtype', 'f4'],

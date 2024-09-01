@@ -1296,10 +1296,14 @@ class RasterProcessor(object):
                 product['sig0'] = self.sig0
                 product['sig0_qual_bitwise'] = self.sig0_qual_bitwise
                 sig0_qual_bitwise_var = product.VARIABLES['sig0_qual_bitwise']
+                sig0_qual_bitwise_var['sig0_qual_suspect_mask'] = \
+                    products.int2hexattr(self.sig0_qual_suspect)
                 sig0_qual_bitwise_var['classification_qual_suspect_mask'] = \
                     products.int2hexattr(self.sig0_class_qual_suspect)
                 sig0_qual_bitwise_var['geolocation_qual_suspect_mask'] = \
                     products.int2hexattr(self.sig0_geo_qual_suspect)
+                sig0_qual_bitwise_var['sig0_qual_degraded_mask'] = \
+                    products.int2hexattr(self.sig0_qual_degraded)
                 sig0_qual_bitwise_var['classification_qual_degraded_mask'] = \
                     products.int2hexattr(self.sig0_class_qual_degraded)
                 sig0_qual_bitwise_var['geolocation_qual_degraded_mask'] = \
