@@ -19,7 +19,7 @@ from SWOTWater.constants import PIXC_CLASSES
 from SWOTRaster.errors import RasterUsageException
 
 DEFAULT_MAX_CHUNK_SHAPE=(2000, 2000)
-DEFAULT_SMOOTHING_FILTER_SHAPE=(5, 10)
+DEFAULT_SMOOTHING_FILTER_SHAPE=(5, 13)
 DEFAULT_GOOD_CLASSES=[PIXC_CLASSES['water_near_land'],
                       PIXC_CLASSES['open_water']]
 DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
@@ -201,11 +201,11 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
         # Group into az/rng squares of chunk_shape[0]*chunk_shape[1],
         # throw away any chunks without data
         for start_az_idx in range(np.min(side_az_idx), np.max(side_az_idx) + 1,
-                                  chunk_shape[1]):
-            end_az_idx = start_az_idx + chunk_shape[1]
+                                  chunk_shape[0]):
+            end_az_idx = start_az_idx + chunk_shape[0]
             for start_rng_idx in range(np.min(side_rng_idx), np.max(side_rng_idx) + 1,
-                                       chunk_shape[0]):
-                end_rng_idx = start_rng_idx + chunk_shape[0]
+                                       chunk_shape[1]):
+                end_rng_idx = start_rng_idx + chunk_shape[1]
                 # Get the mask of pixels within this processing chunk (no buffer)
                 use_mask = np.logical_and.reduce((
                     side_az_idx >= start_az_idx,
@@ -285,7 +285,7 @@ def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         _slant_plane_var[rel_az_idx[_mask], rel_rng_idx[_mask]] = var[_mask]
         slant_plane_var_sm = generic_filter(
             _slant_plane_var, function=bottleneck.nanmedian,
-            footprint=smoothing_footprint)
+            footprint=smoothing_footprint, mode='constant', cval=np.nan)
         slant_plane_var[rel_az_idx[_mask], rel_rng_idx[_mask]] = \
             slant_plane_var_sm[rel_az_idx[_mask], rel_rng_idx[_mask]]
         slant_plane_var[smoothed_mask] = _slant_plane_var[smoothed_mask]
