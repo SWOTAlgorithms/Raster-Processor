@@ -184,7 +184,7 @@ COMMON_ATTRIBUTES = odict([
           Composite release identifier (CRID) of the data system used to
           generate this file""")}],
     ['product_version',
-     {'dtype': 'str', 'value': VERSION_ID,
+     {'dtype': 'str',
       'docstr': 'Version identifier of this data file'}],
     ['pge_name',
      {'dtype': 'str',
