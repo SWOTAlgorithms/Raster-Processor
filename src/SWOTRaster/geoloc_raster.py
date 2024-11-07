@@ -159,7 +159,7 @@ class GeolocRaster(object):
             geoloc_fn = partial(
                 geoloc.pointcloud_height_geoloc_vect,
                 recompute_doppler=True, recompute_range=True, verbose=False,
-                max_iter_grad=1, height_goal=1.e-3, swath=side)
+                max_iter_grad=1, height_goal=1.e-3)
             _geoloc_fn = partial(fn_star, geoloc_fn)
 
             if self.max_worker_processes > 1:
