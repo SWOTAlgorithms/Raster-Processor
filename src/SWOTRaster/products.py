@@ -19,7 +19,7 @@ from shapely.geometry import Point, Polygon
 from collections import OrderedDict as odict
 from SWOTWater.products.product import Product, ProductTesterMixIn
 
-VERSION_ID = 'V1.3.1'
+VERSION_ID = 'V1.4'
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
