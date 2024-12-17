@@ -208,9 +208,9 @@ def main():
     product.pge_name = PGE_NAME
     product.pge_version = VERSION_ID
     product.product_version = '{:02}'.format(args.product_counter)
-    product.xref_l2_hr_pixc_files = args.pixc_file
-    product.xref_l2_hr_pixcvec_files = args.pixcvec_file
-    product.xref_param_l2_hr_raster_file = args.alg_config_file
+    product.xref_l2_hr_pixc_files = os.path.basename(args.pixc_file)
+    product.xref_l2_hr_pixcvec_files = os.path.basename(args.pixcvec_file)
+    product.xref_param_l2_hr_raster_file = os.path.basename(args.alg_config_file)
     product.to_ncfile(args.output_file)
 
 def load_raster_configs(alg_config_file, runtime_config_file):
