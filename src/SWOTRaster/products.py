@@ -1721,7 +1721,6 @@ class ScenePixc(Product):
         ['geospatial_lat_max', odict([])],
         ['wavelength', odict([])],
         ['nominal_slant_range_spacing', odict([])],
-        ['looks_to_efflooks', odict([])],
         ['leap_second', odict([])],
     ])
     GROUPS = odict([
@@ -1749,8 +1748,6 @@ class ScenePixc(Product):
         scene_pixc.wavelength = pixc_tile.wavelength
         scene_pixc.nominal_slant_range_spacing = \
             pixc_tile.nominal_slant_range_spacing
-        scene_pixc.looks_to_efflooks = \
-            pixc_tile['pixel_cloud'].looks_to_efflooks
 
         swath_side = pixc_tile.swath_side
 
@@ -2112,7 +2109,6 @@ class ScenePixelCloud(Product):
         ['tile_nominal_slant_range_spacing', odict([])],
         ['tile_near_range', odict([])],
         ['tile_num_azimuth_looks', odict([])],
-        ['tile_looks_to_efflooks', odict([])],
     ])
 
     for key in VARIABLES:
@@ -2128,8 +2124,7 @@ class ScenePixelCloud(Product):
                 'tile_time_granule_start', 'tile_time_granule_end',
                 'tile_time_coverage_start', 'tile_time_coverage_end',
                 'tile_wavelength', 'tile_nominal_slant_range_spacing',
-                'tile_near_range', 'tile_num_azimuth_looks',
-                'tile_looks_to_efflooks']:
+                'tile_near_range', 'tile_num_azimuth_looks']:
         VARIABLES[key]['dimensions'] = odict([['num_tiles', 0]])
 
     @classmethod
@@ -2176,9 +2171,9 @@ class ScenePixelCloud(Product):
                     'time_granule_start', 'time_granule_end',
                     'time_coverage_start', 'time_coverage_end', 'wavelength',
                     'nominal_slant_range_spacing', 'near_range',
-                    'num_azimuth_looks', 'looks_to_efflooks']:
+                    'num_azimuth_looks']:
             tile_key = 'tile_' + key
-            if key in ['num_azimuth_looks', 'looks_to_efflooks']:
+            if key in ['num_azimuth_looks']:
                 scene_pixel_cloud[tile_key] = np.array(
                     [getattr(pixc_tile['pixel_cloud'], key)])
             else:

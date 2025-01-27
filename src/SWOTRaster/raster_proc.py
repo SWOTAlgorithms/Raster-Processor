@@ -430,7 +430,7 @@ class RasterProcessor():
             LOGGER.info('aggregating height')
             height, self.wse_u = self.call_aggregator(
                 partial(raster_agg.aggregate_height,
-                        looks_to_efflooks=pixc.looks_to_efflooks,
+                        looks_to_efflooks=0,
                         height_agg_method=self.height_agg_method),
                 pixc['pixel_cloud']['height'],
                 pixc['pixel_cloud']['eff_num_rare_looks'],
