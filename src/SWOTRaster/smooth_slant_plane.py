@@ -50,7 +50,7 @@ def smooth_slant_plane(
         max_chunk_shape=DEFAULT_MAX_CHUNK_SHAPE,
         max_worker_processes=1):
     """ Smoothes in slant plane """
-    LOGGER.info('Smoothing {} in slant plane'.format(var_name))
+    LOGGER.info('Smoothing %s in slant plane', var_name)
     if method not in ['simple', 'composite', 'composite_with_sus_classes']:
         raise RasterUsageException(
             'Unknown slant plane smoothing method: {}'.format(method))
@@ -350,8 +350,8 @@ def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
                           use_bright_land=True,
                           method='composite_with_sus_classes'):
     """ Smoothes a chunk and returns only pixels in use_mask """
-    LOGGER.debug('Smoothing az: {} to {}, rng: {} to {}'.format(
-        np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx)))
+    LOGGER.debug('Smoothing az: %s to %s, rng: %s to %s',
+        np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx))
     smoothed_chunk = smooth_chunk(
         var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         bright_land_flag, specular_ringing_qual, smoothing_footprint,

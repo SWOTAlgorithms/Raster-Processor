@@ -1843,7 +1843,7 @@ class ScenePixc(Product):
 
     def get_qual_flag_bit(self, qual_flag, qual_bit):
         """ Get mask from quality flag with specific bit """
-        LOGGER.info('getting qual bit: {} - {}'.format(qual_flag, qual_bit))
+        LOGGER.info('getting qual bit: %s - %s', qual_flag, qual_bit)
 
         qual_meanings = \
             self.pixel_cloud.VARIABLES[qual_flag]['flag_meanings'].split()
@@ -1852,8 +1852,8 @@ class ScenePixc(Product):
         flag = self.pixel_cloud[qual_flag]
 
         if qual_bit not in qual_meanings:
-            LOGGER.warning('{} not defined for {}: Setting to False...'.format(
-                qual_bit, qual_flag))
+            LOGGER.warning('%s not defined for %s: Setting to False...',
+                           qual_bit, qual_flag)
             return np.zeros(flag.shape, dtype=bool)
 
         qual_ind = qual_masks[qual_meanings.index(qual_bit)]
@@ -1864,7 +1864,7 @@ class ScenePixc(Product):
     def get_summary_qual_flag(self, qual_flag, suspect_qual_flag_mask,
                               degraded_qual_flag_mask, bad_qual_flag_mask):
         """ Get summary quality flag from quality bitflag """
-        LOGGER.info('getting summary quality flag: {}'.format(qual_flag))
+        LOGGER.info('getting summary quality flag: %s', qual_flag)
 
         flag = QUAL_IND_GOOD*np.ones(self.pixel_cloud['latitude'].shape)
         flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask)] = \
@@ -1878,8 +1878,7 @@ class ScenePixc(Product):
 
     def get_qual_mask(self, qual_flag, qual_flag_mask):
         """ Get mask from quality flag with a specific bit mask"""
-        LOGGER.info('getting qual mask: {} - {}'.format(
-            qual_flag, qual_flag_mask))
+        LOGGER.info('getting qual mask: %s - %s', qual_flag, qual_flag_mask)
 
         flag = self.pixel_cloud[qual_flag]
         mask = np.bitwise_and(flag, qual_flag_mask) > 0

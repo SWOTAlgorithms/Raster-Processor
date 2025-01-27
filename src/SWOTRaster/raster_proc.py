@@ -30,6 +30,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class RasterProcessor():
+    """ Raster processor """
     def __init__(self, projection_type, resolution, padding,
                  height_agg_method, area_agg_method, sig0_agg_method,
                  interior_water_classes, water_edge_classes, land_edge_classes,
@@ -880,10 +881,10 @@ class RasterProcessor():
                 pixc_line_qual_large_karin_gap[pixc_side_mask],
                 pixc_line_qual_not_in_tile[pixc_side_mask]))
 
-            for k, g in groupby(np.arange(len(pixc_extant_data_mask)),
-                                lambda x: pixc_extant_data_mask[x]):
+            for k, g in groupby(enumerate(pixc_extant_data_mask),
+                                lambda x: x[1]):
                 if k:
-                    group_line_idxs = list(g)
+                    group_line_idxs = [idx for idx, _ in g]
                     group_times = tvp_time[pixc_tvp_idx[group_line_idxs]]
                     for line_idxs, _ in _group_by_diff(
                             group_line_idxs,
