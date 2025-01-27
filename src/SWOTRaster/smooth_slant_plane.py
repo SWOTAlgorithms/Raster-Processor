@@ -156,6 +156,10 @@ def get_range_offsets(scene_pixc, tile_mask=None):
     """ Get range offset for each tile in scene_pixc """
     LOGGER.info('Getting range offsets')
 
+    # If no tiles, return empty array
+    if not np.any(tile_mask):
+        return np.array([])
+
     range_offsets = np.round(
         (scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]
          - np.min(scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]))
@@ -171,6 +175,10 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     if tile_mask is None:
         tile_mask = np.ones(scene_pixc['pixel_cloud']['tile_tile_name'].shape,
                             dtype=bool)
+
+    # If no tiles, return empty array
+    if not np.any(tile_mask):
+        return np.array([])
 
     # Get mask of pixc line that are not in overlap region
     pixc_line_in_tile = np.logical_not(scene_pixc.get_qual_flag_bit(
