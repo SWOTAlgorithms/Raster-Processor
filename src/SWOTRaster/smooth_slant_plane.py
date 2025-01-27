@@ -189,8 +189,8 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     tiles_time_granule_start = \
         scene_pixc['pixel_cloud']['tile_time_granule_start'][tile_mask]
     sort_idx = np.argsort(tiles_time_granule_start)
-    tiles_idx = np.arange(sort_idx)[tile_mask]
-    outputs_idx = np.arange(tiles_idx)
+    tiles_idx = np.arange(len(sort_idx))[tile_mask]
+    outputs_idx = np.arange(len(tiles_idx))
 
     # Get the first and last record counters within each tile
     azimuth_offsets = np.zeros(tiles_idx.shape, dtype='i4')
