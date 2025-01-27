@@ -648,7 +648,6 @@ class RasterProcessor():
             poly_edge_y = [point[0] for point in polygon_points]
             proj_center_x = 0
             proj_center_y = 0
-
         elif self.projection_type.lower() == 'utm':
             # Set output crs
             if data_centroid is None:
@@ -677,7 +676,6 @@ class RasterProcessor():
             poly_edge_x = [point[0] for point in polygon_points]
             proj_center_x = self.output_crs.GetProjParm('false_easting')
             proj_center_y = self.output_crs.GetProjParm('false_northing')
-
         else:
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
