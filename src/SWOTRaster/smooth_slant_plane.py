@@ -186,10 +186,10 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         'pixc_line_qual', 'not_in_tile'))
 
     # Sort tiles by granule start time
-    tiles_time_granule_start = \
-        scene_pixc['pixel_cloud']['tile_time_granule_start'][tile_mask]
-    sort_idx = np.argsort(tiles_time_granule_start)
-    tiles_idx = np.arange(len(sort_idx))[tile_mask]
+    all_tiles_time_granule_start = \
+        scene_pixc['pixel_cloud']['tile_time_granule_start']
+    sort_idx = np.argsort(all_tiles_time_granule_start[tile_mask])
+    tiles_idx = np.arange(len(all_tiles_time_granule_start))[tile_mask]
     outputs_idx = np.arange(len(tiles_idx))
 
     # Get the first and last record counters within each tile
