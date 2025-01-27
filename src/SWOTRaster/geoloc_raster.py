@@ -7,27 +7,31 @@ Author(s): Alexander Corben (adapted from geoloc_river)
 '''
 
 import logging
-import numpy as np
 import multiprocessing
-import SWOTWater.aggregate as ag
-import cnes.modules.geoloc.lib.geoloc as geoloc
-import cnes.common.service_error as service_error
-
 from itertools import chain
 from functools import partial
-from SWOTRaster.raster_agg import fn_star, fn_it, chunk_it
-from SWOTRaster.products import RasterUTM, DEFAULT_MAX_CHUNK_SIZE
+
+import numpy as np
+import SWOTWater.aggregate as ag
+from cnes.common import service_error
+from cnes.modules.geoloc.lib import geoloc
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
+
+from SWOTRaster.products import RasterUTM
+from SWOTRaster.raster_agg import fn_star, fn_it, chunk_it
 
 LOGGER = logging.getLogger(__name__)
 
-class GeolocRaster(object):
+
+class GeolocRaster():
+    """ Re-geolocates pixels. """
+
     def __init__(self, pixc, algorithmic_config, max_worker_processes=1):
         self.pixc = pixc
         self.algorithmic_config = algorithmic_config
         self.max_worker_processes = max_worker_processes
 
-    def process(self, raster=None):
+    def process(self):
         """ Do improved raster geolocation """
         LOGGER.info("processing")
 
@@ -69,8 +73,8 @@ class GeolocRaster(object):
 
         raster_uncorrected_height = raster.get_uncorrected_height()
 
-        for i in range(0, len(proj_mapping)):
-            for j in range(0, len(proj_mapping[0])):
+        for i, _ in enumerate(proj_mapping):
+            for j, _ in enumerate(proj_mapping):
                 if not np.ma.is_masked(raster_uncorrected_height[i][j]):
                     for k in proj_mapping[i][j]:
                         self.new_height[k] = raster_uncorrected_height[i][j]
@@ -84,7 +88,8 @@ class GeolocRaster(object):
             self.taylor_improved_geoloc()
         else:
             message = "the method " + str(method) + " is undefined"
-            raise service_error.ParameterError("apply_improved_geoloc", message)
+            raise service_error.ParameterError("apply_improved_geoloc",
+                                               message)
 
     def taylor_improved_geoloc(self):
         """ Improve the height of noisy point (in object sensor) """
@@ -101,17 +106,21 @@ class GeolocRaster(object):
         max_chunk_size = self.algorithmic_config[
             'height_constrained_geoloc_max_chunk_size']
 
-        # Get the swath side (from tvp index, not nearest sensor idx)
-        line_index = self.pixc['pixel_cloud']['line_index']
-        tvp_index = self.pixc['pixel_cloud']['pixc_line_to_tvp'][line_index].astype('i4')
-        swath_side = np.char.upper(self.pixc['tvp']['swath_side'][tvp_index])
+        # Get the swath side (from tvp index, not nearest sensor index)
+        line_idx = self.pixc['pixel_cloud']['pixc_line_index']
+        pixc_line_to_tvp = self.pixc['pixel_cloud']['pixc_line_to_tvp']
+        pixc_line_to_tile = self.pixc['pixel_cloud']['pixc_line_to_tile']
+        tvp_idx = pixc_line_to_tvp[line_idx].astype('i4')
+        tile_idx = pixc_line_to_tile[line_idx].astype('i4')
+        swath_side = np.char.upper(self.pixc['tvp']['swath_side'][tvp_idx])
 
         for side in ['L', 'R']:
-            mask = np.logical_and(
-                swath_side==side, np.logical_not(np.logical_or.reduce((
-                    np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
-                    np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
-                    np.ma.getmaskarray(self.pixc['pixel_cloud']['longitude'])))))
+            side_mask = swath_side == side
+            valid_mask = np.logical_not(np.logical_or.reduce((
+                np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
+                np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
+                np.ma.getmaskarray(self.pixc['pixel_cloud']['longitude']))))
+            mask = np.logical_and(side_mask, valid_mask)
 
             # If there are no input pixc samples on this side, continue
             nb_pix = np.sum(mask)
@@ -128,13 +137,15 @@ class GeolocRaster(object):
             xyz = np.transpose(np.array([x, y, z]))
 
             # Get distance from satellite to target point
-            ri = self.pixc['pixel_cloud']['range'][mask]
+            near_range = self.pixc['pixel_cloud']['tile_near_range'][tile_idx]
+            ri = near_range + (self.pixc['pixel_cloud']['range_index']
+                               * self.pixc.nominal_slant_range_spacing)
 
             # Get noisy and new height
             h_noisy = self.pixc['pixel_cloud']['height'][mask]
             h_new = self.new_height[mask]
 
-            # Remap illumination time to nearest sensor idx
+            # Remap illumination time to nearest sensor index
             sensor_idx = ag.get_sensor_index(self.pixc)[mask]
 
             # Get position of associated along-track pixels
@@ -181,5 +192,5 @@ class GeolocRaster(object):
 
             # Merge chunks
             (self.out_lat_corr[mask], self.out_lon_corr[mask],
-             self.out_height_corr[mask]) = np.transpose(
-                 list(chain.from_iterable(result[1] for result in result_chunks)))
+             self.out_height_corr[mask]) = np.transpose(list(
+                 chain.from_iterable(result[1] for result in result_chunks)))

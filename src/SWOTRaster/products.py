@@ -8,16 +8,17 @@ Author(s): Alexander Corben
 
 import logging
 import textwrap
-import numpy as np
 import operator as op
-import SWOTRaster.raster_crs as raster_crs
-
-from osgeo import osr
 from datetime import datetime
+from collections import OrderedDict as odict
+
+import numpy as np
+from osgeo import osr
 from shapely.prepared import prep
 from shapely.geometry import Point, Polygon
-from collections import OrderedDict as odict
 from SWOTWater.products.product import Product, ProductTesterMixIn
+
+from SWOTRaster import raster_crs
 
 VERSION_ID = 'V1.4'
 
@@ -35,31 +36,31 @@ QUAL_IND_DEGRADED = 2
 QUAL_IND_BAD = 3
 
 # define constants for each quality bit
-QUAL_IND_SIG0_QUAL_SUSPECT = 1                          # bit 0
-QUAL_IND_CLASS_QUAL_SUSPECT = 2                         # bit 1
-QUAL_IND_GEOLOCATION_QUAL_SUSPECT = 4                   # bit 2
-QUAL_IND_WATER_FRACTION_SUSPECT = 8                     # bit 3
-QUAL_IND_LARGE_UNCERT_SUSPECT = 32                      # bit 5
-QUAL_IND_DARK_WATER_SUSPECT = 64                        # bit 6
-QUAL_IND_BRIGHT_LAND = 128                              # bit 7
-QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256              # bit 8
-QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT = 512     # bit 9
-QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT = 1024     # bit 10
-QUAL_IND_FEW_PIXELS = 4096                              # bit 12
-QUAL_IND_FAR_RANGE_SUSPECT = 8192                       # bit 13
-QUAL_IND_NEAR_RANGE_SUSPECT = 16384                     # bit 14
-QUAL_IND_SIG0_QUAL_DEGRADED = 131072                    # bit 17
-QUAL_IND_CLASS_QUAL_DEGRADED = 262144                   # bit 18
-QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288             # bit 19
-QUAL_IND_DARK_WATER_DEGRADED = 1048576                  # bit 20
-QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152         # bit 21
-QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_DEGRADED = 4194304 # bit 22
-QUAL_IND_VALUE_BAD = 16777216                           # bit 24
-QUAL_IND_OUTSIDE_DATA_WINDOW = 67108864                 # bit 26
-QUAL_IND_NO_PIXELS = 268435456                          # bit 28
-QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912               # bit 29
-QUAL_IND_INNER_SWATH = 1073741824                       # bit 30
-QUAL_IND_MISSING_KARIN_DATA = 2147483648                # bit 31
+QUAL_IND_SIG0_QUAL_SUSPECT = 1                           # bit 0
+QUAL_IND_CLASS_QUAL_SUSPECT = 2                          # bit 1
+QUAL_IND_GEOLOCATION_QUAL_SUSPECT = 4                    # bit 2
+QUAL_IND_WATER_FRACTION_SUSPECT = 8                      # bit 3
+QUAL_IND_LARGE_UNCERT_SUSPECT = 32                       # bit 5
+QUAL_IND_DARK_WATER_SUSPECT = 64                         # bit 6
+QUAL_IND_BRIGHT_LAND = 128                               # bit 7
+QUAL_IND_LOW_COHERENCE_WATER_SUSPECT = 256               # bit 8
+QUAL_IND_SPECULAR_RINGING_PRIOR_WATER_SUSPECT = 512      # bit 9
+QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_SUSPECT = 1024      # bit 10
+QUAL_IND_FEW_PIXELS = 4096                               # bit 12
+QUAL_IND_FAR_RANGE_SUSPECT = 8192                        # bit 13
+QUAL_IND_NEAR_RANGE_SUSPECT = 16384                      # bit 14
+QUAL_IND_SIG0_QUAL_DEGRADED = 131072                     # bit 17
+QUAL_IND_CLASS_QUAL_DEGRADED = 262144                    # bit 18
+QUAL_IND_GEOLOCATION_QUAL_DEGRADED = 524288              # bit 19
+QUAL_IND_DARK_WATER_DEGRADED = 1048576                   # bit 20
+QUAL_IND_LOW_COHERENCE_WATER_DEGRADED = 2097152          # bit 21
+QUAL_IND_SPECULAR_RINGING_PRIOR_LAND_DEGRADED = 4194304  # bit 22
+QUAL_IND_VALUE_BAD = 16777216                            # bit 24
+QUAL_IND_OUTSIDE_DATA_WINDOW = 67108864                  # bit 26
+QUAL_IND_NO_PIXELS = 268435456                           # bit 28
+QUAL_IND_OUTSIDE_SCENE_BOUNDS = 536870912                # bit 29
+QUAL_IND_INNER_SWATH = 1073741824                        # bit 30
+QUAL_IND_MISSING_KARIN_DATA = 2147483648                 # bit 31
 
 POLYGON_EXTENT_DIST = 200000
 
@@ -70,6 +71,7 @@ DEFAULT_MAX_CHUNK_SIZE = 100000
 
 LOGGER = logging.getLogger(__name__)
 
+
 def textjoin(text):
     """ Dedent join and strip text """
     text = textwrap.dedent(text)
@@ -77,10 +79,12 @@ def textjoin(text):
     text = text.strip()
     return text
 
+
 def int2hexattr(val):
     """ Convert an int to an attribute string
         with both the decimal int value and 32-bit hex word """
     return "{0} ({1})".format(val, int2hex(val, 8, upper=True))
+
 
 def int2hex(val, pad_sz, upper=False):
     """ Convert an int to a hex string """
@@ -89,15 +93,31 @@ def int2hex(val, pad_sz, upper=False):
         fmt = 'X'
     return '0x{0:0{1}{2}}'.format(val, pad_sz, fmt)
 
+
+def datetime_str_comp(d0, d1, comp=op.le,
+                      format_str=DATETIME_FORMAT_STR,
+                      empty_value=EMPTY_DATETIME):
+    """ Compares d0 and d1 with comparison in comp argument
+        Returns False if d0 is None or "None"
+        Returns True if d0 is not None or "None" and d1 is None or "None" """
+    if d0 is None or d0.lower() == 'none' or d0 == empty_value:
+        return False
+    if d1 is None or d1.lower() == 'none' or d1 == empty_value:
+        return True
+    _d0 = datetime.strptime(d0, format_str)
+    _d1 = datetime.strptime(d1, format_str)
+    return comp(_d0, _d1)
+
+
 COMMON_ATTRIBUTES = odict([
     ['Conventions',
-     {'dtype': 'str' ,'value': 'CF-1.7',
-      'docstr':textjoin("""
+     {'dtype': 'str', 'value': 'CF-1.7',
+      'docstr': textjoin("""
           NetCDF-4 conventions adopted in this group. This
           attribute should be set to CF-1.7 to indicate that the group is
-          compliant with the Climate and Forecast NetCDF conventions.""") }],
+          compliant with the Climate and Forecast NetCDF conventions.""")}],
     ['title',
-     {'dtype': 'str', 'value':'Level 2 KaRIn High Rate Raster Data Product',
+     {'dtype': 'str', 'value': 'Level 2 KaRIn High Rate Raster Data Product',
       'docstr': 'Level 2 KaRIn High Rate Raster Data Product'}],
     ['institution',
      {'dtype': 'str', 'value': 'JPL',
@@ -108,14 +128,15 @@ COMMON_ATTRIBUTES = odict([
           The method of production of the original data.
           If it was model-generated, source should name the model and its
           version, as specifically as could be useful. If it is observational,
-          source should characterize it (e.g., 'Ka-band radar interferometer').""")}],
+          source should characterize it (e.g., 'Ka-band radar
+          interferometer').""")}],
     ['history',
      {'dtype': 'str',
       'docstr': textjoin("""
           UTC time when file generated. Format is:
           'YYYY-MM-DDThh:mm:ssZ : Creation'""")}],
     ['platform',
-     {'dtype': 'str' ,'value':'SWOT',
+     {'dtype': 'str', 'value': 'SWOT',
       'docstr': 'SWOT'}],
     ['references',
      {'dtype': 'str', 'value': VERSION_ID,
@@ -124,7 +145,7 @@ COMMON_ATTRIBUTES = odict([
           the data or methods used to product it. Provides version number of
           software generating product.""")}],
     ['reference_document',
-     {'dtype': 'str', 'value':'D-56416_SWOT_Product_Description_L2_HR_Raster',
+     {'dtype': 'str', 'value': 'D-56416_SWOT_Product_Description_L2_HR_Raster',
       'docstr': textjoin("""
           Name and version of Product Description Document
           to use as reference for product.""")}],
@@ -146,8 +167,8 @@ COMMON_ATTRIBUTES = odict([
      {'dtype': 'i2',
       'docstr': textjoin("""
           List of pixel cloud tile numbers in the product granule.
-          The numbers are listed in order of increasing measurement time for the
-          left side, followed by the right side.""")}],
+          The numbers are listed in order of increasing measurement time for
+          the left side, followed by the right side.""")}],
     ['tile_names',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -177,7 +198,7 @@ COMMON_ATTRIBUTES = odict([
     ['descriptor_string',
      {'dtype': 'str',
       'docstr': '<GridResolution><GridUnits>_<CoordinateSystem>_'
-          + '<GranuleOverlapFlag>_x_x_x'}],
+      + '<GranuleOverlapFlag>_x_x_x'}],
     ['crid',
      {'dtype': 'str',
       'docstr': textjoin("""
@@ -255,13 +276,13 @@ COMMON_ATTRIBUTES = odict([
     ['right_first_longitude',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Nominal swath corner longitude for the first range line and right edge
-          of the swath (degrees_east).""")}],
+          Nominal swath corner longitude for the first range line and right
+          edge of the swath (degrees_east).""")}],
     ['right_first_latitude',
      {'dtype': 'f8',
       'docstr': textjoin("""
-          Nominal swath corner longitude for the first range line and right edge
-          of the swath (degrees_north).""")}],
+          Nominal swath corner longitude for the first range line and right
+          edge of the swath (degrees_north).""")}],
     ['right_last_longitude',
      {'dtype': 'f8',
       'docstr': textjoin("""
@@ -306,10 +327,11 @@ COMMON_VARIABLES = odict([
                 Water surface elevation of the pixel above the geoid and after
                 using models to subtract the effects of tides
                 (solid_earth_tide, load_tide_fes, pole_tide).""")],
-        ])],
+     ])],
     ['wse_qual',
      odict([['dtype', 'u1'],
-            ['long_name', 'summary quality indicator for the water surface elevation'],
+            ['long_name',
+             'summary quality indicator for the water surface elevation'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
@@ -318,19 +340,24 @@ COMMON_VARIABLES = odict([
             ['valid_max', 3],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Summary quality indicator for the water surface elevation quantities.
-                A value of 0 indicates a nominal measurement, 1 indicates a
-                suspect measurement, 2 indicates a degraded measurement,
-                and 3 indicates a bad measurement.""")],
-        ])],
+                Summary quality indicator for the water surface elevation
+                quantities. A value of 0 indicates a nominal measurement, 1
+                indicates a suspect measurement, 2 indicates a degraded
+                measurement, and 3 indicates a bad measurement.""")],
+     ])],
     ['wse_qual_bitwise',
      odict([['dtype', 'u4'],
-            ['long_name', 'bitwise quality indicator for the water surface elevation'],
+            ['long_name',
+             'bitwise quality indicator for the water surface elevation'],
             ['standard_name', 'status_flag'],
-            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 classification_qual_suspect
@@ -377,11 +404,11 @@ COMMON_VARIABLES = odict([
             ['valid_max', 4118573734],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Bitwise quality indicator for the water surface elevation quantities.
-                If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, positive values less than 32768 represent
-                suspect data, values greater than or equal to 32768 but
-                less than 8388608 represent degraded data, and values
+                Bitwise quality indicator for the water surface elevation
+                quantities. If this word is interpreted as an unsigned integer,
+                a value of 0 indicates good data, positive values less than
+                32768 represent suspect data, values greater than or equal to
+                32768 but less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.
                 The masks used to determine which L2_HR_PIXC classification and
                 geolocation quality flag bits contribute to
@@ -393,7 +420,7 @@ COMMON_VARIABLES = odict([
                 [wse_qual_bitwise:classification_qual_degraded_mask], and
                 [wse_qual_bitwise:geolocation_qual_degraded_mask]
                 attributes, respectively.""")],
-        ])],
+     ])],
     ['wse_uncert',
      odict([['dtype', 'f4'],
             ['long_name', 'uncertainty in the water surface elevation'],
@@ -404,7 +431,7 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 1-sigma uncertainty in the water surface elevation.""")],
-        ])],
+     ])],
     ['water_area',
      odict([['dtype', 'f4'],
             ['long_name', 'water surface area'],
@@ -416,10 +443,11 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Surface area of the water pixels.""")],
-        ])],
+     ])],
     ['water_area_qual',
      odict([['dtype', 'u1'],
-            ['long_name', 'summary quality indicator for the water surface area'],
+            ['long_name',
+             'summary quality indicator for the water surface area'],
             ['standard_name', 'status_flag'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', 'good suspect degraded bad'],
@@ -433,15 +461,20 @@ COMMON_VARIABLES = odict([
                 A value of 0 indicates a nominal measurement, 1 indicates a
                 suspect measurement, 2 indicates a degraded measurement,
                 and 3 indicates a bad measurement.""")],
-        ])],
+     ])],
     ['water_area_qual_bitwise',
      odict([['dtype', 'u4'],
-            ['long_name', 'bitwise quality indicator for the water surface area'],
+            ['long_name',
+             'bitwise quality indicator for the water surface area'],
             ['standard_name', 'status_flag'],
-            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 classification_qual_suspect
@@ -492,10 +525,10 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Bitwise quality indicator for the water surface area and water
                 fraction quantities.
-                If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, positive values less than 32768 represent
-                suspect data, values greater than or equal to 32768 but
-                less than 8388608 represent degraded data, and values
+                If this word is interpreted as an unsigned integer, a value of
+                0 indicates good data, positive values less than 32768
+                represent suspect data, values greater than or equal to 32768
+                but less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.
                 The masks used to determine which L2_HR_PIXC classification and
                 geolocation quality flag bits contribute to
@@ -504,10 +537,10 @@ COMMON_VARIABLES = odict([
                 are provided both as decimal and hexadecimal integers in the
                 [water_area_qual_bitwise:classification_qual_suspect_mask],
                 [water_area_qual_bitwise:geolocation_qual_suspect_mask],
-                [water_area_qual_bitwise:classification_qual_degraded_mask], and
-                [water_area_qual_bitwise:geolocation_qual_degraded_mask]
+                [water_area_qual_bitwise:classification_qual_degraded_mask],
+                and [water_area_qual_bitwise:geolocation_qual_degraded_mask]
                 attributes, respectively.""")],
-        ])],
+     ])],
     ['water_area_uncert',
      odict([['dtype', 'f4'],
             ['long_name', 'uncertainty in the water surface area'],
@@ -518,7 +551,7 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 1-sigma uncertainty in the water surface area.""")],
-        ])],
+     ])],
     ['water_frac',
      odict([['dtype', 'f4'],
             ['long_name', 'water fraction'],
@@ -530,7 +563,7 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Fraction of the pixel that is water.""")],
-        ])],
+     ])],
     ['water_frac_uncert',
      odict([['dtype', 'f4'],
             ['long_name', 'uncertainty in the water fraction'],
@@ -555,7 +588,7 @@ COMMON_VARIABLES = odict([
                 Normalized radar cross section (sigma0) in real, linear units
                 (not decibels). The value may be negative due to noise
                 subtraction.""")],
-        ])],
+     ])],
     ['sig0_qual',
      odict([['dtype', 'u1'],
             ['long_name', 'summary quality indicator for the sigma0'],
@@ -571,17 +604,22 @@ COMMON_VARIABLES = odict([
                 A value of 0 indicates a nominal measurement, 1 indicates a
                 suspect measurement, 2 indicates a degraded measurement,
                 and 3 indicates a bad measurement.""")],
-        ])],
+     ])],
     ['sig0_qual_bitwise',
      odict([['dtype', 'u4'],
             ['long_name', 'bitwise quality indicator for the sigma0'],
             ['standard_name', 'status_flag'],
             ['sig0_qual_suspect_mask', '[sig0_qual_suspect_mask]'],
-            ['classification_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_suspect_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['sig0_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['classification_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
-            ['geolocation_qual_degraded_mask', '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_suspect_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['sig0_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['classification_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
+            ['geolocation_qual_degraded_mask',
+             '[Decimal mask] ([Hexadecimal mask])'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 sig0_qual_suspect
@@ -633,10 +671,10 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Bitwise quality indicator for the sigma0 quantities.
-                If this word is interpreted as an unsigned integer, a value of 0
-                indicates good data, positive values less than 32768 represent
-                suspect data, values greater than or equal to 32768 but
-                less than 8388608 represent degraded data, and values
+                If this word is interpreted as an unsigned integer, a value of
+                0 indicates good data, positive values less than 32768
+                represent suspect data, values greater than or equal to 32768
+                but less than 8388608 represent degraded data, and values
                 greater than or equal to 8388608 represent bad data.
                 The masks used to determine which L2_HR_PIXC sigma0,
                 classification, and geolocation quality flag bits contribute to
@@ -651,7 +689,7 @@ COMMON_VARIABLES = odict([
                 [sig0_qual_bitwise:classification_qual_degraded_mask], and
                 [sig0_qual_bitwise:geolocation_qual_degraded_mask]
                 attributes, respectively.""")],
-        ])],
+     ])],
     ['sig0_uncert',
      odict([['dtype', 'f4'],
             ['long_name', 'uncertainty in sigma0'],
@@ -665,7 +703,7 @@ COMMON_VARIABLES = odict([
                 linear units. This value is a one-sigma additive
                 (not multiplicative) uncertainty term, which can be added to or
                 subtracted from sigma0.""")],
-        ])],
+     ])],
     ['inc',
      odict([['dtype', 'f4'],
             ['long_name', 'incidence angle'],
@@ -676,7 +714,7 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Incidence angle.""")],
-        ])],
+     ])],
     ['cross_track',
      odict([['dtype', 'f4'],
             ['long_name', 'approximate cross-track location'],
@@ -687,14 +725,15 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Approximate cross-track location of the pixel.""")],
-        ])],
+     ])],
     ['illumination_time',
      odict([['dtype', 'f8'],
             ['long_name', 'time of illumination of each pixel (UTC)'],
-            ['standard_name','time'],
-            ['calendar','gregorian'],
-            ['tai_utc_difference', '[Value of TAI-UTC at time of first record]'],
-            ['leap_second','YYYY-MM-DDThh:mm:ssZ'],
+            ['standard_name', 'time'],
+            ['calendar', 'gregorian'],
+            ['tai_utc_difference',
+             '[Value of TAI-UTC at time of first record]'],
+            ['leap_second', 'YYYY-MM-DDThh:mm:ssZ'],
             ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
@@ -705,12 +744,12 @@ COMMON_VARIABLES = odict([
                 measurement of the data set. If a leap second occurs
                 within the data set, the attribute leap_second is set
                 to the UTC time at which the leap second occurs.""")],
-        ])],
+     ])],
     ['illumination_time_tai',
      odict([['dtype', 'f8'],
             ['long_name', 'time of illumination of each pixel (TAI)'],
-            ['standard_name','time'],
-            ['calendar','gregorian'],
+            ['standard_name', 'time'],
+            ['calendar', 'gregorian'],
             ['grid_mapping', 'crs'],
             ['units', 'seconds since 2000-01-01 00:00:00.000'],
             ['comment', textjoin("""
@@ -719,7 +758,7 @@ COMMON_VARIABLES = odict([
                 This time scale contains no leap seconds. The
                 difference (in seconds) with time in UTC is given
                 by the attribute [illumination_time:tai_utc_difference].""")],
-        ])],
+     ])],
     ['n_wse_pix',
      odict([['dtype', 'u4'],
             ['long_name', 'number of water surface elevation pixels'],
@@ -731,7 +770,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Number of pixel cloud samples used in water surface elevation
                 aggregation.""")],
-        ])],
+     ])],
     ['n_water_area_pix',
      odict([['dtype', 'u4'],
             ['long_name', 'number of water surface area pixels'],
@@ -743,7 +782,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Number of pixel cloud samples used in water surface area and
                 water fraction aggregation.""")],
-        ])],
+     ])],
     ['n_sig0_pix',
      odict([['dtype', 'u4'],
             ['long_name', 'number of sigma0 pixels'],
@@ -754,7 +793,7 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Number of pixel cloud samples used in sigma0 aggregation.""")],
-        ])],
+     ])],
     ['n_other_pix',
      odict([['dtype', 'u4'],
             ['long_name', 'number of other pixels'],
@@ -767,7 +806,7 @@ COMMON_VARIABLES = odict([
                 Number of pixel cloud samples used in aggregation of
                 quantities not related to water surface elevation,
                 water surface area, water fraction or sigma0.""")],
-        ])],
+     ])],
     ['dark_frac',
      odict([['dtype', 'f4'],
             ['long_name', 'fractional area of dark water'],
@@ -777,8 +816,9 @@ COMMON_VARIABLES = odict([
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Fraction of pixel water surface area covered by dark water.""")],
-        ])],
+                Fraction of pixel water surface area covered by dark
+                water.""")],
+     ])],
     ['ice_clim_flag',
      odict([['dtype', 'u1'],
             ['long_name', 'climatological ice cover flag'],
@@ -794,11 +834,11 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Climatological ice cover flag indicating whether the pixel is
                 ice-covered on the day of the observation based on external
-                climatological information (not the SWOT measurement). Values of
-                0, 1, and 2 indicate that the pixel is likely not ice covered,
-                may or may not be partially or fully ice covered, and likely
-                fully ice covered, respectively.""")],
-        ])],
+                climatological information (not the SWOT measurement). Values
+                of 0, 1, and 2 indicate that the pixel is likely not ice
+                covered, may or may not be partially or fully ice covered, and
+                likely fully ice covered, respectively.""")],
+     ])],
     ['ice_dyn_flag',
      odict([['dtype', 'u1'],
             ['long_name', 'dynamic ice cover flag'],
@@ -816,8 +856,9 @@ COMMON_VARIABLES = odict([
                 ice-covered on the day of the observation based on
                 analysis of external satellite optical data.  Values of
                 0, 1, and 2 indicate that the pixel is not ice covered,
-                partially ice covered, and fully ice covered, respectively.""")],
-        ])],
+                partially ice covered, and fully ice covered,
+                respectively.""")],
+     ])],
     ['layover_impact',
      odict([['dtype', 'f4'],
             ['long_name', 'layover impact'],
@@ -827,8 +868,9 @@ COMMON_VARIABLES = odict([
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Estimate of the water surface elevation error caused by layover.""")],
-        ])],
+                Estimate of the water surface elevation error caused by
+                layover.""")],
+     ])],
     ['sig0_cor_atmos_model',
      odict([['dtype', 'f4'],
             ['long_name', textjoin("""
@@ -843,8 +885,9 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Atmospheric correction to sigma0 from weather model data as
                 a linear power multiplier (not decibels).
-                sig0_cor_atmos_model is already applied in computing sig0.""")],
-        ])],
+                sig0_cor_atmos_model is already applied in
+                computing sig0.""")],
+     ])],
     ['height_cor_xover',
      odict([['dtype', 'f4'],
             ['long_name', 'height correction from KaRIn crossovers'],
@@ -857,11 +900,11 @@ COMMON_VARIABLES = odict([
                 Height correction from KaRIn crossover calibration. The
                 correction is applied before geolocation but reported as
                 an equivalent height correction.""")],
-        ])],
+     ])],
     ['geoid',
      odict([['dtype', 'f4'],
             ['long_name', 'geoid height'],
-            ['standard_name','geoid_height_above_reference_ellipsoid'],
+            ['standard_name', 'geoid_height_above_reference_ellipsoid'],
             ['source', 'EGM2008 (Pavlis et al., 2012)'],
             ['grid_mapping', 'crs'],
             ['units', 'm'],
@@ -872,7 +915,7 @@ COMMON_VARIABLES = odict([
                 Geoid height above the reference ellipsoid with a
                 correction to refer the value to the mean tide system,
                 i.e. includes the permanent tide (zero frequency).""")],
-        ])],
+     ])],
     ['solid_earth_tide',
      odict([['dtype', 'f4'],
             ['long_name', 'solid Earth tide height'],
@@ -887,7 +930,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Solid-Earth (body) tide height. The zero-frequency
                 permanent tide component is not included.""")],
-        ])],
+     ])],
     ['load_tide_fes',
      odict([['dtype', 'f4'],
             ['long_name', 'geocentric load tide height (FES)'],
@@ -901,7 +944,7 @@ COMMON_VARIABLES = odict([
             ['comment', textjoin("""
                 Geocentric load tide height. The effect of the ocean tide
                 loading of the Earth’s crust.""")],
-        ])],
+     ])],
     ['load_tide_got',
      odict([['dtype', 'f4'],
             ['long_name', 'geocentric load tide height (GOT)'],
@@ -916,7 +959,7 @@ COMMON_VARIABLES = odict([
                 Geocentric load tide height. The effect of the ocean tide
                 loading of the Earth’s crust. This value is reported for
                 reference but is not applied to the reported height.""")],
-        ])],
+     ])],
     ['pole_tide',
      odict([['dtype', 'f4'],
             ['long_name', 'geocentric pole tide height'],
@@ -931,7 +974,7 @@ COMMON_VARIABLES = odict([
                 from the solid-Earth (body) pole tide height and the load
                 pole tide height (i.e., the effect of the ocean pole tide
                 loading of the Earth’s crust).""")],
-        ])],
+     ])],
     ['model_dry_tropo_cor',
      odict([['dtype', 'f4'],
             ['long_name', 'dry troposphere vertical correction'],
@@ -944,15 +987,15 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to dry troposphere delay.
-                The reported water surface elevation, latitude and longitude are
-                computed after adding negative media corrections to
+                The reported water surface elevation, latitude and longitude
+                are computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
                 reported correction to the reported water surface elevation
                 results in the uncorrected pixel height.""")],
-        ])],
+     ])],
     ['model_wet_tropo_cor',
      odict([['dtype', 'f4'],
             ['long_name', 'wet troposphere vertical correction'],
@@ -965,15 +1008,15 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to wet troposphere delay.
-                The reported water surface elevation, latitude and longitude are
-                computed after adding negative media corrections to
+                The reported water surface elevation, latitude and longitude
+                are computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
                 reported correction to the reported water surface elevation
                 results in the uncorrected pixel height.""")],
-        ])],
+     ])],
     ['iono_cor_gim_ka',
      odict([['dtype', 'f4'],
             ['long_name', 'ionosphere vertical correction'],
@@ -986,19 +1029,20 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Equivalent vertical correction due to ionosphere delay.
-                The reported water surface elevation, latitude and longitude are
-                computed after adding negative media corrections to
+                The reported water surface elevation, latitude and longitude
+                are computed after adding negative media corrections to
                 uncorrected range along slant-range paths, accounting for
                 the differential delay between the two KaRIn antennas. The
                 equivalent vertical correction is computed by applying
                 obliquity factors to the slant-path correction. Adding the
                 reported correction to the reported water surface elevation
                 results in the uncorrected pixel height.""")],
-        ])],
+     ])],
 ])
 
 
 class RasterUTM(ProductTesterMixIn, Product):
+    """ UTM raster """
     UID = "raster"
     DIMENSIONS = odict([
         ['x', 0],
@@ -1022,8 +1066,9 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['tile_polarizations', COMMON_ATTRIBUTES['tile_polarizations']],
         ['coordinate_reference_system',
          {'dtype': COMMON_ATTRIBUTES['coordinate_reference_system']['dtype'],
-          'value':'Universal Transverse Mercator',
-          'docstr': COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
+          'value': 'Universal Transverse Mercator',
+          'docstr':
+          COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
         ['short_name', COMMON_ATTRIBUTES['short_name']],
         ['descriptor_string', COMMON_ATTRIBUTES['descriptor_string']],
@@ -1048,9 +1093,12 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
         ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
         ['xref_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_l2_hr_pixc_files']],
-        ['xref_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
-        ['xref_param_l2_hr_raster_file', COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
-        ['xref_reforbittrack_files', COMMON_ATTRIBUTES['xref_reforbittrack_files']],
+        ['xref_l2_hr_pixcvec_files',
+         COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
+        ['xref_param_l2_hr_raster_file',
+         COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
+        ['xref_reforbittrack_files',
+         COMMON_ATTRIBUTES['xref_reforbittrack_files']],
         ['utm_zone_num', {'dtype': 'i2',
                           'docstr': 'UTM zone number.'}],
         ['mgrs_latitude_band', {'dtype': 'str',
@@ -1077,12 +1125,14 @@ class RasterUTM(ProductTesterMixIn, Product):
                 ['prime_meridian_name', 'Greenwich'],
                 ['false_easting', 500000.],
                 ['false_northing', '[Projection false northing value]'],
-                ['longitude_of_central_meridian', '[Projection longitude of central meridian]'],
+                ['longitude_of_central_meridian',
+                 '[Projection longitude of central meridian]'],
                 ['longitude_of_prime_meridian', 0.],
                 ['latitude_of_projection_origin', 0.],
                 ['scale_factor_at_central_meridian', 0.9996],
                 ['semi_major_axis', raster_crs.ELLIPSOID_SEMI_MAJOR_AXIS],
-                ['inverse_flattening', raster_crs.ELLIPSOID_INVERSE_FLATTENING],
+                ['inverse_flattening',
+                 raster_crs.ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'UTM zone coordinate reference system.'],
@@ -1116,8 +1166,8 @@ class RasterUTM(ProductTesterMixIn, Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                    Geodetic longitude [-180,180) (east of the Greenwich meridian)
-                    of the pixel.""")],
+                    Geodetic longitude [-180,180) (east of the Greenwich
+                    meridian) of the pixel.""")],
             ])],
         ['latitude',
          odict([['dtype', 'f8'],
@@ -1137,7 +1187,8 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
         ['water_area', COMMON_VARIABLES['water_area'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
-        ['water_area_qual_bitwise', COMMON_VARIABLES['water_area_qual_bitwise'].copy()],
+        ['water_area_qual_bitwise',
+         COMMON_VARIABLES['water_area_qual_bitwise'].copy()],
         ['water_area_uncert', COMMON_VARIABLES['water_area_uncert'].copy()],
         ['water_frac', COMMON_VARIABLES['water_frac'].copy()],
         ['water_frac_uncert', COMMON_VARIABLES['water_frac_uncert'].copy()],
@@ -1148,7 +1199,8 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
-        ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['illumination_time_tai',
+         COMMON_VARIABLES['illumination_time_tai'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
@@ -1157,15 +1209,18 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
-        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['sig0_cor_atmos_model',
+         COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
         ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
         ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
-        ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
-        ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
+        ['model_dry_tropo_cor',
+         COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
+        ['model_wet_tropo_cor',
+         COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
@@ -1194,9 +1249,12 @@ class RasterUTM(ProductTesterMixIn, Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        mask = np.logical_and.reduce((mask,
-            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
-            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
+        mask = np.logical_and.reduce((
+            mask,
+            np.logical_not(
+                np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
+            np.logical_not(
+                np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
 
         pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
         pixc_lons = raster_crs.lon_360to180(
@@ -1213,8 +1271,8 @@ class RasterUTM(ProductTesterMixIn, Product):
         transf_points = []
         for start_idx in np.arange(0, nb_pix, max_chunk_size):
             end_idx = min(start_idx + max_chunk_size, nb_pix)
-            points = [(lat, lon) for lat, lon in zip(
-                pixc_lats[start_idx:end_idx], pixc_lons[start_idx:end_idx])]
+            points = list(zip(pixc_lats[start_idx:end_idx],
+                              pixc_lons[start_idx:end_idx]))
             transf_points.extend(transf.TransformPoints(points))
 
         mapping_tmp = []
@@ -1232,8 +1290,9 @@ class RasterUTM(ProductTesterMixIn, Product):
             i_tmp >= 0, i_tmp < self.dimensions['y'],
             j_tmp >= 0, j_tmp < self.dimensions['x']))
 
-        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
-            if m: mapping_tmp[i][j].append(x)
+        for i, j, m, x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m:
+                mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
@@ -1284,10 +1343,10 @@ class RasterUTM(ProductTesterMixIn, Product):
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
-                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
                 + start_illumination_time)
             end_time = datetime.utcfromtimestamp(
-                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
@@ -1313,6 +1372,7 @@ class RasterUTM(ProductTesterMixIn, Product):
 
 
 class RasterGeo(ProductTesterMixIn, Product):
+    """ Geodetic lat/lon raster """
     UID = "raster"
     DIMENSIONS = odict([
         ['longitude', 0],
@@ -1336,8 +1396,9 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['tile_polarizations', COMMON_ATTRIBUTES['tile_polarizations']],
         ['coordinate_reference_system',
          {'dtype': COMMON_ATTRIBUTES['coordinate_reference_system']['dtype'],
-          'value':'Geodetic Latitude/Longitude',
-          'docstr': COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
+          'value': 'Geodetic Latitude/Longitude',
+          'docstr':
+          COMMON_ATTRIBUTES['coordinate_reference_system']['docstr']}],
         ['resolution', COMMON_ATTRIBUTES['resolution']],
         ['short_name', COMMON_ATTRIBUTES['short_name']],
         ['descriptor_string', COMMON_ATTRIBUTES['descriptor_string']],
@@ -1362,9 +1423,12 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['right_last_longitude', COMMON_ATTRIBUTES['right_last_longitude']],
         ['right_last_latitude', COMMON_ATTRIBUTES['right_last_latitude']],
         ['xref_l2_hr_pixc_files', COMMON_ATTRIBUTES['xref_l2_hr_pixc_files']],
-        ['xref_l2_hr_pixcvec_files', COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
-        ['xref_param_l2_hr_raster_file', COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
-        ['xref_reforbittrack_files', COMMON_ATTRIBUTES['xref_reforbittrack_files']],
+        ['xref_l2_hr_pixcvec_files',
+         COMMON_ATTRIBUTES['xref_l2_hr_pixcvec_files']],
+        ['xref_param_l2_hr_raster_file',
+         COMMON_ATTRIBUTES['xref_param_l2_hr_raster_file']],
+        ['xref_reforbittrack_files',
+         COMMON_ATTRIBUTES['xref_reforbittrack_files']],
         ['longitude_min', {'dtype': 'f8',
                            'docstr': 'Minimum longitude coordinate.'}],
         ['longitude_max', {'dtype': 'f8',
@@ -1386,7 +1450,8 @@ class RasterGeo(ProductTesterMixIn, Product):
                 ['prime_meridian_name', 'Greenwich'],
                 ['longitude_of_prime_meridian', 0.],
                 ['semi_major_axis', raster_crs.ELLIPSOID_SEMI_MAJOR_AXIS],
-                ['inverse_flattening', raster_crs.ELLIPSOID_INVERSE_FLATTENING],
+                ['inverse_flattening',
+                 raster_crs.ELLIPSOID_INVERSE_FLATTENING],
                 ['crs_wkt', '[OGS Well-Known Text string]'],
                 ['spatial_ref', '[OGS Well-Known Text string]'],
                 ['comment', 'Geodetic lat/lon coordinate reference system.'],
@@ -1399,8 +1464,8 @@ class RasterGeo(ProductTesterMixIn, Product):
                 ['valid_min', -180],
                 ['valid_max', 180],
                 ['comment', textjoin("""
-                    Geodetic longitude [-180,180) (east of the Greenwich meridian)
-                    of the pixel.""")],
+                    Geodetic longitude [-180,180) (east of the Greenwich
+                    meridian) of the pixel.""")],
         ])],
         ['latitude',
          odict([['dtype', 'f8'],
@@ -1419,7 +1484,8 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['wse_uncert', COMMON_VARIABLES['wse_uncert'].copy()],
         ['water_area', COMMON_VARIABLES['water_area'].copy()],
         ['water_area_qual', COMMON_VARIABLES['water_area_qual'].copy()],
-        ['water_area_qual_bitwise', COMMON_VARIABLES['water_area_qual_bitwise'].copy()],
+        ['water_area_qual_bitwise',
+         COMMON_VARIABLES['water_area_qual_bitwise'].copy()],
         ['water_area_uncert', COMMON_VARIABLES['water_area_uncert'].copy()],
         ['water_frac', COMMON_VARIABLES['water_frac'].copy()],
         ['water_frac_uncert', COMMON_VARIABLES['water_frac_uncert'].copy()],
@@ -1430,7 +1496,8 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['inc', COMMON_VARIABLES['inc'].copy()],
         ['cross_track', COMMON_VARIABLES['cross_track'].copy()],
         ['illumination_time', COMMON_VARIABLES['illumination_time'].copy()],
-        ['illumination_time_tai', COMMON_VARIABLES['illumination_time_tai'].copy()],
+        ['illumination_time_tai',
+         COMMON_VARIABLES['illumination_time_tai'].copy()],
         ['n_wse_pix', COMMON_VARIABLES['n_wse_pix'].copy()],
         ['n_water_area_pix', COMMON_VARIABLES['n_water_area_pix'].copy()],
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
@@ -1439,21 +1506,25 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
-        ['sig0_cor_atmos_model', COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
+        ['sig0_cor_atmos_model',
+         COMMON_VARIABLES['sig0_cor_atmos_model'].copy()],
         ['height_cor_xover', COMMON_VARIABLES['height_cor_xover'].copy()],
         ['geoid', COMMON_VARIABLES['geoid'].copy()],
         ['solid_earth_tide', COMMON_VARIABLES['solid_earth_tide'].copy()],
         ['load_tide_fes', COMMON_VARIABLES['load_tide_fes'].copy()],
         ['load_tide_got', COMMON_VARIABLES['load_tide_got'].copy()],
         ['pole_tide', COMMON_VARIABLES['pole_tide'].copy()],
-        ['model_dry_tropo_cor', COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
-        ['model_wet_tropo_cor', COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
+        ['model_dry_tropo_cor',
+         COMMON_VARIABLES['model_dry_tropo_cor'].copy()],
+        ['model_wet_tropo_cor',
+         COMMON_VARIABLES['model_wet_tropo_cor'].copy()],
         ['iono_cor_gim_ka', COMMON_VARIABLES['iono_cor_gim_ka'].copy()],
     ])
 
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
-        VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
+        VARIABLES[key]['dimensions'] = odict([['latitude', 0],
+                                              ['longitude', 0]])
 
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
@@ -1470,9 +1541,12 @@ class RasterGeo(ProductTesterMixIn, Product):
             lat_keyword = 'latitude'
             lon_keyword = 'longitude'
 
-        mask = np.logical_and.reduce((mask,
-            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
-            np.logical_not(np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
+        mask = np.logical_and.reduce((
+            mask,
+            np.logical_not(
+                np.ma.getmaskarray(pixc['pixel_cloud'][lat_keyword])),
+            np.logical_not(
+                np.ma.getmaskarray(pixc['pixel_cloud'][lon_keyword]))))
 
         pixc_lats = pixc['pixel_cloud'][lat_keyword][mask]
         pixc_lons = raster_crs.lon_360to180(
@@ -1499,8 +1573,9 @@ class RasterGeo(ProductTesterMixIn, Product):
             i_tmp >= 0, i_tmp < self.dimensions['latitude'],
             j_tmp >= 0, j_tmp < self.dimensions['longitude']))
 
-        for i,j,m,x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
-            if m: mapping_tmp[i][j].append(x)
+        for i, j, m, x in zip(i_tmp, j_tmp, idx_mask, pixc_idx):
+            if m:
+                mapping_tmp[i][j].append(x)
 
         return mapping_tmp
 
@@ -1508,7 +1583,8 @@ class RasterGeo(ProductTesterMixIn, Product):
         """ Crop raster to the given swath polygon """
         LOGGER.info('cropping to bounds')
 
-        poly = Polygon([[point[1], point[0]] for point in swath_polygon_points])
+        poly = Polygon([[point[1], point[0]]
+                        for point in swath_polygon_points])
 
         # Handle longitude wrap
         poly_prep = prep(raster_crs.split_wrapped_longitude_polygon(poly))
@@ -1546,10 +1622,10 @@ class RasterGeo(ProductTesterMixIn, Product):
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
-                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
                 + start_illumination_time)
             end_time = datetime.utcfromtimestamp(
-                (SWOT_EPOCH-UNIX_EPOCH).total_seconds() \
+                (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
@@ -1575,12 +1651,13 @@ class RasterGeo(ProductTesterMixIn, Product):
 
 
 class RasterUTMDebug(RasterUTM):
-    ATTRIBUTES = odict({key:RasterUTM.ATTRIBUTES[key].copy()
+    """ Debug UTM raster """
+    ATTRIBUTES = odict({key: RasterUTM.ATTRIBUTES[key].copy()
                         for key in RasterUTM.ATTRIBUTES})
-    DIMENSIONS = odict({key:RasterUTM.DIMENSIONS[key]
+    DIMENSIONS = odict({key: RasterUTM.DIMENSIONS[key]
                         for key in RasterUTM.DIMENSIONS})
-    VARIABLES = odict({key:RasterUTM.VARIABLES[key].copy()
-                        for key in RasterUTM.VARIABLES})
+    VARIABLES = odict({key: RasterUTM.VARIABLES[key].copy()
+                       for key in RasterUTM.VARIABLES})
     VARIABLES.update(odict([
         ['classification',
          odict([['dtype', 'u1']])],
@@ -1597,19 +1674,21 @@ class RasterUTMDebug(RasterUTM):
 
 
 class RasterGeoDebug(RasterGeo):
-    ATTRIBUTES = odict({key:RasterGeo.ATTRIBUTES[key].copy()
+    """ Debug Geodetic lat/lon raster """
+    ATTRIBUTES = odict({key: RasterGeo.ATTRIBUTES[key].copy()
                         for key in RasterGeo.ATTRIBUTES})
-    DIMENSIONS = odict({key:RasterGeo.DIMENSIONS[key]
+    DIMENSIONS = odict({key: RasterGeo.DIMENSIONS[key]
                         for key in RasterGeo.DIMENSIONS})
-    VARIABLES = odict({key:RasterGeo.VARIABLES[key].copy()
-                        for key in RasterGeo.VARIABLES})
+    VARIABLES = odict({key: RasterGeo.VARIABLES[key].copy()
+                       for key in RasterGeo.VARIABLES})
     VARIABLES.update(odict([
         ['classification',
          odict([['dtype', 'u1']])],
     ]))
     for key in VARIABLES:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
-        VARIABLES[key]['dimensions'] = odict([['latitude', 0], ['longitude', 0]])
+        VARIABLES[key]['dimensions'] = odict([['latitude', 0],
+                                              ['longitude', 0]])
 
     VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
     VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
@@ -1619,29 +1698,15 @@ class RasterGeoDebug(RasterGeo):
 
 
 class ScenePixc(Product):
+    """ Scene level pixel cloud """
     ATTRIBUTES = odict([
-        ['scene_cycle_number', odict([])],
-        ['scene_pass_number', odict([])],
+        ['cycle_number', odict([])],
+        ['pass_number', odict([])],
         ['scene_number', odict([])],
-        ['cycle_numbers', odict([])],
-        ['pass_numbers', odict([])],
-        ['tile_numbers', odict([])],
-        ['tile_names', odict([])],
-        ['tile_polarizations', odict([])],
         ['time_granule_start', odict([])],
         ['time_granule_end', odict([])],
         ['time_coverage_start', odict([])],
         ['time_coverage_end', odict([])],
-        ['left_time_granule_start', odict([])],
-        ['left_time_granule_end', odict([])],
-        ['right_time_granule_start', odict([])],
-        ['right_time_granule_end', odict([])],
-        ['left_time_coverage_start', odict([])],
-        ['left_time_coverage_end', odict([])],
-        ['right_time_coverage_start', odict([])],
-        ['right_time_coverage_end', odict([])],
-        ['wavelength', odict([])],
-        ['nominal_slant_range_spacing', odict([])],
         ['left_first_longitude', odict([])],
         ['left_last_longitude', odict([])],
         ['left_first_latitude', odict([])],
@@ -1654,6 +1719,9 @@ class ScenePixc(Product):
         ['geospatial_lon_max', odict([])],
         ['geospatial_lat_min', odict([])],
         ['geospatial_lat_max', odict([])],
+        ['wavelength', odict([])],
+        ['nominal_slant_range_spacing', odict([])],
+        ['looks_to_efflooks', odict([])],
         ['leap_second', odict([])],
     ])
     GROUPS = odict([
@@ -1663,40 +1731,30 @@ class ScenePixc(Product):
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None, mask=None):
-        """ Construct self from a single pixc tile (and associated pixcvec tile) """
+        """ Construct self from a single pixc tile
+            (and associated pixcvec tile) """
         LOGGER.info('constructing scene pixc from tile')
 
         scene_pixc = cls()
 
         # Copy over attributes
-        scene_pixc.scene_cycle_number = pixc_tile.cycle_number
-        scene_pixc.scene_pass_number = pixc_tile.pass_number
+        scene_pixc.cycle_number = pixc_tile.cycle_number
+        scene_pixc.pass_number = pixc_tile.pass_number
         scene_pixc.scene_number = np.ceil(
             pixc_tile.tile_number/NONOVERLAP_TILES_PER_SIDE).astype('i2')
-        scene_pixc.cycle_numbers = [pixc_tile.cycle_number]
-        scene_pixc.pass_numbers = [pixc_tile.pass_number]
-        scene_pixc.tile_numbers = [pixc_tile.tile_number]
-        scene_pixc.tile_names = pixc_tile.tile_name
-        scene_pixc.tile_polarizations = pixc_tile.polarization
         scene_pixc.time_granule_start = pixc_tile.time_granule_start
         scene_pixc.time_granule_end = pixc_tile.time_granule_end
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
         scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
         scene_pixc.wavelength = pixc_tile.wavelength
-        scene_pixc.nominal_slant_range_spacing = pixc_tile.nominal_slant_range_spacing
+        scene_pixc.nominal_slant_range_spacing = \
+            pixc_tile.nominal_slant_range_spacing
+        scene_pixc.looks_to_efflooks = \
+            pixc_tile['pixel_cloud'].looks_to_efflooks
 
         swath_side = pixc_tile.swath_side
 
         if swath_side.lower() == 'l':
-            scene_pixc.left_time_granule_start = pixc_tile.time_granule_start
-            scene_pixc.left_time_granule_end = pixc_tile.time_granule_end
-            scene_pixc.left_time_coverage_start = pixc_tile.time_coverage_start
-            scene_pixc.left_time_coverage_end = pixc_tile.time_coverage_end
-            scene_pixc.right_time_granule_start = None
-            scene_pixc.right_time_granule_end = None
-            scene_pixc.right_time_coverage_start = None
-            scene_pixc.right_time_coverage_end = None
-
             scene_pixc.left_first_longitude = pixc_tile.outer_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.outer_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.outer_first_latitude
@@ -1707,15 +1765,6 @@ class ScenePixc(Product):
             scene_pixc.right_last_latitude = pixc_tile.inner_last_latitude
 
         elif swath_side.lower() == 'r':
-            scene_pixc.right_time_granule_start = pixc_tile.time_granule_start
-            scene_pixc.right_time_granule_end = pixc_tile.time_granule_end
-            scene_pixc.right_time_coverage_start = pixc_tile.time_coverage_start
-            scene_pixc.right_time_coverage_end = pixc_tile.time_coverage_end
-            scene_pixc.left_time_granule_start = None
-            scene_pixc.left_time_granule_end = None
-            scene_pixc.left_time_coverage_start = None
-            scene_pixc.left_time_coverage_end = None
-
             scene_pixc.left_first_longitude = pixc_tile.inner_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.inner_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.inner_first_latitude
@@ -1729,10 +1778,10 @@ class ScenePixc(Product):
                 scene_pixc.right_first_latitude,
                 scene_pixc.left_last_latitude,
                 scene_pixc.right_last_latitude]
-        lons = [scene_pixc.left_first_latitude,
-                scene_pixc.right_first_latitude,
-                scene_pixc.left_last_latitude,
-                scene_pixc.right_last_latitude]
+        lons = [scene_pixc.left_first_longitude,
+                scene_pixc.right_first_longitude,
+                scene_pixc.left_last_longitude,
+                scene_pixc.right_last_longitude]
         scene_pixc.geospatial_lat_min = min(lats)
         scene_pixc.geospatial_lat_max = max(lats)
 
@@ -1744,96 +1793,18 @@ class ScenePixc(Product):
         scene_pixc.geospatial_lon_min = raster_crs.lon_360to180(lon_min)
         scene_pixc.geospatial_lon_max = raster_crs.lon_360to180(lon_max)
 
-        leap_second = pixc_tile['pixel_cloud'].VARIABLES['illumination_time']['leap_second']
-        if leap_second is not None and leap_second != 'YYYY-MM-DDThh:mm:ssZ':
-            scene_pixc.leap_second = leap_second
-        else:
+        # Set leap second
+        scene_pixc.leap_second = pixc_tile['pixel_cloud'].VARIABLES[
+            'illumination_time']['leap_second']
+        if scene_pixc.leap_second \
+           in (None, 'None', 'none', 'YYYY-MM-DDThh:mm:ssZ'):
             scene_pixc.leap_second = EMPTY_LEAPSEC
 
         # Copy over groups
         scene_pixc['pixel_cloud'] = ScenePixelCloud.from_tile(
             pixc_tile, pixcvec_tile, mask)
-        scene_pixc['pixel_cloud'].VARIABLES['illumination_time']['leap_second'] = \
-            scene_pixc.leap_second
         scene_pixc['tvp'] = SceneTVP.from_tile(pixc_tile)
-        scene_pixc['tvp'].VARIABLES['time']['leap_second'] = \
-            scene_pixc.leap_second
 
-        return scene_pixc
-
-    @classmethod
-    def from_tiles(cls, pixc_tiles, swath_edges, swath_polygon_points,
-                   granule_start_time, granule_end_time,
-                   cycle_number, pass_number, scene_number, pixcvec_tiles=None,
-                   mask=None):
-        """ Constructs self from a list of pixc tiles (and associated pixcvec
-           tiles). Pixcvec_tiles must either have a one-to-one correspondence
-           with pixc_tiles or be None. """
-        LOGGER.info('constructing scene pixc from tiles')
-
-        num_tiles = len(pixc_tiles)
-        if pixcvec_tiles is None:
-            pixcvec_tiles = [None]*num_tiles
-
-        tile_objs = []
-        for tile_idx in range(num_tiles):
-            tile_objs.append(cls.from_tile(pixc_tiles[tile_idx],
-                                           pixcvec_tiles[tile_idx],
-                                           mask))
-
-        # Add all of the pixel_cloud/tvp data
-        scene_pixc = np.array(tile_objs).sum()
-        granule_start_times = [datetime.strptime(
-            tile.time_granule_start, DATETIME_FORMAT_STR) for tile in tile_objs]
-        granule_end_times = [datetime.strptime(
-            tile.time_granule_end, DATETIME_FORMAT_STR) for tile in tile_objs]
-        coverage_start_times = [datetime.strptime(
-            tile.time_coverage_start, DATETIME_FORMAT_STR) for tile in tile_objs
-                                if tile.time_coverage_start != EMPTY_DATETIME]
-        coverage_end_times = [datetime.strptime(
-            tile.time_coverage_end, DATETIME_FORMAT_STR) for tile in tile_objs
-                              if tile.time_coverage_end != EMPTY_DATETIME]
-        scene_pixc.scene_cycle_number = np.short(cycle_number)
-        scene_pixc.scene_pass_number = np.short(pass_number)
-        scene_pixc.scene_number = np.short(scene_number)
-
-        # Sort the tile level attributes based on swath side first,
-        # then the rest of the name (i.e. side_cycle_pass_tile)
-        sort_indices = np.argsort([tile_name[-1].lower() + tile_name[:-1]
-                                   for tile_name in tile.tile_names])
-        scene_pixc.tile_numbers = [tile_num for i in sort_indices
-                                    for tile_num in tile_objs[i].tile_numbers]
-        scene_pixc.tile_names = ', '.join(
-            [tile_name for i in sort_indices
-             for tile_name in tile_objs[i].tile_names])
-        scene_pixc.tile_polarizations =', '.join(
-            [tile_pol for i in sort_indices
-             for tile_pol in tile_objs[i].tile_polarizations])
-
-        if len(coverage_start_times) > 0:
-            coverage_start_time = min(coverage_start_times)
-        else:
-            coverage_start_time = EMPTY_DATETIME
-
-        if len(coverage_end_times) > 0:
-            coverage_end_time = max(coverage_end_times)
-        else:
-            coverage_end_time = EMPTY_DATETIME
-
-        scene_pixc.time_coverage_start = \
-            coverage_start_time.strftime(DATETIME_FORMAT_STR)
-        scene_pixc.time_coverage_end = \
-            coverage_end_time.strftime(DATETIME_FORMAT_STR)
-
-        scene_pixc.set_extent(swath_edges, swath_polygon_points,
-                              granule_start_time, granule_end_time)
-
-        # Copy attributes from one of the central tiles
-        # Central tile is one with the median time
-        central_tile_index = granule_start_times.index(
-            np.percentile(granule_start_times, 50, interpolation='nearest'))
-        scene_pixc.wavelength = tile_objs[central_tile_index].wavelength
-        scene_pixc.nominal_slant_range_spacing = tile_objs[central_tile_index].nominal_slant_range_spacing
         return scene_pixc
 
     def set_extent(self, swath_edges, swath_polygon_points,
@@ -1898,7 +1869,7 @@ class ScenePixc(Product):
         """ Get summary quality flag from quality bitflag """
         LOGGER.info('getting summary quality flag: {}'.format(qual_flag))
 
-        flag = QUAL_IND_GOOD*np.ones(np.shape(self.pixel_cloud['latitude']))
+        flag = QUAL_IND_GOOD*np.ones(self.pixel_cloud['latitude'].shape)
         flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask)] = \
             QUAL_IND_SUSPECT
         flag[self.get_qual_mask(qual_flag, degraded_qual_flag_mask)] = \
@@ -1953,165 +1924,124 @@ class ScenePixc(Product):
         tvp_time = np.ma.concatenate((self.tvp['time'], other.tvp['time']))
         tvp_swath_side = np.ma.concatenate(
             (self.tvp['swath_side'], other.tvp['swath_side']))
-        [junk, rev_indx] = np.unique(
-            np.column_stack((tvp_time, tvp_swath_side=='R')),
+        [_, rev_indx] = np.unique(
+            np.column_stack((tvp_time, np.char.lower(tvp_swath_side) == 'r')),
             axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
             self.pixel_cloud['pixc_line_to_tvp'],
-            len(self.tvp['time']) + other.pixel_cloud['pixc_line_to_tvp'])).astype(int)
-        klass['pixel_cloud']['pixc_line_to_tvp'] = rev_indx[unsorted_pixc_line_to_tvp]
+            self.tvp.dimensions['num_tvps']
+            + other.pixel_cloud['pixc_line_to_tvp'])).astype(int)
+        klass['pixel_cloud']['pixc_line_to_tvp'] = \
+            rev_indx[unsorted_pixc_line_to_tvp]
 
         # Set attributes from self
-        for field in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, field)
-            setattr(klass, field, attr_val)
+        for key in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, key)
+            setattr(klass, key, attr_val)
 
-        # Merge special attributes
-        cycle_numbers = np.concatenate((self.cycle_numbers, other.cycle_numbers))
-        pass_numbers = np.concatenate((self.pass_numbers, other.pass_numbers))
-        tile_numbers = np.concatenate((self.tile_numbers, other.tile_numbers))
-        tile_names = np.concatenate((
-            self.tile_names.split(', '), other.tile_names.split(', ')))
-        tile_polarizations = np.concatenate((
-            self.tile_polarizations.split(', '), other.tile_polarizations.split(', ')))
+        # Overwrite the temporal extent attributes if others are better
+        if datetime_str_comp(other.time_granule_start,
+                             self.time_granule_start, comp=op.lt):
+            klass.time_granule_start = other.time_granule_start
 
-        # Set the scene level attributes for the scene of the middle tile
-        # These should almost always be overwritten later based on the actual
-        # scene that we want to rasterize
-        tile_name_sort_indices = np.argsort(
-            [tile_name for tile_name in tile_names])
-        mid_tile_index = tile_name_sort_indices[int(len(tile_name_sort_indices)/2)]
-        klass.scene_cycle_number = cycle_numbers[mid_tile_index]
-        klass.scene_pass_number = pass_numbers[mid_tile_index]
-        klass.scene_number = np.ceil(
-            tile_numbers[mid_tile_index]/NONOVERLAP_TILES_PER_SIDE).astype('i2')
+        if datetime_str_comp(other.time_granule_end,
+                             self.time_granule_end, comp=op.gt):
+            klass.time_granule_end = other.time_granule_end
 
-        # Sort the tile level attributes based on swath side first,
-        # then the rest of the name (i.e. side_cycle_pass_tile)
-        sort_indices = np.argsort([tile_name[-1].lower() + tile_name[:-1]
-                                   for tile_name in tile_names])
-        klass.cycle_numbers = cycle_numbers[sort_indices]
-        klass.pass_numbers = pass_numbers[sort_indices]
-        klass.tile_numbers = tile_numbers[sort_indices]
-        klass.tile_names = ', '.join(tile_names[sort_indices])
-        klass.tile_polarizations = ', '.join(tile_polarizations[sort_indices])
+        if datetime_str_comp(other.time_coverage_start,
+                             self.time_coverage_start, comp=op.lt):
+            klass.time_coverage_start = other.time_coverage_start
 
-        # Overwrite the temporal extent attributes if others are better than self
-        # (note that left/right time attributes can be None)
-        def _datetime_str_comp(d0, d1, comp=op.le,
-                               format_str=DATETIME_FORMAT_STR,
-                               empty_value=EMPTY_DATETIME):
-            # Compares d0 and d1 with comparison in comp argument
-            # Returns False if d0 is None or "None"
-            # Returns True if d0 is not None or "None" and d1 is None or "None"
-            if d0 is None or d0.lower()=='none' or d0==empty_value:
-                return False
-            if d1 is None or d1.lower()=='none' or d1==empty_value:
-                return True
-            _d0 = datetime.strptime(d0, format_str)
-            _d1 = datetime.strptime(d1, format_str)
-            return comp(_d0, _d1)
+        if datetime_str_comp(other.time_coverage_end,
+                             self.time_coverage_end, comp=op.gt):
+            klass.time_coverage_end = other.time_coverage_end
 
-        if _datetime_str_comp(other.time_granule_start,
-                              self.time_granule_start, comp=op.lt):
-            klass_time_granule_start = other.time_granule_start
+        # Overwrite the alongtrack extent attributes if others are better
+        def _strptime(d0, format_str=DATETIME_FORMAT_STR):
+            return datetime.strptime(d0, format_str)
 
-        if _datetime_str_comp(other.time_granule_end,
-                              self.time_granule_end, comp=op.gt):
-            klass_time_granule_end = other.time_granule_end
+        for swath_side in ['L', 'R']:
+            other_side_mask = np.char.lower(
+                other['pixel_cloud']['tile_swath_side']) == swath_side
+            self_side_mask = np.char.lower(
+                self['pixel_cloud']['tile_swath_side']) == swath_side
+            other_tile_granule_start_time = \
+                other['pixel_cloud']['tile_time_granule_start'][
+                    other_side_mask]
+            self_tile_granule_start_time = \
+                self['pixel_cloud']['tile_time_granule_start'][
+                    self_side_mask]
+            other_tile_granule_end_time = \
+                other['pixel_cloud']['tile_time_granule_end'][
+                    other_side_mask]
+            self_tile_granule_end_time = \
+                self['pixel_cloud']['tile_time_granule_end'][
+                    self_side_mask]
 
-        if _datetime_str_comp(other.time_coverage_start,
-                              self.time_coverage_start, comp=op.lt):
-            klass_time_coverage_start = other.time_coverage_start
+            if swath_side.lower() == 'l':
+                start_lat_name = 'left_first_latitude'
+                start_lon_name = 'left_first_longitude'
+                end_lat_name = 'left_last_latitude'
+                end_lon_name = 'left_last_longitude'
+            else:
+                start_lat_name = 'right_first_latitude'
+                start_lon_name = 'right_first_longitude'
+                end_lat_name = 'right_last_latitude'
+                end_lon_name = 'right_last_longitude'
 
-        if _datetime_str_comp(other.time_coverage_end,
-                              self.time_coverage_end, comp=op.gt):
-            klass_time_coverage_end = other.time_coverage_end
+            if np.any(other_side_mask) \
+               and (not np.any(self_side_mask)
+                    or datetime_str_comp(
+                        min(other_tile_granule_start_time, key=_strptime),
+                        min(self_tile_granule_start_time, key=_strptime),
+                        comp=op.lt)):
+                setattr(klass, start_lat_name, getattr(other, start_lat_name))
+                setattr(klass, start_lon_name, getattr(other, start_lon_name))
 
-        if _datetime_str_comp(other.left_time_granule_start,
-                              self.left_time_granule_start, comp=op.lt):
-            klass.left_time_granule_start = other.left_time_granule_start
-            klass.left_first_latitude = other.left_first_latitude
-            klass.left_first_longitude = other.left_first_longitude
-
-        if _datetime_str_comp(other.left_time_granule_end,
-                              self.left_time_granule_end, comp=op.gt):
-            klass.left_time_granule_end = other.left_time_granule_end
-            klass.left_last_latitude = other.left_last_latitude
-            klass.left_last_longitude = other.left_last_longitude
-
-        if _datetime_str_comp(other.right_time_granule_start,
-                              self.right_time_granule_start, comp=op.lt):
-            klass.right_time_granule_start = other.right_time_granule_start
-            klass.right_first_latitude = other.right_first_latitude
-            klass.right_first_longitude = other.right_first_longitude
-
-        if _datetime_str_comp(other.right_time_granule_end,
-                              self.right_time_granule_end, comp=op.gt):
-            klass.right_time_granule_end = other.right_time_granule_end
-            klass.right_last_latitude = other.right_last_latitude
-            klass.right_last_longitude = other.right_last_longitude
-
-        if _datetime_str_comp(other.left_time_coverage_start,
-                              self.left_time_coverage_start, comp=op.lt):
-            klass.left_time_coverage_start = other.left_time_coverage_start
-
-        if _datetime_str_comp(other.left_time_coverage_end,
-                              self.left_time_coverage_end, comp=op.gt):
-            klass.left_time_coverage_end = other.left_time_coverage_end
-
-        if _datetime_str_comp(other.right_time_coverage_start,
-                              self.right_time_coverage_start, comp=op.lt):
-            klass.right_time_coverage_start = other.right_time_coverage_start
-
-        if _datetime_str_comp(other.right_time_coverage_end,
-                              self.right_time_coverage_end, comp=op.gt):
-            klass.right_time_coverage_end = other.right_time_coverage_end
+            if np.any(other_side_mask) \
+               and (not np.any(self_side_mask)
+                    or datetime_str_comp(
+                        min(other_tile_granule_end_time, key=_strptime),
+                        min(self_tile_granule_end_time, key=_strptime),
+                        comp=op.lt)):
+                setattr(klass, end_lat_name, getattr(other, end_lat_name))
+                setattr(klass, end_lon_name, getattr(other, end_lon_name))
 
         # Get geospatial bounds from self and other's geospatial bounds
-        klass.geospatial_lat_min = min(self.geospatial_lat_min,
-                                       other.geospatial_lat_min)
-        klass.geospatial_lat_max = max(self.geospatial_lat_max,
-                                       other.geospatial_lat_max)
-        klass.geospatial_lon_min = min(self.geospatial_lon_min,
-                                       other.geospatial_lon_min)
-        klass.geospatial_lon_max = max(self.geospatial_lon_max,
-                                       other.geospatial_lon_max)
+        klass.geospatial_lat_min = min(
+            self.geospatial_lat_min, other.geospatial_lat_min)
+        klass.geospatial_lat_max = max(
+            self.geospatial_lat_max, other.geospatial_lat_max)
+
+        # Handle longitude wrap
+        lons = [self.geospatial_lon_min, other.geospatial_lon_min,
+                self.geospatial_lon_max, other.geospatial_lon_max]
+        shifted_lons = raster_crs.shift_wrapped_longitude(lons)
+        lon_min = min(shifted_lons)
+        lon_max = max(shifted_lons)
+        # Wrap to between -180 and 180 degrees longitude
+        klass.geospatial_lon_min = raster_crs.lon_360to180(lon_min)
+        klass.geospatial_lon_max = raster_crs.lon_360to180(lon_max)
 
         # Get the earlier leap second
-        if _datetime_str_comp(other.leap_second, self.leap_second,
-                              comp=op.lt, format_str=LEAPSEC_FORMAT_STR,
-                              empty_value=EMPTY_LEAPSEC):
+        if datetime_str_comp(other.leap_second, self.leap_second,
+                             comp=op.lt, format_str=LEAPSEC_FORMAT_STR,
+                             empty_value=EMPTY_LEAPSEC):
             klass.leap_second = other.leap_second
-        if klass.leap_second is None or klass.leap_second.lower()=='none':
-            klass.leap_second = EMPTY_LEAPSEC
-
-        klass['pixel_cloud'].VARIABLES['illumination_time']['leap_second'] = \
-            klass.leap_second
-        klass['tvp'].VARIABLES['time']['leap_second'] = \
-            klass.leap_second
 
         return klass
 
 
 class ScenePixelCloud(Product):
+    """ Scene level pixel cloud group """
     ATTRIBUTES = odict([
-        ['description',{'dtype': 'str',
-            'value':'cloud of geolocated interferogram pixels'}],
-        ['looks_to_efflooks',{'dtype': 'f8',
-            'docstr':'ratio of the number of real looks to the effective number of independent looks'}],
-        ['num_azimuth_looks',{'dtype': 'f8',
-            'docstr': textjoin("""
-                number of real azimuth looks
-                commanded in rare multilooking""")}],
-        ['azimuth_offset',{'dtype': 'i4',
-            'docstr': textjoin("""
-                offset number of slc lines used in rare multilooking to keep
-                overlapping portion of consecutive tiles to be consistent
-                for the 2D rare interferogram images before pruning""")}],
+        ['description',
+         {'dtype': 'str',
+          'value': 'cloud of geolocated interferogram pixels'}],
     ])
     ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
-    DIMENSIONS = odict([['points', 0], ['num_pixc_lines', 0]])
+    DIMENSIONS = odict([['points', 0], ['num_pixc_lines', 0],
+                        ['num_tiles', 0]])
     VARIABLES = odict([
         ['latitude', odict([])],
         ['longitude', odict([])],
@@ -2119,10 +2049,9 @@ class ScenePixelCloud(Product):
         ['improved_latitude', odict([])],
         ['improved_longitude', odict([])],
         ['improved_height', odict([])],
-        ['line_index', odict([])],
         ['azimuth_index', odict([])],
         ['range_index', odict([])],
-        ['range', odict([])],
+        ['pixc_line_index', odict([])],
         ['interferogram', odict([])],
         ['classification', odict([])],
         ['eff_num_rare_looks', odict([])],
@@ -2166,68 +2095,118 @@ class ScenePixelCloud(Product):
         ['sig0_qual', odict([])],
         ['pixc_line_qual', odict([])],
         ['pixc_line_to_tvp', odict([])],
+        ['pixc_line_to_tile', odict([])],
         ['data_window_first_cross_track', odict([])],
         ['data_window_last_cross_track', odict([])],
+        ['tile_cycle_number', odict([])],
+        ['tile_pass_number', odict([])],
+        ['tile_tile_number', odict([])],
+        ['tile_swath_side', odict([])],
+        ['tile_tile_name', odict([])],
+        ['tile_polarization', odict([])],
+        ['tile_time_granule_start', odict([])],
+        ['tile_time_granule_end', odict([])],
+        ['tile_time_coverage_start', odict([])],
+        ['tile_time_coverage_end', odict([])],
+        ['tile_wavelength', odict([])],
+        ['tile_nominal_slant_range_spacing', odict([])],
+        ['tile_near_range', odict([])],
+        ['tile_num_azimuth_looks', odict([])],
+        ['tile_looks_to_efflooks', odict([])],
     ])
 
-    for name, reference in VARIABLES.items():
-        reference['dimensions'] = odict([['points', 0]])
-    VARIABLES['pixc_line_qual']['dimensions'] = odict([['num_pixc_lines',0],])
-    VARIABLES['pixc_line_to_tvp']['dimensions'] = odict([['num_pixc_lines',0],])
-    VARIABLES['data_window_first_cross_track']['dimensions'] = \
-        odict([['num_pixc_lines',0],])
-    VARIABLES['data_window_last_cross_track']['dimensions'] = \
-        odict([['num_pixc_lines',0],])
+    for key in VARIABLES:
+        VARIABLES[key]['dimensions'] = odict([['points', 0]])
+
+    for key in ['pixc_line_qual', 'pixc_line_to_tvp', 'pixc_line_to_tile',
+                'data_window_first_cross_track',
+                'data_window_last_cross_track']:
+        VARIABLES[key]['dimensions'] = odict([['num_pixc_lines', 0]])
+
+    for key in ['tile_cycle_number', 'tile_pass_number', 'tile_tile_number',
+                'tile_swath_side', 'tile_tile_name', 'tile_polarization',
+                'tile_time_granule_start', 'tile_time_granule_end',
+                'tile_time_coverage_start', 'tile_time_coverage_end',
+                'tile_wavelength', 'tile_nominal_slant_range_spacing',
+                'tile_near_range', 'tile_num_azimuth_looks',
+                'tile_looks_to_efflooks']:
+        VARIABLES[key]['dimensions'] = odict([['num_tiles', 0]])
 
     @classmethod
     def from_tile(cls, pixc_tile, pixcvec_tile=None, mask=None):
-        """ Construct self from a single pixc tile (and associated pixcvec tile) """
+        """ Construct self from a single pixc tile (and associated pixcvec
+            tile) """
         LOGGER.info('constructing scene pixel cloud from tile')
 
         scene_pixel_cloud = cls()
 
-        if mask is None: # Default mask is all
+        if mask is None:
+            # Default mask is all
             mask = np.ones(pixc_tile['pixel_cloud']['illumination_time'].shape,
                            dtype=bool)
 
-        # Copy common pixc variables (and attributes)
+        # Copy common variables (and attributes)
         pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
-        for field in pixel_cloud_vars.intersection(
+        for key in pixel_cloud_vars.intersection(
                 pixc_tile['pixel_cloud'].VARIABLES.keys()):
-            scene_pixel_cloud.VARIABLES[field] = \
-                pixc_tile['pixel_cloud'].VARIABLES[field].copy()
-            if field in ['pixc_line_qual', 'pixc_line_to_tvp',
-                         'data_window_first_cross_track',
-                         'data_window_last_cross_track']:
-                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field].copy()
+            scene_pixel_cloud.VARIABLES[key] = \
+                pixc_tile['pixel_cloud'].VARIABLES[key].copy()
+            if key in ['pixc_line_qual', 'pixc_line_to_tvp',
+                       'data_window_first_cross_track',
+                       'data_window_last_cross_track']:
+                scene_pixel_cloud[key] = pixc_tile['pixel_cloud'][key].copy()
             else:
-                scene_pixel_cloud[field] = pixc_tile['pixel_cloud'][field][mask]
+                scene_pixel_cloud[key] = pixc_tile['pixel_cloud'][key][mask]
 
-        # Get the actual range and an index from pixel to line
-        # (for one tile this is just the azimuth index)
-        scene_pixel_cloud['range'] = \
-            pixc_tile.near_range + (pixc_tile['pixel_cloud']['range_index'][mask]
-                                    * pixc_tile.nominal_slant_range_spacing)
-        scene_pixel_cloud['line_index'] = pixc_tile['pixel_cloud']['azimuth_index'][mask]
+        # Error check leap second
+        if scene_pixel_cloud.VARIABLES['illumination_time']['leap_second'] \
+           in (None, 'None', 'none', 'YYYY-MM-DDThh:mm:ssZ'):
+            scene_pixel_cloud.VARIABLES['illumination_time']['leap_second'] = \
+                EMPTY_LEAPSEC
+
+        # Set pixc_line_index to az index and pixc_line_to_tile to 0
+        scene_pixel_cloud['pixc_line_index'] = \
+            pixc_tile['pixel_cloud']['azimuth_index'][mask]
+        scene_pixel_cloud['pixc_line_to_tile'] = np.zeros(
+            scene_pixel_cloud.dimensions['num_pixc_lines'])
+
+        # Set tile attributes to single valued lists
+        for key in ['cycle_number', 'pass_number', 'tile_number', 'swath_side',
+                    'tile_name', 'polarization',
+                    'time_granule_start', 'time_granule_end',
+                    'time_coverage_start', 'time_coverage_end', 'wavelength',
+                    'nominal_slant_range_spacing', 'near_range',
+                    'num_azimuth_looks', 'looks_to_efflooks']:
+            tile_key = 'tile_' + key
+            if key in ['num_azimuth_looks', 'looks_to_efflooks']:
+                scene_pixel_cloud[tile_key] = np.array(
+                    [getattr(pixc_tile['pixel_cloud'], key)])
+            else:
+                scene_pixel_cloud[tile_key] = np.array(
+                    [getattr(pixc_tile, key)])
 
         # Copy pixcvec variables
-        # set improved llh to pixcvec llh where it exists, otherwise use pixc llh
-        scene_pixel_cloud['improved_latitude'] = scene_pixel_cloud['latitude'].copy()
-        scene_pixel_cloud['improved_longitude'] = scene_pixel_cloud['longitude'].copy()
-        scene_pixel_cloud['improved_height'] = scene_pixel_cloud['height'].copy()
+        # set improved llh to pixcvec llh where it exists,
+        # otherwise use pixc llh
+        scene_pixel_cloud['improved_latitude'] = \
+            scene_pixel_cloud['latitude'].copy()
+        scene_pixel_cloud['improved_longitude'] = \
+            scene_pixel_cloud['longitude'].copy()
+        scene_pixel_cloud['improved_height'] = \
+            scene_pixel_cloud['height'].copy()
 
         if pixcvec_tile is not None:
-            pixcvec_geoloc_valid = np.logical_not(np.logical_or.reduce((
+            geoloc_valid = np.logical_not(np.logical_or.reduce((
                 np.ma.getmaskarray(pixcvec_tile['latitude_vectorproc'][mask]),
                 np.ma.getmaskarray(pixcvec_tile['longitude_vectorproc'][mask]),
                 np.ma.getmaskarray(pixcvec_tile['height_vectorproc'][mask]))))
 
-            scene_pixel_cloud['improved_latitude'][pixcvec_geoloc_valid] = \
-                pixcvec_tile['latitude_vectorproc'][mask][pixcvec_geoloc_valid]
-            scene_pixel_cloud['improved_longitude'][pixcvec_geoloc_valid] = \
-                pixcvec_tile['longitude_vectorproc'][mask][pixcvec_geoloc_valid]
-            scene_pixel_cloud['improved_height'][pixcvec_geoloc_valid] = \
-                pixcvec_tile['height_vectorproc'][mask][pixcvec_geoloc_valid]
+            scene_pixel_cloud['improved_latitude'][geoloc_valid] = \
+                pixcvec_tile['latitude_vectorproc'][mask][geoloc_valid]
+            scene_pixel_cloud['improved_longitude'][geoloc_valid] = \
+                pixcvec_tile['longitude_vectorproc'][mask][geoloc_valid]
+            scene_pixel_cloud['improved_height'][geoloc_valid] = \
+                pixcvec_tile['height_vectorproc'][mask][geoloc_valid]
 
             scene_pixel_cloud['ice_clim_flag'] = \
                 np.ma.MaskedArray(pixcvec_tile['ice_clim_f'])[mask]
@@ -2244,10 +2223,10 @@ class ScenePixelCloud(Product):
 
         # Copy common pixc attributes
         pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
-        for field in pixel_cloud_attr.intersection(
+        for key in pixel_cloud_attr.intersection(
                 pixc_tile['pixel_cloud'].ATTRIBUTES):
-            attr_val = getattr(pixc_tile['pixel_cloud'], field)
-            setattr(scene_pixel_cloud, field, attr_val)
+            attr_val = getattr(pixc_tile['pixel_cloud'], key)
+            setattr(scene_pixel_cloud, key, attr_val)
 
         return scene_pixel_cloud
 
@@ -2255,27 +2234,46 @@ class ScenePixelCloud(Product):
         """ Add other to self """
         klass = ScenePixelCloud()
         for key in klass.VARIABLES:
-            if key in ['line_index']:
+            if key in ['pixc_line_index']:
                 setattr(klass, key, np.ma.concatenate((
-                    getattr(self, key), len(self.pixc_line_qual) + getattr(other, key))))
+                    getattr(self, key),
+                    self.dimensions['num_pixc_lines'] + getattr(other, key))))
+            elif key in ['pixc_line_to_tile']:
+                setattr(klass, key, np.ma.concatenate((
+                    getattr(self, key),
+                    self.dimensions['num_tiles'] + getattr(other, key))))
             else:
                 setattr(klass, key, np.ma.concatenate((
                     getattr(self, key), getattr(other, key))))
 
-        for field in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, field)
-            setattr(klass, field, attr_val)
+        # Get the earlier leap second
+        if datetime_str_comp(
+                other.VARIABLES['illumination_time']['leap_second'],
+                self.VARIABLES['illumination_time']['leap_second'],
+                comp=op.lt, format_str=LEAPSEC_FORMAT_STR,
+                empty_value=EMPTY_LEAPSEC):
+            klass.VARIABLES['illumination_time']['leap_second'] = \
+                other.VARIABLES['illumination_time']['leap_second']
+        else:
+            klass.VARIABLES['illumination_time']['leap_second'] = \
+                self.VARIABLES['illumination_time']['leap_second']
+
+        for key in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, key)
+            setattr(klass, key, attr_val)
 
         return klass
 
 
 class SceneTVP(Product):
+    """ Scene level tvp group """
     ATTRIBUTES = odict([
-        ['description', {'dtype': 'str',
-            'value': textjoin("""
-                 Time varying parameters group
-                 including spacecraft attitude, position, velocity,
-                 and antenna position information""")}],
+        ['description',
+         {'dtype': 'str',
+          'value': textjoin("""
+              Time varying parameters group
+              including spacecraft attitude, position, velocity,
+              and antenna position information""")}],
         ])
     ATTRIBUTES['description']['docstr'] = ATTRIBUTES['description']['value']
     DIMENSIONS = odict([['num_tvps', 0]])
@@ -2297,8 +2295,8 @@ class SceneTVP(Product):
         ['record_counter', odict([])],
         ['swath_side', odict([])],
     ])
-    for name, reference in VARIABLES.items():
-        reference['dimensions'] = DIMENSIONS
+    for key in VARIABLES:
+        VARIABLES[key]['dimensions'] = DIMENSIONS
 
     @classmethod
     def from_tile(cls, pixc_tile):
@@ -2307,20 +2305,25 @@ class SceneTVP(Product):
 
         scene_tvp = cls()
 
-        # Copy common variables
+        # Copy common variables (and attributes)
         tvp_vars = set(scene_tvp.VARIABLES.keys())
-        for field in tvp_vars.intersection(
+        for key in tvp_vars.intersection(
                 pixc_tile['tvp'].VARIABLES.keys()):
-            scene_tvp.VARIABLES[field] = \
-                pixc_tile['tvp'].VARIABLES[field].copy()
-            scene_tvp[field] = pixc_tile['tvp'][field].copy()
+            scene_tvp.VARIABLES[key] = \
+                pixc_tile['tvp'].VARIABLES[key].copy()
+            scene_tvp[key] = pixc_tile['tvp'][key].copy()
+
+        # Error check leap second
+        if scene_tvp.VARIABLES['time']['leap_second'] \
+           in (None, 'None', 'none', 'YYYY-MM-DDThh:mm:ssZ'):
+            scene_tvp.VARIABLES['time']['leap_second'] = EMPTY_LEAPSEC
 
         # Copy common attributes
         tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
-        for field in tvp_attr.intersection(
+        for key in tvp_attr.intersection(
                 pixc_tile['tvp'].ATTRIBUTES):
-            attr_val = getattr(pixc_tile['tvp'], field)
-            setattr(scene_tvp, field, attr_val)
+            attr_val = getattr(pixc_tile['tvp'], key)
+            setattr(scene_tvp, key, attr_val)
 
         # Get swath side
         scene_tvp['swath_side'] = np.full((scene_tvp.dimensions['num_tvps']),
@@ -2334,14 +2337,27 @@ class SceneTVP(Product):
         # Discard TVP overlap for each side separately
         time = np.ma.concatenate((self.time, other.time))
         swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
-        [junk, indx] = np.unique(
-            np.column_stack((time, swath_side=='R')), axis=0, return_index=True)
+        [_, indx] = np.unique(
+            np.column_stack((time, np.char.lower(swath_side) == 'r')),
+            axis=0, return_index=True)
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[indx])
 
-        for field in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, field)
-            setattr(klass, field, attr_val)
+        # Get the earlier leap second
+        if datetime_str_comp(
+                other.VARIABLES['time']['leap_second'],
+                self.VARIABLES['time']['leap_second'],
+                comp=op.lt, format_str=LEAPSEC_FORMAT_STR,
+                empty_value=EMPTY_LEAPSEC):
+            klass.VARIABLES['time']['leap_second'] = \
+                other.VARIABLES['time']['leap_second']
+        else:
+            klass.VARIABLES['time']['leap_second'] = \
+                self.VARIABLES['time']['leap_second']
+
+        for key in self.ATTRIBUTES.keys():
+            attr_val = getattr(self, key)
+            setattr(klass, key, attr_val)
 
         return klass

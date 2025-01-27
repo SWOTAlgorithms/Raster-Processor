@@ -125,19 +125,23 @@ example runtime config parameters:
 
 import os
 import ast
-import RDF
 import logging
 import argparse
-import numpy as np
-import SWOTRaster.l2pixc_to_raster
 
+import RDF
+import numpy as np
+
+import SWOTRaster.l2pixc_to_raster
 from SWOTRaster.products import ScenePixc, VERSION_ID
 from SWOTWater.products.product import MutableProduct
 
 PGE_NAME = 'swot_pixc2raster'
 LOGGER = logging.getLogger(PGE_NAME)
 
+
 def main():
+    """ Rasterizes a given pixelcloud using configuration parameters in
+        algorithmic and runtime config files """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__)
@@ -171,8 +175,8 @@ def main():
     level = {'debug': logging.DEBUG, 'info': logging.INFO,
              'warning': logging.WARNING,
              'error': logging.ERROR}[args.log_level]
-    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=level, format=format)
+    format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=level, format=format_str)
 
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
                                           args.runtime_config_file)
@@ -185,15 +189,17 @@ def main():
 
     # Only load defined classes
     valid_classes = alg_cfg['interior_water_classes'] \
-                    + alg_cfg['water_edge_classes'] \
-                    + alg_cfg['land_edge_classes'] \
-                    + alg_cfg['dark_water_classes']
+        + alg_cfg['water_edge_classes'] + alg_cfg['land_edge_classes'] \
+        + alg_cfg['dark_water_classes']
     mask = np.isin(pixc_tile['pixel_cloud']['classification'], valid_classes)
 
     # Only load pixels with unmasked latitude/longitude
-    mask = np.logical_and.reduce((mask,
-        np.logical_not(np.ma.getmaskarray(pixc_tile['pixel_cloud']['latitude'])),
-        np.logical_not(np.ma.getmaskarray(pixc_tile['pixel_cloud']['longitude']))))
+    mask = np.logical_and.reduce((
+        mask,
+        np.logical_not(
+            np.ma.getmaskarray(pixc_tile['pixel_cloud']['latitude'])),
+        np.logical_not(
+            np.ma.getmaskarray(pixc_tile['pixel_cloud']['longitude']))))
 
     pixc_data = ScenePixc.from_tile(pixc_tile, pixcvec_tile, mask)
 
@@ -210,10 +216,13 @@ def main():
     product.product_version = '{:02}'.format(args.product_counter)
     product.xref_l2_hr_pixc_files = os.path.basename(args.pixc_file)
     product.xref_l2_hr_pixcvec_files = os.path.basename(args.pixcvec_file)
-    product.xref_param_l2_hr_raster_file = os.path.basename(args.alg_config_file)
+    product.xref_param_l2_hr_raster_file = os.path.basename(
+        args.alg_config_file)
     product.to_ncfile(args.output_file)
 
+
 def load_raster_configs(alg_config_file, runtime_config_file):
+    """ Loads raster config files into dicts """
     alg_cfg = RDF.RDF()
     alg_cfg.rdfParse(alg_config_file)
     alg_cfg = dict(alg_cfg)
@@ -238,6 +247,7 @@ def load_raster_configs(alg_config_file, runtime_config_file):
         rt_cfg[key] = ast.literal_eval(rt_cfg[key])
 
     return alg_cfg, rt_cfg
+
 
 if __name__ == '__main__':
     main()
