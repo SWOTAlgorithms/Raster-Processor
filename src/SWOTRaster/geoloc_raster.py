@@ -73,11 +73,11 @@ class GeolocRaster():
 
         raster_uncorrected_height = raster.get_uncorrected_height()
 
-        for i, _ in enumerate(proj_mapping):
-            for j, _ in enumerate(proj_mapping):
+        for i, mapping_row in enumerate(proj_mapping):
+            for j, mapped_vals in enumerate(mapping_row):
                 if not np.ma.is_masked(raster_uncorrected_height[i][j]):
-                    for k in proj_mapping[i][j]:
-                        self.new_height[k] = raster_uncorrected_height[i][j]
+                    for val in mapped_vals:
+                        self.new_height[val] = raster_uncorrected_height[i][j]
 
     def apply_improved_geoloc(self):
         """ Compute the new lat, lon, height using the new heights """
