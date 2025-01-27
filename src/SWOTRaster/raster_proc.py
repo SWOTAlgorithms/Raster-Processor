@@ -1226,15 +1226,15 @@ class RasterProcessor():
 
         # Sort tile level attributes based on swath side first,
         # then the rest of the name (i.e. side_cycle_pass_tile)
-        sort_indices = np.argsort(
+        sort_idx = np.argsort(
             ['{}_{:03d}_{}'.format(
                 tile_name[-1].lower(), tile_cycle, tile_name[:-1])
              for tile_cycle, tile_name in zip(
                      self.tile_cycle_numbers, self.tile_names)])
-        product.tile_numbers = self.tile_numbers[sort_indices]
-        product.tile_names = ', '.join(self.tile_names[sort_indices])
+        product.tile_numbers = self.tile_numbers[sort_idx]
+        product.tile_names = ', '.join(self.tile_names[sort_idx])
         product.tile_polarizations = ', '.join(
-            self.tile_polarizations[sort_indices])
+            self.tile_polarizations[sort_idx])
 
         product.resolution = self.resolution
         product.time_granule_start = self.time_granule_start
