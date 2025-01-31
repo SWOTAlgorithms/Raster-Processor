@@ -182,7 +182,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     if not np.any(tile_mask):
         return np.array([])
 
-    # Get mask of pixc line that are not in overlap region
+    # Get mask of pixc lines that are not in overlap region
     pixc_line_in_tile = np.logical_not(scene_pixc.get_qual_flag_bit(
         'pixc_line_qual', 'not_in_tile'))
 
@@ -195,7 +195,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     tiles_idx = np.arange(len(all_tiles_time_granule_start))[tile_mask]
     outputs_idx = np.arange(len(tiles_idx))
 
-    # Get the first and last record counters within each tile
+    # Get azimuth offset for each tile
     azimuth_offsets = np.zeros(tiles_idx.shape, dtype='i4')
     prev_last_line = None
     prev_num_azimuth_looks = None
@@ -235,9 +235,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             prev_last_record_counter = last_record_counter
             continue
 
-        # Get the minimum number of azimuth looks between the two consecutive
-        # tiles, use it when calculating the shift in azimuth lines between
-        # the two tiles
+        # Get the minimum number of azimuth looks between consecutive tiles
         num_azimuth_looks = \
             scene_pixc['pixel_cloud']['tile_num_azimuth_looks'][tile_idx]
         if prev_num_azimuth_looks is not None:
@@ -246,8 +244,13 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         else:
             min_num_azimuth_looks = num_azimuth_looks
 
-        idx_shift = (((first_record_counter - prev_last_record_counter)
-                      / min_num_azimuth_looks) - 1).astype('i4')
+        # Get the index shift between consecutive tiles using the minumum
+        # number of azimuth looks
+        if min_num_azimuth_looks > 0:
+            idx_shift = (((first_record_counter - prev_last_record_counter)
+                          / min_num_azimuth_looks) - 1).astype('i4')
+        else:
+            idx_shift = 0
 
         # Handle record counter wrap and clamp to max_offset
         if idx_shift < 0 or idx_shift > max_offset:
