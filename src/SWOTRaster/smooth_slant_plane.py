@@ -250,7 +250,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             idx_shift = (((first_record_counter - prev_last_record_counter)
                           / min_num_azimuth_looks) - 1).astype('i4')
         else:
-            idx_shift = 0
+            idx_shift = max_offset
 
         # Handle record counter wrap and clamp to max_offset
         if idx_shift < 0 or idx_shift > max_offset:
