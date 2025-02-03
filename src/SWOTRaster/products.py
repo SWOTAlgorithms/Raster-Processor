@@ -1337,8 +1337,8 @@ class RasterUTM(ProductTesterMixIn, Product):
 
         # Set the time coverage start and end
         if np.all(self.illumination_time.mask):
-            start_illumination_time = EMPTY_DATETIME
-            end_illumination_time = EMPTY_DATETIME
+            self.time_coverage_start = EMPTY_DATETIME
+            self.time_coverage_end = EMPTY_DATETIME
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -1920,7 +1920,7 @@ class ScenePixc(Product):
         tvp_time = np.ma.concatenate((self.tvp['time'], other.tvp['time']))
         tvp_swath_side = np.ma.concatenate(
             (self.tvp['swath_side'], other.tvp['swath_side']))
-        [_, rev_indx] = np.unique(
+        [_, rev_idx] = np.unique(
             np.column_stack((tvp_time, np.char.lower(tvp_swath_side) == 'r')),
             axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
@@ -1928,7 +1928,7 @@ class ScenePixc(Product):
             self.tvp.dimensions['num_tvps']
             + other.pixel_cloud['pixc_line_to_tvp'])).astype(int)
         klass['pixel_cloud']['pixc_line_to_tvp'] = \
-            rev_indx[unsorted_pixc_line_to_tvp]
+            rev_idx[unsorted_pixc_line_to_tvp]
 
         # Set attributes from self
         for key in self.ATTRIBUTES.keys():
@@ -2331,12 +2331,12 @@ class SceneTVP(Product):
         # Discard TVP overlap for each side separately
         time = np.ma.concatenate((self.time, other.time))
         swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
-        [_, indx] = np.unique(
+        [_, idx] = np.unique(
             np.column_stack((time, np.char.lower(swath_side) == 'r')),
             axis=0, return_index=True)
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
-                getattr(self, key), getattr(other, key)))[indx])
+                getattr(self, key), getattr(other, key)))[idx])
 
         # Get the earlier leap second
         if datetime_str_comp(
