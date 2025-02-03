@@ -231,7 +231,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         # This is the first non-empty tile
         if prev_last_line is None:
             azimuth_offsets[output_idx] = 0
-            prev_last_line = first_pixc_line_idx + num_lines
+            prev_last_line = first_pixc_line_idx + num_lines - 1
             prev_last_record_counter = last_record_counter
             continue
 
@@ -247,18 +247,19 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         # Get the index shift between consecutive tiles using the minumum
         # number of azimuth looks
         if min_num_azimuth_looks > 0:
-            idx_shift = (((first_record_counter - prev_last_record_counter)
-                          / min_num_azimuth_looks) - 1).astype('i4')
+            idx_shift = np.round(
+                (first_record_counter - prev_last_record_counter)
+                / min_num_azimuth_looks).astype('i4')
         else:
             idx_shift = max_offset
 
         # Handle record counter wrap and clamp to max_offset
-        if idx_shift < 0 or idx_shift > max_offset:
+        if idx_shift < 1 or idx_shift > max_offset:
             idx_shift = max_offset
 
         azimuth_offsets[output_idx] = \
             prev_last_line - first_pixc_line_idx + idx_shift
-        prev_last_line += idx_shift + num_lines
+        prev_last_line += idx_shift + num_lines - 1
         prev_num_azimuth_looks = num_azimuth_looks
         prev_last_record_counter = last_record_counter
 
