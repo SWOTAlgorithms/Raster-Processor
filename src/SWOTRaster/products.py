@@ -20,7 +20,7 @@ from SWOTWater.products.product import Product, ProductTesterMixIn
 
 from SWOTRaster import raster_crs
 
-VERSION_ID = 'V1.4'
+VERSION_ID = 'V1.4.1'
 
 UNIX_EPOCH = datetime(1970, 1, 1)
 SWOT_EPOCH = datetime(2000, 1, 1)
