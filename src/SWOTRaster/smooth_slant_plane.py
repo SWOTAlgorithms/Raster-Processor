@@ -210,7 +210,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             if prev_last_line is None:
                 azimuth_offsets[output_idx] = 0
             else:
-                azimuth_offsets[output_idx] = prev_last_line
+                azimuth_offsets[output_idx] = prev_last_line + 1
             continue
 
         first_pixc_line_idx = np.where(
@@ -241,21 +241,16 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             min_num_azimuth_looks = num_azimuth_looks
 
         # Get the index shift between consecutive tiles using the minumum
-        # number of azimuth looks
-        if min_num_azimuth_looks > 0:
-            idx_shift = np.round(
-                (first_record_counter - prev_last_record_counter)
-                / min_num_azimuth_looks).astype('i4')
+        # number of azimuth looks - if record counter was reset, set to max
+        record_counter_shift = first_record_counter - prev_last_record_counter
+        if min_num_azimuth_looks > 0 and record_counter_shift >= 0:
+            idx_shift = np.round(record_counter_shift
+                                 / min_num_azimuth_looks).astype('i4')
         else:
             idx_shift = max_offset
 
-        # Handle record counter wrap and clamp max to max_offset
-        if idx_shift < 0 or idx_shift > max_offset:
-            idx_shift = max_offset
-
-        # Clamp min to 1, always shift at least one line to prevent overlap
-        if idx_shift < 1:
-            idx_shift = 1
+        # Clamp between 1 and max_offset
+        idx_shift = max(1, min(idx_shift, max_offset))
 
         azimuth_offsets[output_idx] = \
             prev_last_line - first_pixc_line_idx + idx_shift
@@ -358,7 +353,8 @@ def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
                           method='composite_with_sus_classes'):
     """ Smoothes a chunk and returns only pixels in use_mask """
     LOGGER.debug('Smoothing az: %s to %s, rng: %s to %s',
-        np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx))
+                 np.min(az_idx), np.max(az_idx),
+                 np.min(rng_idx), np.max(rng_idx))
     smoothed_chunk = smooth_chunk(
         var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         bright_land_flag, specular_ringing_qual, smoothing_footprint,
