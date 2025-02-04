@@ -156,8 +156,6 @@ def smooth_slant_plane(
 
 def get_range_offsets(scene_pixc, tile_mask=None):
     """ Get range offset for each tile in scene_pixc """
-    LOGGER.info('Getting range offsets')
-
     # If no tiles, return empty array
     if not np.any(tile_mask):
         return np.array([])
@@ -171,8 +169,6 @@ def get_range_offsets(scene_pixc, tile_mask=None):
 
 def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     """ Get azimuth offset for each tile in scene_pixc """
-    LOGGER.info('Getting azimuth offsets')
-
     # If tile_mask is None, use all tiles
     if tile_mask is None:
         tile_mask = np.ones(scene_pixc['pixel_cloud']['tile_tile_name'].shape,
@@ -253,9 +249,13 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         else:
             idx_shift = max_offset
 
-        # Handle record counter wrap and clamp to max_offset
-        if idx_shift < 1 or idx_shift > max_offset:
+        # Handle record counter wrap and clamp max to max_offset
+        if idx_shift < 0 or idx_shift > max_offset:
             idx_shift = max_offset
+
+        # Clamp min to 1, always shift at least one line to prevent overlap
+        if idx_shift < 1:
+            idx_shift = 1
 
         azimuth_offsets[output_idx] = \
             prev_last_line - first_pixc_line_idx + idx_shift
