@@ -223,29 +223,26 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             scene_pixc['tvp']['record_counter'][first_tvp_idx]
         last_record_counter = \
             scene_pixc['tvp']['record_counter'][last_tvp_idx]
+        num_azimuth_looks = \
+            scene_pixc['pixel_cloud']['tile_num_azimuth_looks'][tile_idx]
 
         # This is the first non-empty tile
         if prev_last_line is None:
             azimuth_offsets[output_idx] = 0
             prev_last_line = first_pixc_line_idx + num_lines - 1
+            prev_num_azimuth_looks = num_azimuth_looks
             prev_last_record_counter = last_record_counter
             continue
 
-        # Get the minimum number of azimuth looks between consecutive tiles
-        num_azimuth_looks = \
-            scene_pixc['pixel_cloud']['tile_num_azimuth_looks'][tile_idx]
-        if prev_num_azimuth_looks is not None:
-            min_num_azimuth_looks = min(
-                prev_num_azimuth_looks, num_azimuth_looks)
-        else:
-            min_num_azimuth_looks = num_azimuth_looks
-
-        # Get the index shift between consecutive tiles using the minumum
-        # number of azimuth looks - if record counter was reset, set to max
+        # Get the index shift between consecutive tiles
+        # Set to max_offset if the number of azimuth looks is less than 0,
+        # the record counter was reset, or the number of azimuth looks is
+        # different from the previous tile
         record_counter_shift = first_record_counter - prev_last_record_counter
-        if min_num_azimuth_looks > 0 and record_counter_shift >= 0:
-            idx_shift = np.round(record_counter_shift
-                                 / min_num_azimuth_looks).astype('i4')
+        if num_azimuth_looks > 0 and record_counter_shift >= 0 \
+           and num_azimuth_looks == prev_num_azimuth_looks:
+            idx_shift = np.round(
+                record_counter_shift / num_azimuth_looks).astype('i4')
         else:
             idx_shift = max_offset
 
