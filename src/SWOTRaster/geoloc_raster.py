@@ -108,10 +108,9 @@ class GeolocRaster():
 
         # Get the swath side (from tvp index, not nearest sensor index)
         line_idx = self.pixc['pixel_cloud']['pixc_line_index']
-        pixc_line_to_tvp = self.pixc['pixel_cloud']['pixc_line_to_tvp']
-        pixc_line_to_tile = self.pixc['pixel_cloud']['pixc_line_to_tile']
-        tvp_idx = pixc_line_to_tvp[line_idx].astype('i4')
-        tile_idx = pixc_line_to_tile[line_idx].astype('i4')
+        tile_idx = self.pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
+        tvp_idx = self.pixc['pixel_cloud'][
+            'pixc_line_to_tvp'][line_idx].astype('i4')
         swath_side = np.char.upper(self.pixc['tvp']['swath_side'][tvp_idx])
 
         for side in ['L', 'R']:
@@ -137,9 +136,10 @@ class GeolocRaster():
             xyz = np.transpose(np.array([x, y, z]))
 
             # Get distance from satellite to target point
-            near_range = self.pixc['pixel_cloud']['tile_near_range'][tile_idx]
-            ri = near_range + (self.pixc['pixel_cloud']['range_index']
-                               * self.pixc.nominal_slant_range_spacing)
+            ri = self.pixc['pixel_cloud']['tile_near_range'][tile_idx][mask] \
+                + (self.pixc['pixel_cloud']['range_index'][mask]
+                   * self.pixc['pixel_cloud'][
+                       'tile_nominal_slant_range_spacing'][tile_idx][mask])
 
             # Get noisy and new height
             h_noisy = self.pixc['pixel_cloud']['height'][mask]

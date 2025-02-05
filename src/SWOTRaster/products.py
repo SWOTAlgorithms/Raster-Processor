@@ -1719,8 +1719,6 @@ class ScenePixc(Product):
         ['geospatial_lon_max', odict([])],
         ['geospatial_lat_min', odict([])],
         ['geospatial_lat_max', odict([])],
-        ['wavelength', odict([])],
-        ['nominal_slant_range_spacing', odict([])],
         ['leap_second', odict([])],
     ])
     GROUPS = odict([
@@ -1745,9 +1743,6 @@ class ScenePixc(Product):
         scene_pixc.time_granule_end = pixc_tile.time_granule_end
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
         scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
-        scene_pixc.wavelength = pixc_tile.wavelength
-        scene_pixc.nominal_slant_range_spacing = \
-            pixc_tile.nominal_slant_range_spacing
 
         swath_side = pixc_tile.swath_side
 
@@ -1866,7 +1861,7 @@ class ScenePixc(Product):
         """ Get summary quality flag from quality bitflag """
         LOGGER.info('getting summary quality flag: %s', qual_flag)
 
-        flag = QUAL_IND_GOOD*np.ones(self.pixel_cloud['latitude'].shape)
+        flag = np.full(self.pixel_cloud['latitude'].shape, QUAL_IND_GOOD)
         flag[self.get_qual_mask(qual_flag, suspect_qual_flag_mask)] = \
             QUAL_IND_SUSPECT
         flag[self.get_qual_mask(qual_flag, degraded_qual_flag_mask)] = \
@@ -2162,7 +2157,7 @@ class ScenePixelCloud(Product):
         scene_pixel_cloud['pixc_line_index'] = \
             pixc_tile['pixel_cloud']['azimuth_index'][mask]
         scene_pixel_cloud['pixc_line_to_tile'] = np.zeros(
-            scene_pixel_cloud.dimensions['num_pixc_lines'])
+            scene_pixel_cloud.dimensions['num_pixc_lines'], dtype=int)
 
         # Set tile attributes to single valued lists
         for key in ['cycle_number', 'pass_number', 'tile_number', 'swath_side',
@@ -2320,8 +2315,8 @@ class SceneTVP(Product):
             setattr(scene_tvp, key, attr_val)
 
         # Get swath side
-        scene_tvp['swath_side'] = np.full((scene_tvp.dimensions['num_tvps']),
-                                          pixc_tile.swath_side)
+        scene_tvp['swath_side'] = np.full(
+            scene_tvp.dimensions['num_tvps'], pixc_tile.swath_side)
 
         return scene_tvp
 

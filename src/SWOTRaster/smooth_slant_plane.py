@@ -62,8 +62,8 @@ def smooth_slant_plane(
     if len(var) == 0 or np.all(var.mask):
         return var_out
 
-    smoothing_footprint = np.ones((smoothing_filter_shape[0],
-                                   smoothing_filter_shape[1]))
+    smoothing_footprint = np.ones(
+        (smoothing_filter_shape[0], smoothing_filter_shape[1]), dtype=bool)
 
     # Get input variables
     classif = scene_pixc['pixel_cloud']['classification']
@@ -82,23 +82,22 @@ def smooth_slant_plane(
         specular_ringing_flag, np.logical_not(no_prior_water))
     specular_not_intersecting_prior = np.logical_and(
         specular_ringing_flag, no_prior_water)
-    specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
-        specular_ringing_flag.shape)
+    specular_ringing_qual = np.full(
+        specular_ringing_flag.shape, products.QUAL_IND_GOOD)
     specular_ringing_qual[specular_intersecting_prior] = \
         products.QUAL_IND_SUSPECT
     specular_ringing_qual[specular_not_intersecting_prior] = \
         products.QUAL_IND_DEGRADED
 
     line_idx = scene_pixc['pixel_cloud']['pixc_line_index']
-    tile_idx = scene_pixc['pixel_cloud'][
-        'pixc_line_to_tile'][line_idx].astype('i4')
+    tile_idx = scene_pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
     swath_side = scene_pixc['pixel_cloud']['tile_swath_side'][tile_idx]
 
     # Calculate per-tile azimuth and range offsets
     range_offsets = np.zeros(
-        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype='i4')
+        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype=int)
     azimuth_offsets = np.zeros(
-        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype='i4')
+        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype=int)
     for this_side in ['L', 'R']:
         tile_side_mask = np.char.lower(
             scene_pixc['pixel_cloud']['tile_swath_side']) == this_side.lower()
@@ -110,11 +109,9 @@ def smooth_slant_plane(
 
     # Recompute indices from offsets
     recomputed_az_idx = \
-        (azimuth_offsets[tile_idx]
-         + scene_pixc['pixel_cloud']['azimuth_index']).astype('i4')
+        azimuth_offsets[tile_idx] + scene_pixc['pixel_cloud']['azimuth_index']
     recomputed_rng_idx = \
-        (range_offsets[tile_idx]
-         + scene_pixc['pixel_cloud']['range_index']).astype('i4')
+        range_offsets[tile_idx] + scene_pixc['pixel_cloud']['range_index']
 
     # Split into chunks and smooth, with multiprocessing if commanded
     smooth_fn = partial(smooth_chunk_and_mask,
@@ -156,19 +153,23 @@ def smooth_slant_plane(
 
 def get_range_offsets(scene_pixc, tile_mask=None):
     """ Get range offset for each tile in scene_pixc """
+    LOGGER.info('Getting range offsets')
     # If no tiles, return empty array
     if not np.any(tile_mask):
         return np.array([])
 
-    range_offsets = np.round(
-        (scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]
-         - np.min(scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]))
-        / scene_pixc.nominal_slant_range_spacing).astype('i4')
+    near_range = scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]
+    nominal_slant_range_spacing = \
+        scene_pixc['pixel_cloud']['tile_nominal_slant_range_spacing'][
+            tile_mask]
+    range_offsets = np.round((near_range - np.min(near_range))
+                             / nominal_slant_range_spacing).astype(int)
     return range_offsets
 
 
 def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     """ Get azimuth offset for each tile in scene_pixc """
+    LOGGER.info('Getting azimuth offsets')
     # If tile_mask is None, use all tiles
     if tile_mask is None:
         tile_mask = np.ones(scene_pixc['pixel_cloud']['tile_tile_name'].shape,
@@ -192,10 +193,11 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
     outputs_idx = np.arange(len(tiles_idx))
 
     # Get azimuth offset for each tile
-    azimuth_offsets = np.zeros(tiles_idx.shape, dtype='i4')
+    azimuth_offsets = np.zeros(tiles_idx.shape, dtype=int)
     prev_last_line = None
-    prev_num_azimuth_looks = None
     prev_last_record_counter = None
+    prev_num_azimuth_looks = None
+    prev_nominal_slant_range_spacing = None
     for tile_idx, output_idx in zip(
             tiles_idx[sort_idx], outputs_idx[sort_idx]):
         tile_pixc_line_mask = \
@@ -225,26 +227,30 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             scene_pixc['tvp']['record_counter'][last_tvp_idx]
         num_azimuth_looks = \
             scene_pixc['pixel_cloud']['tile_num_azimuth_looks'][tile_idx]
+        nominal_slant_range_spacing = \
+            scene_pixc['pixel_cloud']['tile_nominal_slant_range_spacing'][
+                tile_idx]
 
         # This is the first non-empty tile
         if prev_last_line is None:
             azimuth_offsets[output_idx] = 0
             prev_last_line = first_pixc_line_idx + num_lines - 1
-            prev_num_azimuth_looks = num_azimuth_looks
             prev_last_record_counter = last_record_counter
+            prev_num_azimuth_looks = num_azimuth_looks
+            prev_nominal_slant_range_spacing = nominal_slant_range_spacing
             continue
 
         # Get the index shift between consecutive tiles
         # Set to max_offset if the number of azimuth looks is less than 0,
-        # the record counter was reset, or the number of azimuth looks is
-        # different from the previous tile
+        # the record counter was reset, or the number of azimuth looks or
+        # slant range spacing differ from the previous tile
         record_counter_shift = first_record_counter - prev_last_record_counter
-        if num_azimuth_looks > 0 and record_counter_shift >= 0 \
-           and num_azimuth_looks == prev_num_azimuth_looks:
-            idx_shift = np.round(
-                record_counter_shift / num_azimuth_looks).astype('i4')
-        else:
+        if num_azimuth_looks <= 0 or record_counter_shift < 0 \
+           or num_azimuth_looks != prev_num_azimuth_looks \
+           or nominal_slant_range_spacing != prev_nominal_slant_range_spacing:
             idx_shift = max_offset
+        else:
+            idx_shift = np.round(record_counter_shift / num_azimuth_looks)
 
         # Clamp between 1 and max_offset
         idx_shift = max(1, min(idx_shift, max_offset))
@@ -252,8 +258,9 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         azimuth_offsets[output_idx] = \
             prev_last_line - first_pixc_line_idx + idx_shift
         prev_last_line += idx_shift + num_lines - 1
-        prev_num_azimuth_looks = num_azimuth_looks
         prev_last_record_counter = last_record_counter
+        prev_num_azimuth_looks = num_azimuth_looks
+        prev_nominal_slant_range_spacing = nominal_slant_range_spacing
 
     return azimuth_offsets
 
@@ -264,6 +271,7 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
                     chunk_shape, chunk_buffer=(0, 0)):
     """ Takes a variable in the slant plane (both sides) and splits it into
         chunks, with a buffer """
+    LOGGER.info('Splitting slant plane into chunks')
     sort_idx = np.arange(len(var))
     for this_side in ['L', 'R']:
         side_mask = np.char.lower(swath_side) == this_side.lower()

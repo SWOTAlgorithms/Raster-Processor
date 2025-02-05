@@ -234,8 +234,8 @@ class RasterProcessor():
             specular_ringing_mask, np.logical_not(no_prior_water))
         specular_not_intersecting_prior = np.logical_and(
             specular_ringing_mask, no_prior_water)
-        specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
-            specular_ringing_mask.shape)
+        specular_ringing_qual = np.full(
+            specular_ringing_mask.shape, products.QUAL_IND_GOOD)
         specular_ringing_qual[specular_intersecting_prior] = \
             products.QUAL_IND_SUSPECT
         specular_ringing_qual[specular_not_intersecting_prior] = \
@@ -419,11 +419,13 @@ class RasterProcessor():
                     pixc['pixel_cloud']['improved_height']))
 
             if len(pixc['tvp']['time']) > 0:
+                line_idx = pixc['pixel_cloud']['pixc_line_index']
+                tile_idx = pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
                 flat_ifgram = ag.flatten_interferogram(
                     pixc['pixel_cloud']['interferogram'],
                     tvp_plus_y_antenna_xyz, tvp_minus_y_antenna_xyz,
                     target_xyz, ag.get_sensor_index(pixc),
-                    pixc.wavelength)
+                    pixc['pixel_cloud']['tile_wavelength'][tile_idx])
             else:
                 LOGGER.warning('Unable to flatten interferogram: Empty TVP...')
                 flat_ifgram = pixc['pixel_cloud']['interferogram']
@@ -784,8 +786,8 @@ class RasterProcessor():
 
         def get_agg_output(result, mask, fill_value=np.nan):
             """ Get aggregator output on raster grid, with fill_value """
-            out = fill_value*np.ma.ones((self.size_y, self.size_x),
-                                        dtype=type(fill_value), fill_value=0)
+            out = np.ma.masked_array(
+                np.full((self.size_y, self.size_x), fill_value), fill_value=0)
             out[mask] = result
             return np.ma.fix_invalid(out)
 
@@ -1010,7 +1012,8 @@ class RasterProcessor():
                 extant_data_polys, out_shape=(self.size_y, self.size_x),
                 transform=raster_transform, all_touched=True))
         else:
-            missing_data_mask = np.ones((self.size_y, self.size_x), dtype=bool)
+            missing_data_mask = np.ones(
+                (self.size_y, self.size_x), dtype=bool)
 
         # Burn the polygons to the outside data window mask
         if len(outside_data_window_polys) > 0:
@@ -1020,8 +1023,8 @@ class RasterProcessor():
                     out_shape=(self.size_y, self.size_x),
                     transform=raster_transform, all_touched=True, invert=True))
         else:
-            outside_data_window_mask = np.ones((self.size_y, self.size_x),
-                                               dtype=bool)
+            outside_data_window_mask = np.ones(
+                (self.size_y, self.size_x), dtype=bool)
 
         # Mask the masks by each other to have correct edge behavior
         outside_data_window_mask[np.logical_not(missing_data_mask)] = False
@@ -1122,12 +1125,12 @@ class RasterProcessor():
         """ Get swath polygon points from tvp points """
         # If either crosstrack dist is a single value, extend it
         if not isinstance(left_crosstrack_dist, (list, np.ndarray)):
-            left_crosstrack_dist = left_crosstrack_dist*np.ones(
-                len(sc_velocity_heading))
+            left_crosstrack_dist = np.full(
+                len(sc_velocity_heading), left_crosstrack_dist)
 
         if not isinstance(right_crosstrack_dist, (list, np.ndarray)):
-            right_crosstrack_dist = right_crosstrack_dist*np.ones(
-                len(sc_velocity_heading))
+            right_crosstrack_dist = np.full(
+                len(sc_velocity_heading), right_crosstrack_dist)
 
         # If there is only one line, repeat it to make a polygon
         if len(sc_velocity_heading) == 1:
