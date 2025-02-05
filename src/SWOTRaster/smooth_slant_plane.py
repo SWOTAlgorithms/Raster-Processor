@@ -249,9 +249,9 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         # slant range spacing differ enough from the previous tile
         record_counter_shift = first_record_counter - prev_last_record_counter
         if (num_azimuth_looks <= 0 or record_counter_shift < 0
-           or abs(num_azimuth_looks - prev_num_azimuth_looks) > AZ_LOOKS_TOL
-           or abs(nominal_slant_range_spacing
-                     - prev_nominal_slant_range_spacing) > RNG_SPACING_TOL)
+            or abs(num_azimuth_looks - prev_num_azimuth_looks) > AZ_LOOKS_TOL
+            or abs(nominal_slant_range_spacing
+                   - prev_nominal_slant_range_spacing) > RNG_SPACING_TOL):
             idx_shift = max_offset
         else:
             idx_shift = np.round(
