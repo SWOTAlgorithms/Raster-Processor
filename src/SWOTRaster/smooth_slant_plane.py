@@ -250,7 +250,8 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
            or nominal_slant_range_spacing != prev_nominal_slant_range_spacing:
             idx_shift = max_offset
         else:
-            idx_shift = np.round(record_counter_shift / num_azimuth_looks)
+            idx_shift = np.round(
+                record_counter_shift / num_azimuth_looks).astype(int)
 
         # Clamp between 1 and max_offset
         idx_shift = max(1, min(idx_shift, max_offset))
