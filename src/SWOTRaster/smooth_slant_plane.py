@@ -31,6 +31,9 @@ DEFAULT_SUS_CLASSES = [PIXC_CLASSES['land_near_water'],
                        PIXC_CLASSES['dark_water_near_land'],
                        PIXC_CLASSES['dark_water_legacy']]
 
+AZ_LOOKS_TOL = 1e-4
+RNG_SPACING_TOL = 1e-4
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -243,11 +246,12 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         # Get the index shift between consecutive tiles
         # Set to max_offset if the number of azimuth looks is less than 0,
         # the record counter was reset, or the number of azimuth looks or
-        # slant range spacing differ from the previous tile
+        # slant range spacing differ enough from the previous tile
         record_counter_shift = first_record_counter - prev_last_record_counter
-        if num_azimuth_looks <= 0 or record_counter_shift < 0 \
-           or num_azimuth_looks != prev_num_azimuth_looks \
-           or nominal_slant_range_spacing != prev_nominal_slant_range_spacing:
+        if (num_azimuth_looks <= 0 or record_counter_shift < 0
+           or abs(num_azimuth_looks - prev_num_azimuth_looks) > AZ_LOOKS_TOL
+           or abs(nominal_slant_range_spacing
+                     - prev_nominal_slant_range_spacing) > RNG_SPACING_TOL)
             idx_shift = max_offset
         else:
             idx_shift = np.round(
