@@ -22,7 +22,9 @@ LOGGER = logging.getLogger(__name__)
 LOWRES_RASTER_FILENAME = 'lowres_wse_raster.nc'
 INTERNAL_SCENE_PIXC_FILENAME = 'internal_scene_pixc.nc'
 
-class L2PixcToRaster(object):
+
+class L2PixcToRaster():
+    """ Top level L2 PIXC to Raster processor. """
     def __init__(self, pixc, algorithmic_config, runtime_config,
                  polygon_points=None, data_centroid=None,
                  max_worker_processes=1, scratch_dir=None):
@@ -35,12 +37,16 @@ class L2PixcToRaster(object):
         self.scratch_dir = scratch_dir
 
         # Add default optional values to configs
-        if 'slant_plane_smoothing_max_chunk_shape' not in self.algorithmic_config:
-            self.algorithmic_config['slant_plane_smoothing_max_chunk_shape'] = \
-                DEFAULT_MAX_CHUNK_SHAPE
-        if 'height_constrained_geoloc_max_chunk_size' not in self.algorithmic_config:
-            self.algorithmic_config['height_constrained_geoloc_max_chunk_size'] = \
-                DEFAULT_MAX_CHUNK_SIZE
+        if 'slant_plane_smoothing_max_chunk_shape' \
+           not in self.algorithmic_config:
+            self.algorithmic_config[
+                'slant_plane_smoothing_max_chunk_shape'] = \
+                    DEFAULT_MAX_CHUNK_SHAPE
+        if 'height_constrained_geoloc_max_chunk_size' \
+           not in self.algorithmic_config:
+            self.algorithmic_config[
+                'height_constrained_geoloc_max_chunk_size'] = \
+                    DEFAULT_MAX_CHUNK_SIZE
         if 'utm_conversion_max_chunk_size' not in self.algorithmic_config:
             self.algorithmic_config['utm_conversion_max_chunk_size'] = \
                 DEFAULT_MAX_CHUNK_SIZE
@@ -122,9 +128,10 @@ class L2PixcToRaster(object):
         # "none" - we want to use non-improved geoloc
         # "lowres_raster" - we want to get height constrained geolocation using
         #                   a lowres raster for improved geoloc
-        # "pixcvec" - we want to keep pixcvec improved geoloc as improved geoloc
+        # "pixcvec" - we want to keep pixcvec geoloc as improved geoloc
 
-        hc_geoloc_source = self.algorithmic_config['height_constrained_geoloc_source']
+        hc_geoloc_source = \
+            self.algorithmic_config['height_constrained_geoloc_source']
         if hc_geoloc_source is None or hc_geoloc_source.lower() == "none":
             new_height = self.get_smoothed_height()
             self.pixc['pixel_cloud']['improved_height'] = new_height
@@ -136,7 +143,8 @@ class L2PixcToRaster(object):
             self.pixc['pixel_cloud']['improved_height'] = new_height
             self.use_improved_geoloc = True
         elif hc_geoloc_source.lower() == "smoothed_slant_plane":
-            new_lat, new_lon, new_height = self.do_smoothed_slant_plane_hc_geoloc()
+            new_lat, new_lon, new_height = \
+                self.do_smoothed_slant_plane_hc_geoloc()
             self.pixc['pixel_cloud']['improved_latitude'] = new_lat
             self.pixc['pixel_cloud']['improved_longitude'] = new_lon
             self.pixc['pixel_cloud']['improved_height'] = new_height
@@ -153,7 +161,8 @@ class L2PixcToRaster(object):
                 self.pixc.to_ncfile(INTERNAL_SCENE_PIXC_FILENAME)
             else:
                 self.pixc.to_ncfile(
-                    os.path.join(self.scratch_dir, INTERNAL_SCENE_PIXC_FILENAME))
+                    os.path.join(self.scratch_dir,
+                                 INTERNAL_SCENE_PIXC_FILENAME))
 
         product = self.do_raster_processing()
 
@@ -161,11 +170,11 @@ class L2PixcToRaster(object):
 
     def do_lowres_raster_hc_geoloc(self):
         """ Do lowres raster height constrained geolocation """
-        LOGGER.info("doing lowres raster height constrained geolocation")
+        LOGGER.info("doing lowres raster height constrained geoloc")
 
         # Normally land edges wouldn't get raster heights, but we are forcing
         # the land edges to be processed as water edges here. Only side effect
-        # is in water_area aggregation, which improved geolocation does not use.
+        # is in water_area aggregation, which improved geolocation does not use
         tmp_water_edge_classes = np.concatenate(
             (self.algorithmic_config['water_edge_classes'],
              self.algorithmic_config['land_edge_classes']))
@@ -174,7 +183,7 @@ class L2PixcToRaster(object):
         height_constrained_geoloc_raster_proc = \
             SWOTRaster.raster_proc.RasterProcessor(
                 self.runtime_config['output_sampling_grid_type'],
-                self.runtime_config['raster_resolution'] \
+                self.runtime_config['raster_resolution']
                 / self.algorithmic_config['lowres_raster_scale_factor'],
                 self.algorithmic_config['padding'],
                 self.algorithmic_config['height_agg_method'],
@@ -187,7 +196,8 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['low_coh_water_classes'],
                 self.algorithmic_config['use_bright_land'],
                 self.algorithmic_config['use_specular_not_intersecting_prior'],
-                self.algorithmic_config['specular_not_intersecting_prior_thresh'],
+                self.algorithmic_config[
+                    'specular_not_intersecting_prior_thresh'],
                 self.algorithmic_config['use_all_classes_for_wse'],
                 self.algorithmic_config['use_all_classes_for_sig0'],
                 self.algorithmic_config['wse_geo_qual_suspect'],
@@ -233,10 +243,10 @@ class L2PixcToRaster(object):
                 self.algorithmic_config['missing_karin_data_time_thresh'],
                 utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
                 mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
-                utm_conversion_max_chunk_size=\
-                    self.algorithmic_config['utm_conversion_max_chunk_size'],
-                aggregator_max_chunk_size=\
-                    self.algorithmic_config['aggregator_max_chunk_size'],
+                utm_conversion_max_chunk_size=self.algorithmic_config[
+                    'utm_conversion_max_chunk_size'],
+                aggregator_max_chunk_size=self.algorithmic_config[
+                    'aggregator_max_chunk_size'],
                 skip_area=True, skip_sig0=True,
                 max_worker_processes=self.max_worker_processes,
                 debug_flag=self.algorithmic_config['debug_flag'])
@@ -248,7 +258,8 @@ class L2PixcToRaster(object):
 
         if self.algorithmic_config['write_internal_files']:
             if self.scratch_dir is None:
-                height_constrained_geoloc_raster.to_ncfile(LOWRES_RASTER_FILENAME)
+                height_constrained_geoloc_raster.to_ncfile(
+                    LOWRES_RASTER_FILENAME)
             else:
                 height_constrained_geoloc_raster.to_ncfile(
                     os.path.join(self.scratch_dir, LOWRES_RASTER_FILENAME))
@@ -256,9 +267,10 @@ class L2PixcToRaster(object):
         # if the height-constrained geoloc raster is empty, return fully masked
         # output
         if height_constrained_geoloc_raster.is_empty():
-            return (np.ma.masked_all_like(self.pixc['pixel_cloud']['latitude']),
-                    np.ma.masked_all_like(self.pixc['pixel_cloud']['longitude']),
-                    np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
+            return (
+                np.ma.masked_all_like(self.pixc['pixel_cloud']['latitude']),
+                np.ma.masked_all_like(self.pixc['pixel_cloud']['longitude']),
+                np.ma.masked_all_like(self.pixc['pixel_cloud']['height']))
 
         geolocator = SWOTRaster.geoloc_raster.GeolocRaster(
             self.pixc, self.algorithmic_config,
@@ -270,7 +282,7 @@ class L2PixcToRaster(object):
 
     def do_smoothed_slant_plane_hc_geoloc(self):
         """ Do smoothed slant plane height constrained geolocation """
-        LOGGER.info("doing smoothed slant plane height constrained geolocation")
+        LOGGER.info("doing smoothed slant plane height constrained geoloc")
 
         smoothed_slant_plane_height = smooth_slant_plane(
             self.pixc, 'height',
@@ -384,10 +396,10 @@ class L2PixcToRaster(object):
             self.algorithmic_config['missing_karin_data_time_thresh'],
             utm_zone_adjust=self.runtime_config['utm_zone_adjust'],
             mgrs_band_adjust=self.runtime_config['mgrs_band_adjust'],
-            utm_conversion_max_chunk_size=\
-                self.algorithmic_config['utm_conversion_max_chunk_size'],
-            aggregator_max_chunk_size=\
-                    self.algorithmic_config['aggregator_max_chunk_size'],
+            utm_conversion_max_chunk_size=self.algorithmic_config[
+                'utm_conversion_max_chunk_size'],
+            aggregator_max_chunk_size=self.algorithmic_config[
+                'aggregator_max_chunk_size'],
             max_worker_processes=self.max_worker_processes,
             debug_flag=self.algorithmic_config['debug_flag'])
 

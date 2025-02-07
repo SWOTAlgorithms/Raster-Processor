@@ -11,16 +11,19 @@ Updates pixc lat, lon and height from a raster file
 
 import logging
 import argparse
-import SWOTRaster.products
 
-from SWOTRaster.products import ScenePixc
-from swot_pixc2raster import load_raster_configs
+import SWOTRaster.products
 from SWOTRaster.geoloc_raster import GeolocRaster
+from SWOTRaster.errors import RasterUsageException
 from SWOTWater.products.product import MutableProduct
+
+from swot_pixc2raster import load_raster_configs
 
 LOGGER = logging.getLogger('update_pixc_geoloc_from_raster')
 
+
 def main():
+    """ Updates pixc lat, lon and height from a raster file """
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -42,29 +45,33 @@ def main():
     level = {'debug': logging.DEBUG, 'info': logging.INFO,
              'warning': logging.WARNING,
              'error': logging.ERROR}[args.log_level]
-    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=level, format=format)
+    format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=level, format=format_str)
 
     alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
                                           args.runtime_config_file)
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
-    pixc_prod = ScenePixc.from_tile(pixc_tile, None)
+    pixc_prod = SWOTRaster.products.ScenePixc.from_tile(pixc_tile, None)
 
-    if rt_cfg['output_sampling_grid_type'] == 'utm':
+    projection_type = rt_cfg['output_sampling_grid_type']
+    if projection_type == 'utm':
         if alg_cfg['debug_flag']:
-            raster_prod = \
-                SWOTRaster.products.RasterUTMDebug.from_ncfile(args.raster_file)
+            raster_prod = SWOTRaster.products.RasterUTMDebug.from_ncfile(
+                args.raster_file)
         else:
-            raster_prod = \
-                SWOTRaster.products.RasterUTM.from_ncfile(args.raster_file)
-    elif rt_cfg['output_sampling_grid_type'] == 'geo':
+            raster_prod = SWOTRaster.products.RasterUTM.from_ncfile(
+                args.raster_file)
+    elif projection_type == 'geo':
         if alg_cfg['debug_flag']:
-            raster_prod = \
-                SWOTRaster.products.RasterGeoDebug.from_ncfile(args.raster_file)
+            raster_prod = SWOTRaster.products.RasterGeoDebug.from_ncfile(
+                args.raster_file)
         else:
-            raster_prod = \
-                SWOTRaster.products.RasterGeo.from_ncfile(args.raster_file)
+            raster_prod = SWOTRaster.products.RasterGeo.from_ncfile(
+                args.raster_file)
+    else:
+        raise RasterUsageException(
+            'Unknown projection type: {}'.format(projection_type))
 
     geolocator = GeolocRaster(pixc_prod, alg_cfg)
     geolocator.set_new_height_from_raster(raster_prod)
@@ -74,6 +81,7 @@ def main():
     pixc_tile['pixel_cloud']['latitude'][:] = out_lat
     pixc_tile['pixel_cloud']['longitude'][:] = out_lon
     pixc_tile.to_ncfile(args.output_pixc_file)
+
 
 if __name__ == "__main__":
     main()

@@ -7,65 +7,35 @@ Author(s): Alexander Corben
 
 '''
 import logging
+import multiprocessing
+from functools import partial
+from datetime import datetime
+
 import bottleneck
 import numpy as np
-import multiprocessing
-import SWOTRaster.products as products
-
-from functools import partial
 from scipy.ndimage import generic_filter
-from SWOTRaster.raster_agg import fn_star
 from SWOTWater.constants import PIXC_CLASSES
+
+from SWOTRaster import products
+from SWOTRaster.raster_agg import fn_star
 from SWOTRaster.errors import RasterUsageException
 
-DEFAULT_MAX_CHUNK_SHAPE=(2000, 2000)
-DEFAULT_SMOOTHING_FILTER_SHAPE=(5, 13)
-DEFAULT_GOOD_CLASSES=[PIXC_CLASSES['water_near_land'],
-                      PIXC_CLASSES['open_water']]
-DEFAULT_SUS_CLASSES=[PIXC_CLASSES['land_near_water'],
-                     PIXC_CLASSES['dark_water'],
-                     PIXC_CLASSES['low_coh_water_near_land'],
-                     PIXC_CLASSES['low_coh_water'],
-                     PIXC_CLASSES['dark_water_near_land'],
-                     PIXC_CLASSES['dark_water_legacy']]
+DEFAULT_MAX_CHUNK_SHAPE = (2000, 2000)
+DEFAULT_SMOOTHING_FILTER_SHAPE = (5, 13)
+DEFAULT_GOOD_CLASSES = [PIXC_CLASSES['water_near_land'],
+                        PIXC_CLASSES['open_water']]
+DEFAULT_SUS_CLASSES = [PIXC_CLASSES['land_near_water'],
+                       PIXC_CLASSES['dark_water'],
+                       PIXC_CLASSES['low_coh_water_near_land'],
+                       PIXC_CLASSES['low_coh_water'],
+                       PIXC_CLASSES['dark_water_near_land'],
+                       PIXC_CLASSES['dark_water_legacy']]
+
+AZ_LOOKS_TOL = 1e-4
+RNG_SPACING_TOL = 1e-4
 
 LOGGER = logging.getLogger(__name__)
 
-def unwrap_idx(idx, unwrap_vec, ref_to_zero=False,
-               max_idx_val=None, wrap_buffer=0):
-    """ Unwraps an integer index based on a vector
-        ref_to_zero makes the resulting index start at 0
-        max_idx_val controls the wrap point of the index, default is dtype max
-        wrap_buffer is added if there is a gap at the wrap point greater than
-        wrap_buffer """
-    if max_idx_val is None:
-        max_idx_val = np.iinfo(idx.dtype).max
-
-    sort_idx = np.argsort(unwrap_vec)
-    sorted_idx = idx[sort_idx]
-
-    # Get the shift needed to reference output to 0
-    ref_shift = 0
-    if ref_to_zero:
-        ref_shift = sorted_idx[0]
-
-    # Get the indices where the index wraps, return with ref shift if no wraps
-    wrap_indices = np.where(sorted_idx[:-1] > sorted_idx[1:])[0]
-    if wrap_indices.size==0:
-        return idx-ref_shift
-
-    # Use sorted_idx before ref shift to figure out if we need to add wrap_buffer
-    # But use sorted_idx with ref shift to figure out what the offset should be
-    gap_size = max_idx_val - sorted_idx[wrap_indices] + sorted_idx[wrap_indices+1]
-    buffs = np.minimum(gap_size, wrap_buffer)
-    sorted_idx[:wrap_indices[0]+1] -= ref_shift
-    offsets = sorted_idx[wrap_indices] - sorted_idx[wrap_indices+1] + 1
-
-    # Unwrap
-    for idx, offset, buff in zip(wrap_indices, offsets, buffs):
-        sorted_idx[idx+1:] += offset + buff
-
-    return sorted_idx[np.argsort(sort_idx)]
 
 def smooth_slant_plane(
         scene_pixc, var_name='height',
@@ -84,7 +54,7 @@ def smooth_slant_plane(
         max_chunk_shape=DEFAULT_MAX_CHUNK_SHAPE,
         max_worker_processes=1):
     """ Smoothes in slant plane """
-    LOGGER.info('Smoothing {} in slant plane'.format(var_name))
+    LOGGER.info('Smoothing %s in slant plane', var_name)
     if method not in ['simple', 'composite', 'composite_with_sus_classes']:
         raise RasterUsageException(
             'Unknown slant plane smoothing method: {}'.format(method))
@@ -95,8 +65,8 @@ def smooth_slant_plane(
     if len(var) == 0 or np.all(var.mask):
         return var_out
 
-    smoothing_footprint = np.ones((smoothing_filter_shape[0],
-                                   smoothing_filter_shape[1]))
+    smoothing_footprint = np.ones(
+        (smoothing_filter_shape[0], smoothing_filter_shape[1]), dtype=bool)
 
     # Get input variables
     classif = scene_pixc['pixel_cloud']['classification']
@@ -108,36 +78,43 @@ def smooth_slant_plane(
         geo_qual_degraded, geo_qual_bad)
     bright_land_flag = scene_pixc['pixel_cloud']['bright_land_flag'].filled(0)
     specular_ringing_flag = scene_pixc.get_qual_flag_bit(
-            'classification_qual', 'specular_ringing_degraded')
+        'classification_qual', 'specular_ringing_degraded')
     no_prior_water = scene_pixc['pixel_cloud']['prior_water_prob'].filled(0) \
-                     < specular_not_intersecting_prior_thresh
+        < specular_not_intersecting_prior_thresh
     specular_intersecting_prior = np.logical_and(
         specular_ringing_flag, np.logical_not(no_prior_water))
     specular_not_intersecting_prior = np.logical_and(
         specular_ringing_flag, no_prior_water)
-    specular_ringing_qual = products.QUAL_IND_GOOD*np.ones(
-        np.shape(specular_ringing_flag))
+    specular_ringing_qual = np.full(
+        specular_ringing_flag.shape, products.QUAL_IND_GOOD)
     specular_ringing_qual[specular_intersecting_prior] = \
         products.QUAL_IND_SUSPECT
     specular_ringing_qual[specular_not_intersecting_prior] = \
         products.QUAL_IND_DEGRADED
 
-    line_idx = scene_pixc['pixel_cloud']['line_index']
-    pixc_line_to_tvp = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][line_idx].astype('i4')
-    record_counter = scene_pixc['tvp']['record_counter'][pixc_line_to_tvp]
-    tvp_time = scene_pixc['tvp']['time'][pixc_line_to_tvp]
-    swath_side = scene_pixc['tvp']['swath_side'][pixc_line_to_tvp]
+    line_idx = scene_pixc['pixel_cloud']['pixc_line_index']
+    tile_idx = scene_pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
+    swath_side = scene_pixc['pixel_cloud']['tile_swath_side'][tile_idx]
 
-    # Recompute an azimuth index using the record counter
-    recomputed_az_idx = ((record_counter-scene_pixc['pixel_cloud'].azimuth_offset) \
-                         / scene_pixc['pixel_cloud'].num_azimuth_looks).astype('i4')
-    recomputed_az_idx = unwrap_idx(
-        recomputed_az_idx, tvp_time, ref_to_zero=True,
-        wrap_buffer=smoothing_filter_shape[0])
+    # Calculate per-tile azimuth and range offsets
+    range_offsets = np.zeros(
+        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype=int)
+    azimuth_offsets = np.zeros(
+        scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype=int)
+    for this_side in ['L', 'R']:
+        tile_side_mask = np.char.lower(
+            scene_pixc['pixel_cloud']['tile_swath_side']) == this_side.lower()
+        range_offsets[tile_side_mask] = get_range_offsets(
+            scene_pixc, tile_mask=tile_side_mask)
+        azimuth_offsets[tile_side_mask] = get_azimuth_offsets(
+            scene_pixc, smoothing_filter_shape[0],
+            tile_mask=tile_side_mask)
 
-    # Recompute a range index using the pixelwise range
-    rng = scene_pixc['pixel_cloud']['range']
-    recomputed_rng_idx = (rng / scene_pixc.nominal_slant_range_spacing).astype('i4')
+    # Recompute indices from offsets
+    recomputed_az_idx = \
+        azimuth_offsets[tile_idx] + scene_pixc['pixel_cloud']['azimuth_index']
+    recomputed_rng_idx = \
+        range_offsets[tile_idx] + scene_pixc['pixel_cloud']['range_index']
 
     # Split into chunks and smooth, with multiprocessing if commanded
     smooth_fn = partial(smooth_chunk_and_mask,
@@ -161,7 +138,8 @@ def smooth_slant_plane(
                 var, recomputed_az_idx, recomputed_rng_idx, classif,
                 classif_qual, geolocation_qual, bright_land_flag,
                 specular_ringing_qual, swath_side, chunk_shape,
-                (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))))
+                (2*smoothing_footprint.shape[0],
+                 2*smoothing_footprint.shape[1]))))
     else:
         chunk_shape = max_chunk_shape
         results = [_smooth_fn(arglist) for arglist in chunk_slant_map(
@@ -170,51 +148,173 @@ def smooth_slant_plane(
             specular_ringing_qual, swath_side, chunk_shape,
             (2*smoothing_footprint.shape[0], 2*smoothing_footprint.shape[1]))]
 
-    for data, indices in results:
-        var_out[indices] = data
+    for data, sort_idx in results:
+        var_out[sort_idx] = data
+
     return var_out
+
+
+def get_range_offsets(scene_pixc, tile_mask=None):
+    """ Get range offset for each tile in scene_pixc """
+    LOGGER.info('Getting range offsets')
+    # If no tiles, return empty array
+    if not np.any(tile_mask):
+        return np.array([])
+
+    near_range = scene_pixc['pixel_cloud']['tile_near_range'][tile_mask]
+    nominal_slant_range_spacing = \
+        scene_pixc['pixel_cloud']['tile_nominal_slant_range_spacing'][
+            tile_mask]
+    range_offsets = np.round((near_range - np.min(near_range))
+                             / nominal_slant_range_spacing).astype(int)
+    return range_offsets
+
+
+def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
+    """ Get azimuth offset for each tile in scene_pixc """
+    LOGGER.info('Getting azimuth offsets')
+    # If tile_mask is None, use all tiles
+    if tile_mask is None:
+        tile_mask = np.ones(scene_pixc['pixel_cloud']['tile_tile_name'].shape,
+                            dtype=bool)
+
+    # If no tiles, return empty array
+    if not np.any(tile_mask):
+        return np.array([])
+
+    # Get mask of pixc lines that are not in overlap region
+    pixc_line_in_tile = np.logical_not(scene_pixc.get_qual_flag_bit(
+        'pixc_line_qual', 'not_in_tile'))
+
+    # Sort tiles by granule start time
+    all_tiles_time_granule_start = np.array(
+        [datetime.strptime(time_granule_start, products.DATETIME_FORMAT_STR)
+         for time_granule_start
+         in scene_pixc['pixel_cloud']['tile_time_granule_start']])
+    sort_idx = np.argsort(all_tiles_time_granule_start[tile_mask])
+    tiles_idx = np.arange(len(all_tiles_time_granule_start))[tile_mask]
+    outputs_idx = np.arange(len(tiles_idx))
+
+    # Get azimuth offset for each tile
+    azimuth_offsets = np.zeros(tiles_idx.shape, dtype=int)
+    prev_last_line = None
+    prev_last_record_counter = None
+    prev_num_azimuth_looks = None
+    prev_nominal_slant_range_spacing = None
+    for tile_idx, output_idx in zip(
+            tiles_idx[sort_idx], outputs_idx[sort_idx]):
+        tile_pixc_line_mask = \
+            scene_pixc['pixel_cloud']['pixc_line_to_tile'] == tile_idx
+        tile_pixc_lines_in_tile = np.logical_and(
+            tile_pixc_line_mask, pixc_line_in_tile)
+        num_lines = np.sum(tile_pixc_lines_in_tile)
+
+        # This tile is empty - this offset shouldn't be used, but still
+        # set it to something reasonable
+        if num_lines == 0:
+            if prev_last_line is None:
+                azimuth_offsets[output_idx] = 0
+            else:
+                azimuth_offsets[output_idx] = prev_last_line + 1
+            continue
+
+        first_pixc_line_idx = np.where(
+            tile_pixc_lines_in_tile[tile_pixc_line_mask])[0][0]
+        first_tvp_idx = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][
+            tile_pixc_lines_in_tile][0].astype('i4')
+        last_tvp_idx = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][
+            tile_pixc_lines_in_tile][-1].astype('i4')
+        first_record_counter = \
+            scene_pixc['tvp']['record_counter'][first_tvp_idx]
+        last_record_counter = \
+            scene_pixc['tvp']['record_counter'][last_tvp_idx]
+        num_azimuth_looks = \
+            scene_pixc['pixel_cloud']['tile_num_azimuth_looks'][tile_idx]
+        nominal_slant_range_spacing = \
+            scene_pixc['pixel_cloud']['tile_nominal_slant_range_spacing'][
+                tile_idx]
+
+        # This is the first non-empty tile
+        if prev_last_line is None:
+            azimuth_offsets[output_idx] = 0
+            prev_last_line = first_pixc_line_idx + num_lines - 1
+            prev_last_record_counter = last_record_counter
+            prev_num_azimuth_looks = num_azimuth_looks
+            prev_nominal_slant_range_spacing = nominal_slant_range_spacing
+            continue
+
+        # Get the index shift between consecutive tiles
+        # Set to max_offset if the number of azimuth looks is less than 0,
+        # the record counter was reset, or the number of azimuth looks or
+        # slant range spacing differ enough from the previous tile
+        record_counter_shift = first_record_counter - prev_last_record_counter
+        if (num_azimuth_looks <= 0 or record_counter_shift < 0
+            or abs(num_azimuth_looks - prev_num_azimuth_looks) > AZ_LOOKS_TOL
+            or abs(nominal_slant_range_spacing
+                   - prev_nominal_slant_range_spacing) > RNG_SPACING_TOL):
+            idx_shift = max_offset
+        else:
+            idx_shift = np.round(
+                record_counter_shift / num_azimuth_looks).astype(int)
+
+        # Clamp between 1 and max_offset
+        idx_shift = max(1, min(idx_shift, max_offset))
+
+        azimuth_offsets[output_idx] = \
+            prev_last_line - first_pixc_line_idx + idx_shift
+        prev_last_line += idx_shift + num_lines - 1
+        prev_last_record_counter = last_record_counter
+        prev_num_azimuth_looks = num_azimuth_looks
+        prev_nominal_slant_range_spacing = nominal_slant_range_spacing
+
+    return azimuth_offsets
+
 
 def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
                     geolocation_qual, bright_land_flag,
                     specular_ringing_qual, swath_side,
-                    chunk_shape, chunk_buffer=(0,0)):
+                    chunk_shape, chunk_buffer=(0, 0)):
     """ Takes a variable in the slant plane (both sides) and splits it into
         chunks, with a buffer """
-    indices = np.arange(len(var))
+    LOGGER.info('Splitting slant plane into chunks')
+    sort_idx = np.arange(len(var))
     for this_side in ['L', 'R']:
-        side_mask = swath_side==this_side
+        side_mask = np.char.lower(swath_side) == this_side.lower()
 
         # Skip if side_mask has no valid points
         if not np.any(side_mask):
             continue
 
+        side_var = var[side_mask]
         side_az_idx = az_idx[side_mask]
         side_rng_idx = rng_idx[side_mask]
-        side_indices = indices[side_mask]
-        side_var = var[side_mask]
         side_classif = classif[side_mask]
         side_classif_qual = classif_qual[side_mask]
         side_geolocation_qual = geolocation_qual[side_mask]
         side_bright_land_flag = bright_land_flag[side_mask]
         side_specular_ringing_qual = specular_ringing_qual[side_mask]
+        side_sort_idx = sort_idx[side_mask]
 
         # Group into az/rng squares of chunk_shape[0]*chunk_shape[1],
         # throw away any chunks without data
-        for start_az_idx in range(np.min(side_az_idx), np.max(side_az_idx) + 1,
-                                  chunk_shape[0]):
+        for start_az_idx in range(
+                np.min(side_az_idx), np.max(side_az_idx) + 1,
+                chunk_shape[0]):
             end_az_idx = start_az_idx + chunk_shape[0]
-            for start_rng_idx in range(np.min(side_rng_idx), np.max(side_rng_idx) + 1,
-                                       chunk_shape[1]):
+            for start_rng_idx in range(
+                    np.min(side_rng_idx), np.max(side_rng_idx) + 1,
+                    chunk_shape[1]):
                 end_rng_idx = start_rng_idx + chunk_shape[1]
-                # Get the mask of pixels within this processing chunk (no buffer)
-                use_mask = np.logical_and.reduce((
+                # Get the mask of pixels within this processing chunk
+                # (no buffer)
+                side_use_mask = np.logical_and.reduce((
                     side_az_idx >= start_az_idx,
                     side_az_idx < end_az_idx,
                     side_rng_idx >= start_rng_idx,
                     side_rng_idx < end_rng_idx))
 
                 # Skip if use_mask has no valid points
-                if not np.any(use_mask):
+                if not np.any(side_use_mask):
                     continue
 
                 # Add buffer to chunk if commanded
@@ -223,13 +323,17 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
                 buff_start_rng_idx = start_rng_idx
                 buff_end_rng_idx = end_rng_idx
                 if chunk_buffer[0] != 0:
-                    masked_az_idx = side_az_idx[use_mask]
-                    buff_start_az_idx = np.min(masked_az_idx) - chunk_buffer[0]
-                    buff_end_az_idx = np.max(masked_az_idx) + chunk_buffer[0] + 1
+                    masked_az_idx = side_az_idx[side_use_mask]
+                    buff_start_az_idx = \
+                        np.min(masked_az_idx) - chunk_buffer[0]
+                    buff_end_az_idx = \
+                        np.max(masked_az_idx) + chunk_buffer[0] + 1
                 if chunk_buffer[1] != 0:
-                    masked_rng_idx = side_rng_idx[use_mask]
-                    buff_start_rng_idx = np.min(masked_rng_idx) - chunk_buffer[1]
-                    buff_end_rng_idx = np.max(masked_rng_idx) + chunk_buffer[1] + 1
+                    masked_rng_idx = side_rng_idx[side_use_mask]
+                    buff_start_rng_idx = \
+                        np.min(masked_rng_idx) - chunk_buffer[1]
+                    buff_end_rng_idx = \
+                        np.max(masked_rng_idx) + chunk_buffer[1] + 1
                 mask = np.logical_and.reduce((
                     side_az_idx >= buff_start_az_idx,
                     side_az_idx < buff_end_az_idx,
@@ -244,27 +348,30 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
                        side_geolocation_qual[mask],
                        side_bright_land_flag[mask],
                        side_specular_ringing_qual[mask],
-                       side_indices[mask],
-                       use_mask[mask])
+                       side_sort_idx[mask],
+                       side_use_mask[mask])
+
 
 def smooth_chunk_and_mask(var, az_idx, rng_idx, classif, classif_qual,
                           geolocation_qual, bright_land_flag,
                           specular_ringing_qual,
-                          side_sort_indices, use_mask,
+                          sort_idx, use_mask,
                           smoothing_footprint,
                           good_klasses=DEFAULT_GOOD_CLASSES,
                           sus_klasses=DEFAULT_SUS_CLASSES,
                           use_bright_land=True,
                           method='composite_with_sus_classes'):
     """ Smoothes a chunk and returns only pixels in use_mask """
-    LOGGER.debug('Smoothing az: {} to {}, rng: {} to {}'.format(
-        np.min(az_idx), np.max(az_idx), np.min(rng_idx), np.max(rng_idx)))
+    LOGGER.debug('Smoothing az: %s to %s, rng: %s to %s',
+                 np.min(az_idx), np.max(az_idx),
+                 np.min(rng_idx), np.max(rng_idx))
     smoothed_chunk = smooth_chunk(
         var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
         bright_land_flag, specular_ringing_qual, smoothing_footprint,
         good_klasses, sus_klasses,
         use_bright_land, method)
-    return smoothed_chunk[use_mask], side_sort_indices[use_mask]
+    return smoothed_chunk[use_mask], sort_idx[use_mask]
+
 
 def smooth_chunk(var, az_idx, rng_idx, classif, classif_qual, geolocation_qual,
                  bright_land_flag, specular_ringing_qual, smoothing_footprint,
