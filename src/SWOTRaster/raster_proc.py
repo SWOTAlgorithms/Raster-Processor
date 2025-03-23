@@ -864,8 +864,8 @@ class RasterProcessor():
             'pixc_line_qual', 'not_in_tile')
 
         # Handle the different sides separately
-        for swath_side in ['L', 'R']:
-            tvp_side_mask = pixc['tvp']['swath_side'] == swath_side
+        for this_side in ['L', 'R']:
+            tvp_side_mask = pixc['tvp']['swath_side'] == this_side
             pixc_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
             pixc_side_mask = tvp_side_mask[pixc_tvp_idx]
             pixc_tvp_idx = pixc_tvp_idx[pixc_side_mask]
@@ -902,7 +902,7 @@ class RasterProcessor():
                             pixc_data_window_last_cross_track[line_idxs]
 
                         # Get max extent and fill/clamp cross track values
-                        if swath_side.lower() == 'l':
+                        if this_side == 'L':
                             max_extent = -products.POLYGON_EXTENT_DIST
 
                             # Fill/clamp to 0 and max_extent

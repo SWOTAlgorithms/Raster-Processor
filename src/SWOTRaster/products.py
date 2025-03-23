@@ -763,7 +763,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'number of water surface elevation pixels'],
             ['grid_mapping', 'crs'],
-            ['units', 'l'],
+            ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
@@ -775,7 +775,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'number of water surface area pixels'],
             ['grid_mapping', 'crs'],
-            ['units', 'l'],
+            ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
@@ -787,7 +787,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'number of sigma0 pixels'],
             ['grid_mapping', 'crs'],
-            ['units', 'l'],
+            ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
@@ -798,7 +798,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u4'],
             ['long_name', 'number of other pixels'],
             ['grid_mapping', 'crs'],
-            ['units', 'l'],
+            ['units', '1'],
             ['valid_min', 0],
             ['valid_max', 999999],
             ['coordinates', '[Raster coordinates]'],
@@ -811,7 +811,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'f4'],
             ['long_name', 'fractional area of dark water'],
             ['grid_mapping', 'crs'],
-            ['units', 'l'],
+            ['units', '1'],
             ['valid_min', -1000],
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
@@ -1744,9 +1744,7 @@ class ScenePixc(Product):
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
         scene_pixc.time_coverage_end = pixc_tile.time_coverage_end
 
-        swath_side = pixc_tile.swath_side
-
-        if swath_side.lower() == 'l':
+        if pixc_tile.swath_side.upper() == 'L':
             scene_pixc.left_first_longitude = pixc_tile.outer_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.outer_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.outer_first_latitude
@@ -1755,8 +1753,7 @@ class ScenePixc(Product):
             scene_pixc.right_last_longitude = pixc_tile.inner_last_longitude
             scene_pixc.right_first_latitude = pixc_tile.inner_first_latitude
             scene_pixc.right_last_latitude = pixc_tile.inner_last_latitude
-
-        elif swath_side.lower() == 'r':
+        else:
             scene_pixc.left_first_longitude = pixc_tile.inner_first_longitude
             scene_pixc.left_last_longitude = pixc_tile.inner_last_longitude
             scene_pixc.left_first_latitude = pixc_tile.inner_first_latitude
@@ -1916,7 +1913,7 @@ class ScenePixc(Product):
         tvp_swath_side = np.ma.concatenate(
             (self.tvp['swath_side'], other.tvp['swath_side']))
         [_, rev_idx] = np.unique(
-            np.column_stack((tvp_time, np.char.lower(tvp_swath_side) == 'r')),
+            np.column_stack((tvp_time, np.char.upper(tvp_swath_side) == 'R')),
             axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
             self.pixel_cloud['pixc_line_to_tvp'],
@@ -1951,11 +1948,11 @@ class ScenePixc(Product):
         def _strptime(d0, format_str=DATETIME_FORMAT_STR):
             return datetime.strptime(d0, format_str)
 
-        for swath_side in ['L', 'R']:
-            other_side_mask = np.char.lower(
-                other['pixel_cloud']['tile_swath_side']) == swath_side
-            self_side_mask = np.char.lower(
-                self['pixel_cloud']['tile_swath_side']) == swath_side
+        for this_side in ['L', 'R']:
+            other_side_mask = np.char.upper(
+                other['pixel_cloud']['tile_swath_side']) == this_side
+            self_side_mask = np.char.upper(
+                self['pixel_cloud']['tile_swath_side']) == this_side
             other_tile_granule_start_time = \
                 other['pixel_cloud']['tile_time_granule_start'][
                     other_side_mask]
@@ -1969,7 +1966,7 @@ class ScenePixc(Product):
                 self['pixel_cloud']['tile_time_granule_end'][
                     self_side_mask]
 
-            if swath_side.lower() == 'l':
+            if this_side == 'L':
                 start_lat_name = 'left_first_latitude'
                 start_lon_name = 'left_first_longitude'
                 end_lat_name = 'left_last_latitude'
@@ -1992,9 +1989,9 @@ class ScenePixc(Product):
             if np.any(other_side_mask) \
                and (not np.any(self_side_mask)
                     or datetime_str_comp(
-                        min(other_tile_granule_end_time, key=_strptime),
-                        min(self_tile_granule_end_time, key=_strptime),
-                        comp=op.lt)):
+                        max(other_tile_granule_end_time, key=_strptime),
+                        max(self_tile_granule_end_time, key=_strptime),
+                        comp=op.gt)):
                 setattr(klass, end_lat_name, getattr(other, end_lat_name))
                 setattr(klass, end_lon_name, getattr(other, end_lon_name))
 
@@ -2327,7 +2324,7 @@ class SceneTVP(Product):
         time = np.ma.concatenate((self.time, other.time))
         swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
         [_, idx] = np.unique(
-            np.column_stack((time, np.char.lower(swath_side) == 'r')),
+            np.column_stack((time, np.char.upper(swath_side) == 'R')),
             axis=0, return_index=True)
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((

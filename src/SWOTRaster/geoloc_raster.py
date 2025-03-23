@@ -106,15 +106,14 @@ class GeolocRaster():
         max_chunk_size = self.algorithmic_config[
             'height_constrained_geoloc_max_chunk_size']
 
-        # Get the swath side (from tvp index, not nearest sensor index)
         line_idx = self.pixc['pixel_cloud']['pixc_line_index']
         tile_idx = self.pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
         tvp_idx = self.pixc['pixel_cloud'][
             'pixc_line_to_tvp'][line_idx].astype('i4')
-        swath_side = np.char.upper(self.pixc['tvp']['swath_side'][tvp_idx])
 
-        for side in ['L', 'R']:
-            side_mask = swath_side == side
+        for this_side in ['L', 'R']:
+            side_mask = np.char.upper(
+                self.pixc['tvp']['swath_side'][tvp_idx]) == this_side
             valid_mask = np.logical_not(np.logical_or.reduce((
                 np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
                 np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),
@@ -170,7 +169,7 @@ class GeolocRaster():
             geoloc_fn = partial(
                 geoloc.pointcloud_height_geoloc_vect,
                 recompute_doppler=True, recompute_range=True, verbose=False,
-                max_iter_grad=1, height_goal=1.e-3, swath=side)
+                max_iter_grad=1, height_goal=1.e-3, swath=this_side)
             _geoloc_fn = partial(fn_star, geoloc_fn)
 
             if self.max_worker_processes > 1:

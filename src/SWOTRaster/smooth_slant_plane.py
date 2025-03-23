@@ -102,8 +102,8 @@ def smooth_slant_plane(
     azimuth_offsets = np.zeros(
         scene_pixc['pixel_cloud']['tile_tile_name'].shape, dtype=int)
     for this_side in ['L', 'R']:
-        tile_side_mask = np.char.lower(
-            scene_pixc['pixel_cloud']['tile_swath_side']) == this_side.lower()
+        tile_side_mask = np.char.upper(
+            scene_pixc['pixel_cloud']['tile_swath_side']) == this_side
         range_offsets[tile_side_mask] = get_range_offsets(
             scene_pixc, tile_mask=tile_side_mask)
         azimuth_offsets[tile_side_mask] = get_azimuth_offsets(
@@ -284,7 +284,7 @@ def chunk_slant_map(var, az_idx, rng_idx, classif, classif_qual,
     LOGGER.info('Splitting slant plane into chunks')
     sort_idx = np.arange(len(var))
     for this_side in ['L', 'R']:
-        side_mask = np.char.lower(swath_side) == this_side.lower()
+        side_mask = np.char.upper(swath_side) == this_side
 
         # Skip if side_mask has no valid points
         if not np.any(side_mask):
