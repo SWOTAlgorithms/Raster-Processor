@@ -865,7 +865,8 @@ class RasterProcessor():
 
         # Handle the different sides separately
         for this_side in ['L', 'R']:
-            tvp_side_mask = pixc['tvp']['swath_side'] == this_side
+            tvp_side_mask = \
+                np.char.upper(pixc['tvp']['swath_side']) == this_side
             pixc_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
             pixc_side_mask = tvp_side_mask[pixc_tvp_idx]
             pixc_tvp_idx = pixc_tvp_idx[pixc_side_mask]
