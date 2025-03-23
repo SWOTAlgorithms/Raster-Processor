@@ -1803,17 +1803,17 @@ class ScenePixc(Product):
 
         # Set the first/last lats/lons from the swath edges
         # swath_edges = ((left_first_lat, left_first_lon),
-        #                (right_first_lat, right_first_lon),
         #                (left_last_lat, left_last_lon),
-        #                (right_last_lat, right_last_lon))
+        #                (right_last_lat, right_last_lon),
+        #                (right_first_lat, right_first_lon))
         self.left_first_latitude = swath_edges[0][0]
         self.left_first_longitude = swath_edges[0][1]
-        self.right_first_latitude = swath_edges[1][0]
-        self.right_first_longitude = swath_edges[1][1]
-        self.left_last_latitude = swath_edges[2][0]
-        self.left_last_longitude = swath_edges[2][1]
-        self.right_last_latitude = swath_edges[3][0]
-        self.right_last_longitude = swath_edges[3][1]
+        self.left_last_latitude = swath_edges[1][0]
+        self.left_last_longitude = swath_edges[1][1]
+        self.right_last_latitude = swath_edges[2][0]
+        self.right_last_longitude = swath_edges[2][1]
+        self.right_first_latitude = swath_edges[3][0]
+        self.right_first_longitude = swath_edges[3][1]
 
         lats = [latlon[0] for latlon in swath_polygon_points]
         lons = [latlon[1] for latlon in swath_polygon_points]
@@ -1953,18 +1953,18 @@ class ScenePixc(Product):
                 other['pixel_cloud']['tile_swath_side']) == this_side
             self_side_mask = np.char.upper(
                 self['pixel_cloud']['tile_swath_side']) == this_side
-            other_tile_granule_start_time = \
-                other['pixel_cloud']['tile_time_granule_start'][
-                    other_side_mask]
-            self_tile_granule_start_time = \
-                self['pixel_cloud']['tile_time_granule_start'][
-                    self_side_mask]
-            other_tile_granule_end_time = \
-                other['pixel_cloud']['tile_time_granule_end'][
-                    other_side_mask]
-            self_tile_granule_end_time = \
-                self['pixel_cloud']['tile_time_granule_end'][
-                    self_side_mask]
+
+            other_start_times = other['pixel_cloud']['tile_time_granule_start']
+            other_end_times = other['pixel_cloud']['tile_time_granule_end']
+            if np.any(other_side_mask):
+                other_start_times = other_start_times[other_side_mask]
+                other_end_times = other_end_times[other_side_mask]
+
+            self_start_times = self['pixel_cloud']['tile_time_granule_start']
+            self_end_times = self['pixel_cloud']['tile_time_granule_end']
+            if np.any(self_side_mask):
+                self_start_times = self_start_times[self_side_mask]
+                self_end_times = self_end_times[self_side_mask]
 
             if this_side == 'L':
                 start_lat_name = 'left_first_latitude'
@@ -1977,21 +1977,27 @@ class ScenePixc(Product):
                 end_lat_name = 'right_last_latitude'
                 end_lon_name = 'right_last_longitude'
 
-            if np.any(other_side_mask) \
-               and (not np.any(self_side_mask)
-                    or datetime_str_comp(
-                        min(other_tile_granule_start_time, key=_strptime),
-                        min(self_tile_granule_start_time, key=_strptime),
-                        comp=op.lt)):
+            # Update side start coord if:
+            # other has tiles on side and self does not have tiles on side
+            # OR other and self both either do or do not have tiles on side
+            # and other start time is before self start time
+            if (np.any(other_side_mask) and not np.any(self_side_mask)) \
+               or (np.any(other_side_mask) == np.any(self_side_mask) \
+                   and datetime_str_comp(
+                       min(other_start_times, key=_strptime),
+                       min(self_start_times, key=_strptime), comp=op.lt)):
                 setattr(klass, start_lat_name, getattr(other, start_lat_name))
                 setattr(klass, start_lon_name, getattr(other, start_lon_name))
 
-            if np.any(other_side_mask) \
-               and (not np.any(self_side_mask)
-                    or datetime_str_comp(
-                        max(other_tile_granule_end_time, key=_strptime),
-                        max(self_tile_granule_end_time, key=_strptime),
-                        comp=op.gt)):
+            # Update side end coord if:
+            # other has tiles on side and self does not have tiles on side
+            # OR other and self both either do or do not have tiles on side
+            # and other end time is after self end time
+            if (np.any(other_side_mask) and not np.any(self_side_mask)) \
+               or (np.any(other_side_mask) == np.any(self_side_mask) \
+                   and datetime_str_comp(
+                       max(other_end_times, key=_strptime),
+                       max(self_end_times, key=_strptime), comp=op.gt)):
                 setattr(klass, end_lat_name, getattr(other, end_lat_name))
                 setattr(klass, end_lon_name, getattr(other, end_lon_name))
 

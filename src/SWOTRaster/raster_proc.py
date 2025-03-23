@@ -185,13 +185,13 @@ class RasterProcessor():
         self.tile_polarizations = pixc['pixel_cloud']['tile_polarization']
 
         if polygon_points is None:
-            LOGGER.info("creating projection from swath corner points")
-            swath_corners = \
-                [(pixc.left_first_latitude, pixc.left_first_longitude),
-                 (pixc.right_first_latitude, pixc.right_first_longitude),
-                 (pixc.right_last_latitude, pixc.right_last_longitude),
-                 (pixc.left_last_latitude, pixc.left_last_longitude)]
-            self.create_projection_from_polygon_points(swath_corners,
+            LOGGER.info("creating projection from bounding box")
+            bbox_polygon_points = \
+                [(pixc.geospatial_lat_min, pixc.geospatial_lon_min),
+                 (pixc.geospatial_lat_max, pixc.geospatial_lon_min),
+                 (pixc.geospatial_lat_max, pixc.geospatial_lon_max),
+                 (pixc.geospatial_lat_min, pixc.geospatial_lon_max)]
+            self.create_projection_from_polygon_points(bbox_polygon_points,
                                                        data_centroid)
         else:
             LOGGER.info("creating projection from polygon points")
