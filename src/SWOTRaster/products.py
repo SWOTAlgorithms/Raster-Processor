@@ -1918,9 +1918,10 @@ class ScenePixc(Product):
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
             self.pixel_cloud['pixc_line_to_tvp'],
             self.tvp.dimensions['num_tvps']
-            + other.pixel_cloud['pixc_line_to_tvp'])).astype(int)
+            + other.pixel_cloud['pixc_line_to_tvp']))
+        err = unsorted_pixc_line_to_tvp - unsorted_pixc_line_to_tvp.astype(int)
         klass['pixel_cloud']['pixc_line_to_tvp'] = \
-            rev_idx[unsorted_pixc_line_to_tvp]
+            rev_idx[unsorted_pixc_line_to_tvp.astype(int)] + err
 
         # Set attributes from self
         for key in self.ATTRIBUTES.keys():
