@@ -858,6 +858,9 @@ class RasterProcessor():
         extant_data_polygons_points = []
         outside_data_window_polygons_points = []
 
+        pixc_line_tile_idx = pixc['pixel_cloud']['pixc_line_to_tile']
+        pixc_line_swath_side = pixc['pixel_cloud']['tile_swath_side'][
+            pixc_line_tile_idx]
         pixc_line_qual_large_karin_gap = pixc.get_qual_flag_bit(
             'pixc_line_qual', 'large_karin_gap')
         pixc_line_qual_not_in_tile = pixc.get_qual_flag_bit(
@@ -865,42 +868,38 @@ class RasterProcessor():
 
         # Handle the different sides separately
         for this_side in ['L', 'R']:
-            tvp_side_mask = \
-                np.char.upper(pixc['tvp']['swath_side']) == this_side
-            pixc_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'].astype(int)
-            pixc_side_mask = tvp_side_mask[pixc_tvp_idx]
-            pixc_tvp_idx = pixc_tvp_idx[pixc_side_mask]
-            pixc_data_window_first_cross_track = pixc['pixel_cloud'][
-                'data_window_first_cross_track'][pixc_side_mask]
-            pixc_data_window_last_cross_track = pixc['pixel_cloud'][
-                'data_window_last_cross_track'][pixc_side_mask]
+            side_mask = np.char.upper(pixc_line_swath_side) == this_side
+            side_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'][
+                side_mask].astype(int)
+            side_data_window_first_cross_track = pixc['pixel_cloud'][
+                'data_window_first_cross_track'][side_mask]
+            side_data_window_last_cross_track = pixc['pixel_cloud'][
+                'data_window_last_cross_track'][side_mask]
+            side_extant_data_mask = np.logical_not(np.logical_or(
+                pixc_line_qual_large_karin_gap[side_mask],
+                pixc_line_qual_not_in_tile[side_mask]))
 
-            tvp_time = pixc['tvp']['time']
-            tvp_velocity_heading = pixc['tvp']['velocity_heading']
-            tvp_xyz = np.row_stack((
-                pixc['tvp']['x'], pixc['tvp']['y'], pixc['tvp']['z']))
-
-            pixc_extant_data_mask = np.logical_not(np.logical_or(
-                pixc_line_qual_large_karin_gap[pixc_side_mask],
-                pixc_line_qual_not_in_tile[pixc_side_mask]))
-
-            for k, g in groupby(enumerate(pixc_extant_data_mask),
+            for k, g in groupby(enumerate(side_extant_data_mask),
                                 lambda x: x[1]):
                 if k:
                     group_line_idxs = [idx for idx, _ in g]
-                    group_times = tvp_time[pixc_tvp_idx[group_line_idxs]]
+                    group_tvp_idx = side_tvp_idx[group_line_idxs]
+                    group_times = pixc['tvp']['time'][group_tvp_idx]
                     for line_idxs, _ in _group_by_diff(
                             group_line_idxs,
                             self.missing_karin_data_time_thresh,
                             key=group_times):
-                        tvp_idxs = pixc_tvp_idx[line_idxs]
-                        group_tvp_xyz = tvp_xyz[:, tvp_idxs]
-                        group_tvp_velocity_heading = tvp_velocity_heading[
-                            tvp_idxs]
+                        tvp_idxs = side_tvp_idx[line_idxs]
+                        group_tvp_xyz = np.row_stack((
+                            pixc['tvp']['x'][tvp_idxs],
+                            pixc['tvp']['y'][tvp_idxs],
+                            pixc['tvp']['z'][tvp_idxs]))
+                        group_tvp_velocity_heading = \
+                            pixc['tvp']['velocity_heading'][tvp_idxs]
                         group_data_window_first_cross_track = \
-                            pixc_data_window_first_cross_track[line_idxs]
+                            side_data_window_first_cross_track[line_idxs]
                         group_data_window_last_cross_track = \
-                            pixc_data_window_last_cross_track[line_idxs]
+                            side_data_window_last_cross_track[line_idxs]
 
                         # Get max extent and fill/clamp cross track values
                         if this_side == 'L':
