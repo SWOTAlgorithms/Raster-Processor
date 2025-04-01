@@ -1905,8 +1905,8 @@ class ScenePixc(Product):
     def __add__(self, other):
         """ Add other to self """
         klass = ScenePixc()
-        klass['tvp'] = self.tvp + other.tvp
-        klass['pixel_cloud'] = self.pixel_cloud + other.pixel_cloud
+        klass.tvp = self.tvp + other.tvp
+        klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
 
         # Handle merged TVP with overlap discarded
         tvp_time = np.ma.concatenate((self.tvp['time'], other.tvp['time']))
@@ -1920,7 +1920,7 @@ class ScenePixc(Product):
             self.tvp.dimensions['num_tvps']
             + other.pixel_cloud['pixc_line_to_tvp']))
         err = unsorted_pixc_line_to_tvp - unsorted_pixc_line_to_tvp.astype(int)
-        klass['pixel_cloud']['pixc_line_to_tvp'] = \
+        klass.pixel_cloud['pixc_line_to_tvp'] = \
             rev_idx[unsorted_pixc_line_to_tvp.astype(int)] + err
 
         # Set attributes from self
@@ -1951,18 +1951,18 @@ class ScenePixc(Product):
 
         for this_side in ['L', 'R']:
             other_side_mask = np.char.upper(
-                other['pixel_cloud']['tile_swath_side']) == this_side
+                other.pixel_cloud['tile_swath_side']) == this_side
             self_side_mask = np.char.upper(
-                self['pixel_cloud']['tile_swath_side']) == this_side
+                self.pixel_cloud['tile_swath_side']) == this_side
 
-            other_start_times = other['pixel_cloud']['tile_time_granule_start']
-            other_end_times = other['pixel_cloud']['tile_time_granule_end']
+            other_start_times = other.pixel_cloud['tile_time_granule_start']
+            other_end_times = other.pixel_cloud['tile_time_granule_end']
             if np.any(other_side_mask):
                 other_start_times = other_start_times[other_side_mask]
                 other_end_times = other_end_times[other_side_mask]
 
-            self_start_times = self['pixel_cloud']['tile_time_granule_start']
-            self_end_times = self['pixel_cloud']['tile_time_granule_end']
+            self_start_times = self.pixel_cloud['tile_time_granule_start']
+            self_end_times = self.pixel_cloud['tile_time_granule_end']
             if np.any(self_side_mask):
                 self_start_times = self_start_times[self_side_mask]
                 self_end_times = self_end_times[self_side_mask]

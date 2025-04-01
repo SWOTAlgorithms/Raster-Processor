@@ -108,12 +108,10 @@ class GeolocRaster():
 
         line_idx = self.pixc['pixel_cloud']['pixc_line_index']
         tile_idx = self.pixc['pixel_cloud']['pixc_line_to_tile'][line_idx]
-        tvp_idx = self.pixc['pixel_cloud'][
-            'pixc_line_to_tvp'][line_idx].astype('i4')
+        swath_side = self.pixc['pixel_cloud']['tile_swath_side'][tile_idx]
 
         for this_side in ['L', 'R']:
-            side_mask = np.char.upper(
-                self.pixc['tvp']['swath_side'][tvp_idx]) == this_side
+            side_mask = np.char.upper(swath_side) == this_side
             valid_mask = np.logical_not(np.logical_or.reduce((
                 np.ma.getmaskarray(self.pixc['pixel_cloud']['height']),
                 np.ma.getmaskarray(self.pixc['pixel_cloud']['latitude']),

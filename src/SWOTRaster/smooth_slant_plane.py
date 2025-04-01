@@ -226,9 +226,9 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
         first_pixc_line_idx = np.where(
             tile_pixc_lines_in_tile[tile_pixc_line_mask])[0][0]
         first_tvp_idx = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][
-            tile_pixc_lines_in_tile][0].astype('i4')
+            tile_pixc_lines_in_tile][0].astype(int)
         last_tvp_idx = scene_pixc['pixel_cloud']['pixc_line_to_tvp'][
-            tile_pixc_lines_in_tile][-1].astype('i4')
+            tile_pixc_lines_in_tile][-1].astype(int)
         first_record_counter = \
             scene_pixc['tvp']['record_counter'][first_tvp_idx]
         last_record_counter = \
