@@ -262,7 +262,7 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
             idx_shift = np.round(
                 record_counter_shift / num_azimuth_looks).astype(int)
 
-        # Clamp between 1 and max_offset
+        # Clip between 1 and max_offset
         idx_shift = max(1, min(idx_shift, max_offset))
 
         azimuth_offsets[output_idx] = \

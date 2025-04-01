@@ -871,10 +871,31 @@ class RasterProcessor():
             side_mask = np.char.upper(pixc_line_swath_side) == this_side
             side_tvp_idx = pixc['pixel_cloud']['pixc_line_to_tvp'][
                 side_mask].astype(int)
+
             side_data_window_first_cross_track = pixc['pixel_cloud'][
                 'data_window_first_cross_track'][side_mask]
             side_data_window_last_cross_track = pixc['pixel_cloud'][
                 'data_window_last_cross_track'][side_mask]
+
+            # Fill/clip data window cross track values to 0, max_extent
+            if this_side == 'L':
+                max_extent = -products.POLYGON_EXTENT_DIST
+                side_data_window_first_cross_track = np.clip(
+                    side_data_window_first_cross_track.filled(0),
+                    max_extent, 0)
+                side_data_window_last_cross_track = np.clip(
+                    side_data_window_last_cross_track.filled(max_extent),
+                    max_extent, 0)
+            else:
+                max_extent = products.POLYGON_EXTENT_DIST
+                side_data_window_first_cross_track = np.clip(
+                    side_data_window_first_cross_track.filled(0),
+                    0, max_extent)
+                side_data_window_last_cross_track = np.clip(
+                    side_data_window_last_cross_track.filled(max_extent),
+                    0, max_extent)
+
+            # Get mask of extant data on this side
             side_extant_data_mask = np.logical_not(np.logical_or(
                 pixc_line_qual_large_karin_gap[side_mask],
                 pixc_line_qual_not_in_tile[side_mask]))
@@ -900,48 +921,6 @@ class RasterProcessor():
                             side_data_window_first_cross_track[line_idxs]
                         group_data_window_last_cross_track = \
                             side_data_window_last_cross_track[line_idxs]
-
-                        # Get max extent and fill/clamp cross track values
-                        if this_side == 'L':
-                            max_extent = -products.POLYGON_EXTENT_DIST
-
-                            # Fill/clamp to 0 and max_extent
-                            group_data_window_first_cross_track = \
-                                group_data_window_first_cross_track.filled(0)
-                            group_data_window_last_cross_track = \
-                                group_data_window_last_cross_track.filled(
-                                    max_extent)
-
-                            group_data_window_first_cross_track[
-                                group_data_window_first_cross_track > 0] = 0
-                            group_data_window_last_cross_track[
-                                group_data_window_last_cross_track > 0] = 0
-                            group_data_window_first_cross_track[
-                                group_data_window_first_cross_track
-                                < max_extent] = max_extent
-                            group_data_window_last_cross_track[
-                                group_data_window_last_cross_track
-                                < max_extent] = max_extent
-                        else:
-                            max_extent = products.POLYGON_EXTENT_DIST
-
-                            # Fill/clamp to 0 and max_extent
-                            group_data_window_first_cross_track = \
-                                group_data_window_first_cross_track.filled(0)
-                            group_data_window_last_cross_track = \
-                                group_data_window_last_cross_track.filled(
-                                    max_extent)
-
-                            group_data_window_first_cross_track[
-                                group_data_window_first_cross_track < 0] = 0
-                            group_data_window_last_cross_track[
-                                group_data_window_last_cross_track < 0] = 0
-                            group_data_window_first_cross_track[
-                                group_data_window_first_cross_track
-                                > max_extent] = max_extent
-                            group_data_window_last_cross_track[
-                                group_data_window_last_cross_track
-                                > max_extent] = max_extent
 
                         # Get extant data polygon points and add to list
                         extant_data_polygons_points.append(
