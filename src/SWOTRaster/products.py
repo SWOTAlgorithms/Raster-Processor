@@ -1910,7 +1910,11 @@ class ScenePixc(Product):
 
         # Handle merged TVP with overlap discarded
         tvp_time = np.ma.concatenate((self.tvp['time'], other.tvp['time']))
-        [_, rev_idx] = np.unique(tvp_time, return_inverse=True)
+        tvp_swath_side = np.ma.concatenate(
+            (self.tvp['swath_side'], other.tvp['swath_side']))
+        [_, rev_idx] = np.unique(
+            np.column_stack((tvp_time, np.char.upper(tvp_swath_side) == 'R')),
+            axis=0, return_inverse=True)
         unsorted_pixc_line_to_tvp = np.ma.concatenate((
             self.pixel_cloud['pixc_line_to_tvp'],
             self.tvp.dimensions['num_tvps']
@@ -2282,6 +2286,7 @@ class SceneTVP(Product):
         ['minus_y_antenna_y', odict([])],
         ['minus_y_antenna_z', odict([])],
         ['record_counter', odict([])],
+        ['swath_side', odict([])],
     ])
     for key in VARIABLES:
         VARIABLES[key]['dimensions'] = DIMENSIONS
@@ -2313,14 +2318,21 @@ class SceneTVP(Product):
             attr_val = getattr(pixc_tile['tvp'], key)
             setattr(scene_tvp, key, attr_val)
 
+        # Get swath side
+        scene_tvp['swath_side'] = np.full(
+            scene_tvp.dimensions['num_tvps'], pixc_tile.swath_side)
+
         return scene_tvp
 
     def __add__(self, other):
         """ Add other to self """
         klass = SceneTVP()
-        # Discard TVP overlap
+        # Discard TVP overlap for each side separately
         time = np.ma.concatenate((self.time, other.time))
-        [_, idx] = np.unique(time, return_index=True)
+        swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
+        [_, idx] = np.unique(
+            np.column_stack((time, np.char.upper(swath_side) == 'R')),
+            axis=0, return_index=True)
         for key in klass.VARIABLES:
             setattr(klass, key, np.ma.concatenate((
                 getattr(self, key), getattr(other, key)))[idx])
