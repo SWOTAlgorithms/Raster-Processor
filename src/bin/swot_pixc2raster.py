@@ -178,8 +178,8 @@ def main():
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=level, format=format_str)
 
-    alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
-                                          args.runtime_config_file)
+    alg_cfg = load_alg_config(args.alg_config_file)
+    rt_cfg = load_runtime_config(args.runtime_config_file)
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     if args.pixcvec_file is not None:
@@ -221,32 +221,33 @@ def main():
     product.to_ncfile(args.output_file)
 
 
-def load_raster_configs(alg_config_file, runtime_config_file):
-    """ Loads raster config files into dicts """
-    alg_cfg = RDF.RDF()
-    alg_cfg.rdfParse(alg_config_file)
-    alg_cfg = dict(alg_cfg)
+def load_alg_config(alg_config_file):
+    """ Loads raster alg config file into dict """
+    string_params = ['height_agg_method', 'area_agg_method', 'sig0_agg_method',
+                     'height_constrained_geoloc_source',
+                     'height_constrained_geoloc_method',
+                     'slant_plane_smoothing_method']
+    return load_config(alg_config_file, string_params=string_params)
 
-    # Typecast most config values with eval (except strings)
-    for key in alg_cfg.keys():
-        if key in ['height_agg_method', 'area_agg_method', 'sig0_agg_method',
-                   'height_constrained_geoloc_source',
-                   'height_constrained_geoloc_method',
-                   'slant_plane_smoothing_method']:
-            continue
-        alg_cfg[key] = ast.literal_eval(alg_cfg[key])
 
-    rt_cfg = RDF.RDF()
-    rt_cfg.rdfParse(runtime_config_file)
-    rt_cfg = dict(rt_cfg)
+def load_runtime_config(runtime_config_file):
+    """ Loads raster runtime config file into dict """
+    string_params = ['output_sampling_grid_type']
+    return load_config(runtime_config_file, string_params=string_params)
 
-    # Typecast most config values with eval (except strings)
-    for key in rt_cfg.keys():
-        if key in ['output_sampling_grid_type']:
-            continue
-        rt_cfg[key] = ast.literal_eval(rt_cfg[key])
 
-    return alg_cfg, rt_cfg
+def load_config(config_file, string_params=[]):
+    """ Loads rdf config file into dict """
+    cfg = RDF.RDF()
+    cfg.rdfParse(config_file)
+    cfg = dict(cfg)
+
+    # Typecast config values with eval (except strings)
+    for key, val in cfg.items():
+        if key not in string_params:
+            cfg[key] = ast.literal_eval(val)
+
+    return cfg
 
 
 if __name__ == '__main__':

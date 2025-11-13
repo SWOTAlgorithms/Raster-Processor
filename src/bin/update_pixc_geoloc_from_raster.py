@@ -17,7 +17,7 @@ from SWOTRaster.geoloc_raster import GeolocRaster
 from SWOTRaster.errors import RasterUsageException
 from SWOTWater.products.product import MutableProduct
 
-from swot_pixc2raster import load_raster_configs
+from swot_pixc2raster import load_alg_config, load_runtime_config
 
 LOGGER = logging.getLogger('update_pixc_geoloc_from_raster')
 
@@ -48,8 +48,8 @@ def main():
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=level, format=format_str)
 
-    alg_cfg, rt_cfg = load_raster_configs(args.alg_config_file,
-                                          args.runtime_config_file)
+    alg_cfg = load_alg_config(args.alg_config_file)
+    rt_cfg = load_runtime_config(args.runtime_config_file)
 
     pixc_tile = MutableProduct.from_ncfile(args.pixc_file)
     pixc_prod = SWOTRaster.products.ScenePixc.from_tile(pixc_tile, None)
