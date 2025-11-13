@@ -313,6 +313,7 @@ COMMON_ATTRIBUTES = odict([
           Names of input reference orbit track files.""")}],
 ])
 
+
 COMMON_VARIABLES = odict([
     ['wse',
      odict([['dtype', 'f4'],
@@ -1041,6 +1042,23 @@ COMMON_VARIABLES = odict([
 ])
 
 
+COMMON_DEBUG_VARIABLES = odict([
+    ['classification',
+     odict([['dtype', 'u1'],
+            ['long_name', 'classification'],
+            ['grid_mapping', 'crs'],
+            ['flag_meanings', textjoin("""
+                land land_near_water water_near_land open_water
+                dark_water low_coh_water_near_land open_low_coh_water""")],
+            ['flag_values', np.array([1, 2, 3, 4, 5, 6, 7]).astype('u1')],
+            ['valid_min', 1],
+            ['valid_max', 7],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', 'Flags indicating water detection results.'],
+     ])],
+])
+
+
 class RasterUTM(ProductTesterMixIn, Product):
     """ UTM raster """
     UID = "raster"
@@ -1228,11 +1246,6 @@ class RasterUTM(ProductTesterMixIn, Product):
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
-    VARIABLES['latitude']['coordinates'] = 'x y'
-    VARIABLES['latitude']['dimensions'] = odict([['y', 0], ['x', 0]])
-    VARIABLES['longitude']['coordinates'] = 'x y'
-    VARIABLES['longitude']['dimensions'] = odict([['y', 0], ['x', 0]])
-
     VARIABLES['x']['dimensions'] = odict([['x', 0]])
     VARIABLES['y']['dimensions'] = odict([['y', 0]])
     VARIABLES['crs']['dimensions'] = odict([])
@@ -1365,8 +1378,7 @@ class RasterUTM(ProductTesterMixIn, Product):
     def is_empty(self):
         """ Check if the raster is empty """
         for variable in COMMON_VARIABLES:
-            var_data = getattr(self, variable)
-            if np.logical_not(np.all(var_data.mask)):
+            if np.logical_not(np.all(getattr(self, variable).mask)):
                 return False
         return True
 
@@ -1644,8 +1656,7 @@ class RasterGeo(ProductTesterMixIn, Product):
     def is_empty(self):
         """ Check if the raster is empty """
         for variable in COMMON_VARIABLES:
-            var_data = getattr(self, variable)
-            if np.logical_not(np.all(var_data.mask)):
+            if np.logical_not(np.all(getattr(self, variable).mask)):
                 return False
         return True
 
@@ -1659,18 +1670,11 @@ class RasterUTMDebug(RasterUTM):
     VARIABLES = odict({key: RasterUTM.VARIABLES[key].copy()
                        for key in RasterUTM.VARIABLES})
     VARIABLES.update(odict([
-        ['classification',
-         odict([['dtype', 'u1']])],
+        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()]
     ]))
-    for key in VARIABLES:
+    for key in ['classification']:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
-
-    VARIABLES['x']['dimensions'] = odict([['x', 0]])
-    VARIABLES['y']['dimensions'] = odict([['y', 0]])
-    VARIABLES['crs']['dimensions'] = odict([])
-    VARIABLES['classification']['dimensions'] = \
-        odict([['y', 0], ['x', 0]])
 
 
 class RasterGeoDebug(RasterGeo):
@@ -1682,19 +1686,12 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES = odict({key: RasterGeo.VARIABLES[key].copy()
                        for key in RasterGeo.VARIABLES})
     VARIABLES.update(odict([
-        ['classification',
-         odict([['dtype', 'u1']])],
+        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()]
     ]))
-    for key in VARIABLES:
+    for key in ['classification']:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0],
                                               ['longitude', 0]])
-
-    VARIABLES['longitude']['dimensions'] = odict([['longitude', 0]])
-    VARIABLES['latitude']['dimensions'] = odict([['latitude', 0]])
-    VARIABLES['crs']['dimensions'] = odict([])
-    VARIABLES['classification']['dimensions'] = \
-        odict([['latitude', 0], ['longitude', 0]])
 
 
 class ScenePixc(Product):
@@ -1924,9 +1921,8 @@ class ScenePixc(Product):
             rev_idx[unsorted_pixc_line_to_tvp.astype(int)] + err
 
         # Set attributes from self
-        for key in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, key)
-            setattr(klass, key, attr_val)
+        for key in self.ATTRIBUTES:
+            setattr(klass, key, getattr(self, key))
 
         # Overwrite the temporal extent attributes if others are better
         if datetime_str_comp(other.time_granule_start,
@@ -2139,9 +2135,8 @@ class ScenePixelCloud(Product):
                            dtype=bool)
 
         # Copy common variables (and attributes)
-        pixel_cloud_vars = set(scene_pixel_cloud.VARIABLES.keys())
-        for key in pixel_cloud_vars.intersection(
-                pixc_tile['pixel_cloud'].VARIABLES.keys()):
+        for key in set(scene_pixel_cloud.VARIABLES).intersection(
+                pixc_tile['pixel_cloud'].VARIABLES):
             scene_pixel_cloud.VARIABLES[key] = \
                 pixc_tile['pixel_cloud'].VARIABLES[key].copy()
             if key in ['pixc_line_qual', 'pixc_line_to_tvp',
@@ -2215,11 +2210,10 @@ class ScenePixelCloud(Product):
             scene_pixel_cloud['ice_dyn_flag'].mask = ice_dyn_flag_mask
 
         # Copy common pixc attributes
-        pixel_cloud_attr = set(scene_pixel_cloud.ATTRIBUTES.keys())
-        for key in pixel_cloud_attr.intersection(
+        for key in set(scene_pixel_cloud.ATTRIBUTES).intersection(
                 pixc_tile['pixel_cloud'].ATTRIBUTES):
-            attr_val = getattr(pixc_tile['pixel_cloud'], key)
-            setattr(scene_pixel_cloud, key, attr_val)
+            setattr(scene_pixel_cloud, key,
+                    getattr(pixc_tile['pixel_cloud'], key))
 
         return scene_pixel_cloud
 
@@ -2251,9 +2245,8 @@ class ScenePixelCloud(Product):
             klass.VARIABLES['illumination_time']['leap_second'] = \
                 self.VARIABLES['illumination_time']['leap_second']
 
-        for key in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, key)
-            setattr(klass, key, attr_val)
+        for key in self.ATTRIBUTES:
+            setattr(klass, key, getattr(self, key))
 
         return klass
 
@@ -2299,9 +2292,8 @@ class SceneTVP(Product):
         scene_tvp = cls()
 
         # Copy common variables (and attributes)
-        tvp_vars = set(scene_tvp.VARIABLES.keys())
-        for key in tvp_vars.intersection(
-                pixc_tile['tvp'].VARIABLES.keys()):
+        for key in set(scene_tvp.VARIABLES).intersection(
+                pixc_tile['tvp'].VARIABLES):
             scene_tvp.VARIABLES[key] = \
                 pixc_tile['tvp'].VARIABLES[key].copy()
             scene_tvp[key] = pixc_tile['tvp'][key].copy()
@@ -2312,11 +2304,9 @@ class SceneTVP(Product):
             scene_tvp.VARIABLES['time']['leap_second'] = EMPTY_LEAPSEC
 
         # Copy common attributes
-        tvp_attr = set(scene_tvp.ATTRIBUTES.keys())
-        for key in tvp_attr.intersection(
+        for key in set(scene_tvp.ATTRIBUTES).intersection(
                 pixc_tile['tvp'].ATTRIBUTES):
-            attr_val = getattr(pixc_tile['tvp'], key)
-            setattr(scene_tvp, key, attr_val)
+            setattr(scene_tvp, key, getattr(pixc_tile['tvp'], key))
 
         # Get swath side
         scene_tvp['swath_side'] = np.full(
@@ -2349,8 +2339,7 @@ class SceneTVP(Product):
             klass.VARIABLES['time']['leap_second'] = \
                 self.VARIABLES['time']['leap_second']
 
-        for key in self.ATTRIBUTES.keys():
-            attr_val = getattr(self, key)
-            setattr(klass, key, attr_val)
+        for key in self.ATTRIBUTES:
+            setattr(klass, key, getattr(self, key))
 
         return klass
