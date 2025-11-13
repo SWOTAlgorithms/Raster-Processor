@@ -1901,7 +1901,7 @@ class ScenePixc(Product):
 
     def __add__(self, other):
         """ Add other to self """
-        klass = ScenePixc()
+        klass = type(self)()
         klass.tvp = self.tvp + other.tvp
         klass.pixel_cloud = self.pixel_cloud + other.pixel_cloud
 
@@ -2219,7 +2219,7 @@ class ScenePixelCloud(Product):
 
     def __add__(self, other):
         """ Add other to self """
-        klass = ScenePixelCloud()
+        klass = type(self)()
         for key in klass.VARIABLES:
             if key in ['pixc_line_index']:
                 setattr(klass, key, np.ma.concatenate((
@@ -2316,7 +2316,7 @@ class SceneTVP(Product):
 
     def __add__(self, other):
         """ Add other to self """
-        klass = SceneTVP()
+        klass = type(self)()
         # Discard TVP overlap for each side separately
         time = np.ma.concatenate((self.time, other.time))
         swath_side = np.ma.concatenate((self.swath_side, other.swath_side))
