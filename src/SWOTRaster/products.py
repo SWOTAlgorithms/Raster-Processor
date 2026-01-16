@@ -935,7 +935,7 @@ COMMON_VARIABLES = odict([
     ['load_tide_fes',
      odict([['dtype', 'f4'],
             ['long_name', 'geocentric load tide height (FES)'],
-            ['source', 'FES2014b (Carrere et al., 2016)'],
+            ['source', 'FES2022b'],
             ['institution', 'LEGOS/CNES'],
             ['grid_mapping', 'crs'],
             ['units', 'm'],
