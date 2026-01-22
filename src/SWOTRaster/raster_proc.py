@@ -581,6 +581,19 @@ class RasterProcessor():
                 pixc['pixel_cloud']['classification'],
                 all_pixc_mask, mask=all_raster_mask)
 
+            LOGGER.info('aggregating water edge fraction')
+            self.edge_frac = self.call_aggregator(
+                partial(raster_agg.aggregate_edge_frac,
+                        interior_water_klasses=self.interior_water_classes,
+                        water_edge_klasses=self.water_edge_classes,
+                        land_edge_klasses=self.land_edge_classes,
+                        dark_water_klasses=self.dark_water_classes,
+                        area_agg_method=self.area_agg_method),
+                pixc['pixel_cloud']['classification'],
+                pixc['pixel_cloud']['pixel_area'],
+                pixc['pixel_cloud']['water_frac'],
+                water_area_pixc_mask, mask=water_area_raster_mask)
+
         LOGGER.info('aggregating ice flags')
         self.ice_clim_flag = self.call_aggregator(
             raster_agg.aggregate_ice_flag,
@@ -1356,6 +1369,7 @@ class RasterProcessor():
 
             if self.debug_flag:
                 product['classification'] = self.classification
+                product['edge_frac'] = self.edge_frac
 
         # Crop the product to the desired bounds
         if polygon_points is not None:

@@ -601,3 +601,43 @@ def aggregate_classification(pixc_classif, mask):
         return classification[0]
     except TypeError:
         return np.nan
+
+def aggregate_edge_frac(
+        pixc_classif, pixc_pixel_area, pixc_water_frac, mask,
+        interior_water_klasses=AGG_CLASSES['interior_water_klasses'],
+        water_edge_klasses=AGG_CLASSES['water_edge_klasses'],
+        land_edge_klasses=AGG_CLASSES['land_edge_klasses'],
+        dark_water_klasses=AGG_CLASSES['dark_water_klasses'],
+        area_agg_method='composite'):
+    """ Aggregate water edge fraction """
+    mask = np.logical_and(
+        mask, args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
+    if np.any(mask):
+        edge_klasses = np.concatenate((water_edge_klasses, land_edge_klasses))
+        pixc_edge_mask = np.logical_and(
+            mask, np.isin(pixc_classif, edge_klasses))
+        if np.any(pixc_edge_mask):
+            edge_area, _ = ag.area_only(
+                pixc_pixel_area, pixc_water_frac, pixc_classif, pixc_edge_mask,
+                method=area_agg_method,
+                interior_water_klasses=interior_water_klasses,
+                water_edge_klasses=water_edge_klasses,
+                land_edge_klasses=land_edge_klasses,
+                dark_water_klasses=dark_water_klasses)
+            total_area, _ = ag.area_only(
+                pixc_pixel_area, pixc_water_frac, pixc_classif, mask,
+                method=area_agg_method,
+                interior_water_klasses=interior_water_klasses,
+                water_edge_klasses=water_edge_klasses,
+                land_edge_klasses=land_edge_klasses,
+                dark_water_klasses=dark_water_klasses)
+            if total_area == 0:
+                edge_frac = 0
+            else:
+                edge_frac = edge_area/total_area
+        else:
+            edge_frac = 0
+    else:
+        edge_frac = np.nan
+
+    return edge_frac

@@ -1056,6 +1056,18 @@ COMMON_DEBUG_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', 'Flags indicating water detection results.'],
      ])],
+    ['edge_frac',
+     odict([['dtype', 'f4'],
+            ['long_name', 'fractional area of water edge'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', -1000],
+            ['valid_max', 10000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Fraction of pixel water surface area covered by water
+                edge.""")],
+     ])],
 ])
 
 
@@ -1670,9 +1682,10 @@ class RasterUTMDebug(RasterUTM):
     VARIABLES = odict({key: RasterUTM.VARIABLES[key].copy()
                        for key in RasterUTM.VARIABLES})
     VARIABLES.update(odict([
-        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()]
+        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()],
+        ['edge_frac', COMMON_DEBUG_VARIABLES['edge_frac'].copy()],
     ]))
-    for key in ['classification']:
+    for key in ['classification', 'edge_frac']:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
@@ -1686,9 +1699,10 @@ class RasterGeoDebug(RasterGeo):
     VARIABLES = odict({key: RasterGeo.VARIABLES[key].copy()
                        for key in RasterGeo.VARIABLES})
     VARIABLES.update(odict([
-        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()]
+        ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()],
+        ['edge_frac', COMMON_DEBUG_VARIABLES['edge_frac'].copy()],
     ]))
-    for key in ['classification']:
+    for key in ['classification', 'edge_frac']:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0],
                                               ['longitude', 0]])
