@@ -563,7 +563,9 @@ COMMON_VARIABLES = odict([
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Fraction of the pixel that is water.""")],
+                Fraction of the pixel that is water. The value is typically
+                between 0 and 1 but may occasionally go outside this range due
+                to noise in the estimates.""")],
      ])],
     ['water_frac_uncert',
      odict([['dtype', 'f4'],
@@ -818,7 +820,9 @@ COMMON_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Fraction of pixel water surface area covered by dark
-                water.""")],
+                water. The value is typically between 0 and 1 but may
+                occasionally go outside this range due to noise in the
+                estimates.""")],
      ])],
     ['ice_clim_flag',
      odict([['dtype', 'u1'],
