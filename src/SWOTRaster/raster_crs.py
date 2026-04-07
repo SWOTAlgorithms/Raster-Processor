@@ -272,7 +272,9 @@ def xyz2llh(xyz):
     hdz = np.hypot(d, z)
 
     llh[0] = 2.0 * np.arctan(z / (d + hdz))
-    llh[1] = 2.0 * np.arctan2(y, (x + hxy))
+    # Vermeille used 2 * arctan2(y, x + hxy) which fails at the antimeridian,
+    # use arctan2(y, x) instead
+    llh[1] = np.arctan2(y, x)
     llh[2] = (k + e2 - 1.0) / k * hdz
 
     warnings.resetwarnings()
