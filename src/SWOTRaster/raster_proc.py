@@ -163,8 +163,6 @@ class RasterProcessor():
         self.scene_number = pixc.scene_number
         self.time_granule_start = pixc.time_granule_start
         self.time_granule_end = pixc.time_granule_end
-        self.time_coverage_start = pixc.time_coverage_start
-        self.time_coverage_end = pixc.time_coverage_end
         self.geospatial_lon_min = pixc.geospatial_lon_min
         self.geospatial_lon_max = pixc.geospatial_lon_max
         self.geospatial_lat_min = pixc.geospatial_lat_min
@@ -183,6 +181,11 @@ class RasterProcessor():
         self.tile_numbers = pixc['pixel_cloud']['tile_tile_number']
         self.tile_names = pixc['pixel_cloud']['tile_tile_name']
         self.tile_polarizations = pixc['pixel_cloud']['tile_polarization']
+
+        self.time_coverage_start = products.EMPTY_DATETIME
+        self.time_coverage_end = products.EMPTY_DATETIME
+        self.tai_utc_difference = products.EMPTY_TAI_UTC_DIFF
+        self.leap_second = products.EMPTY_LEAPSEC
 
         if polygon_points is None:
             LOGGER.info("creating projection from bounding box")
@@ -598,13 +601,8 @@ class RasterProcessor():
         LOGGER.info("flagging inner swath")
         self.flag_inner_swath(pixc)
 
-        # Set the time coverage start and end based on illumination time
-        if np.all(self.illumination_time.mask):
-            self.time_coverage_start = products.EMPTY_DATETIME
-            self.time_coverage_end = products.EMPTY_DATETIME
-            self.tai_utc_difference = products.EMPTY_TAI_UTC_DIFF
-            self.leap_second = products.EMPTY_LEAPSEC
-        else:
+        # Update time coverage, tai/utc difference and leap seconds
+        if not np.all(self.illumination_time.mask):
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
@@ -618,7 +616,6 @@ class RasterProcessor():
             self.time_coverage_end = end_time.strftime(
                 products.DATETIME_FORMAT_STR)
 
-            # Set tai_utc_difference
             min_illumination_time_idx = np.unravel_index(
                 np.argmin(self.illumination_time),
                 self.illumination_time.shape)
@@ -626,13 +623,12 @@ class RasterProcessor():
                 self.illumination_time_tai[min_illumination_time_idx] \
                 - self.illumination_time[min_illumination_time_idx]
 
-            # Set leap second
-            self.leap_second = pixc.leap_second
-            if self.leap_second != products.EMPTY_LEAPSEC:
+            if pixc.leap_second != products.EMPTY_LEAPSEC:
                 leap_second_time = datetime.strptime(
-                    self.leap_second, products.LEAPSEC_FORMAT_STR)
-                if leap_second_time < start_time or leap_second_time > end_time:
-                    self.leap_second = products.EMPTY_LEAPSEC
+                    pixc.leap_second, products.LEAPSEC_FORMAT_STR)
+                if leap_second_time >= start_time \
+                   and leap_second_time <= end_time:
+                    self.leap_second = pixc.leap_second
 
         LOGGER.info("building product")
         return self.build_product(polygon_points=polygon_points)
@@ -1267,6 +1263,11 @@ class RasterProcessor():
         product.VARIABLES['crs']['spatial_ref'] = \
             product.VARIABLES['crs']['crs_wkt']
 
+        product.VARIABLES['illumination_time']['tai_utc_difference'] = \
+            self.tai_utc_difference
+        product.VARIABLES['illumination_time']['leap_second'] = \
+            self.leap_second
+
         if populate_values:
             if self.projection_type.lower() == 'utm':
                 product['longitude'] = self.longitude
@@ -1274,11 +1275,6 @@ class RasterProcessor():
 
             product['illumination_time'] = self.illumination_time
             product['illumination_time_tai'] = self.illumination_time_tai
-            product.VARIABLES['illumination_time']['tai_utc_difference'] = \
-                self.tai_utc_difference
-            product.VARIABLES['illumination_time']['leap_second'] = \
-                self.leap_second
-
             product['inc'] = self.inc
             product['cross_track'] = self.cross_track
             product['n_other_pix'] = self.n_other_pix

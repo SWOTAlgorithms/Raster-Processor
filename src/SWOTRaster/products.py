@@ -1353,7 +1353,7 @@ class RasterUTM(ProductTesterMixIn, Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
-        # Set the time coverage start and end based on illumination time
+        # Update time coverage, tai/utc difference and leap seconds
         if np.all(self.illumination_time.mask):
             self.time_coverage_start = EMPTY_DATETIME
             self.time_coverage_end = EMPTY_DATETIME
@@ -1372,7 +1372,6 @@ class RasterUTM(ProductTesterMixIn, Product):
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
 
-            # Set tai_utc_difference
             min_illumination_time_idx = np.unravel_index(
                 np.argmin(self.illumination_time),
                 self.illumination_time.shape)
@@ -1380,13 +1379,13 @@ class RasterUTM(ProductTesterMixIn, Product):
                 self.illumination_time_tai[min_illumination_time_idx] \
                 - self.illumination_time[min_illumination_time_idx]
 
-            # Set leap second
             if self.VARIABLES['illumination_time']['leap_second'] \
                != EMPTY_LEAPSEC:
                 leap_second_time = datetime.strptime(
                     self.VARIABLES['illumination_time']['leap_second'],
                     LEAPSEC_FORMAT_STR)
-                if leap_second_time < start_time or leap_second_time > end_time:
+                if not (leap_second_time >= start_time
+                        and leap_second_time <= end_time):
                     self.VARIABLES['illumination_time']['leap_second'] = \
                         EMPTY_LEAPSEC
 
