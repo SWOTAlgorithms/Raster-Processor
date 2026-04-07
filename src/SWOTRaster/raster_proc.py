@@ -631,7 +631,7 @@ class RasterProcessor():
             if self.leap_second != products.EMPTY_LEAPSEC:
                 leap_second_time = datetime.strptime(
                     self.leap_second, products.LEAPSEC_FORMAT_STR)
-                if leap_second_time < start_time or leap_second_time > end_time):
+                if leap_second_time < start_time or leap_second_time > end_time:
                     self.leap_second = products.EMPTY_LEAPSEC
 
         LOGGER.info("building product")
