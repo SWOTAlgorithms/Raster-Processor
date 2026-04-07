@@ -627,16 +627,12 @@ class RasterProcessor():
                 - self.illumination_time[min_illumination_time_idx]
 
             # Set leap second
-            if pixc.leap_second == products.EMPTY_LEAPSEC:
-                self.leap_second = products.EMPTY_LEAPSEC
-            else:
-                leap_second = datetime.strptime(
-                    pixc.leap_second, products.LEAPSEC_FORMAT_STR)
-                if leap_second < start_time or leap_second > end_time:
+            self.leap_second = pixc.leap_second
+            if self.leap_second != products.EMPTY_LEAPSEC:
+                leap_second_time = datetime.strptime(
+                    self.leap_second, products.LEAPSEC_FORMAT_STR)
+                if leap_second_time < start_time or leap_second_time > end_time):
                     self.leap_second = products.EMPTY_LEAPSEC
-                else:
-                    self.leap_second = leap_second.strftime(
-                        products.LEAPSEC_FORMAT_STR)
 
         LOGGER.info("building product")
         return self.build_product(polygon_points=polygon_points)

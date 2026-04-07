@@ -1357,8 +1357,9 @@ class RasterUTM(ProductTesterMixIn, Product):
         if np.all(self.illumination_time.mask):
             self.time_coverage_start = EMPTY_DATETIME
             self.time_coverage_end = EMPTY_DATETIME
-            self.tai_utc_difference = EMPTY_TAI_UTC_DIFF
-            self.leap_second = EMPTY_LEAPSEC
+            self.VARIABLES['illumination_time']['tai_utc_difference'] = \
+                EMPTY_TAI_UTC_DIFF
+            self.VARIABLES['illumination_time']['leap_second'] = EMPTY_LEAPSEC
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -1382,13 +1383,12 @@ class RasterUTM(ProductTesterMixIn, Product):
             # Set leap second
             if self.VARIABLES['illumination_time']['leap_second'] \
                != EMPTY_LEAPSEC:
-                leap_second = datetime.strptime(
+                leap_second_time = datetime.strptime(
                     self.VARIABLES['illumination_time']['leap_second'],
                     LEAPSEC_FORMAT_STR)
-                if leap_second < start_time or leap_second > end_time:
-                    self.leap_second = EMPTY_LEAPSEC
-                else:
-                    self.leap_second = leap_second.strftime(LEAPSEC_FORMAT_STR)
+                if leap_second_time < start_time or leap_second_time > end_time:
+                    self.VARIABLES['illumination_time']['leap_second'] = \
+                        EMPTY_LEAPSEC
 
 
     def get_uncorrected_height(self):
