@@ -602,9 +602,11 @@ class RasterProcessor():
         if np.all(self.illumination_time.mask):
             self.time_coverage_start = products.EMPTY_DATETIME
             self.time_coverage_end = products.EMPTY_DATETIME
+            self.tai_utc_difference = products.EMPTY_TAI_UTC_DIFF
+            self.leap_second = products.EMPTY_LEAPSEC
         else:
-            start_illumination_time = np.nanmin(self.illumination_time)
-            end_illumination_time = np.nanmax(self.illumination_time)
+            start_illumination_time = np.min(self.illumination_time)
+            end_illumination_time = np.max(self.illumination_time)
             start_time = datetime.utcfromtimestamp(
                 (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
                 + start_illumination_time)
@@ -616,24 +618,25 @@ class RasterProcessor():
             self.time_coverage_end = end_time.strftime(
                 products.DATETIME_FORMAT_STR)
 
-        # Set tai_utc_difference
-        min_illumination_time_idx = np.unravel_index(
-            np.nanargmin(self.illumination_time), self.illumination_time.shape)
-        self.tai_utc_difference = \
-            self.illumination_time_tai[min_illumination_time_idx] \
-            - self.illumination_time[min_illumination_time_idx]
+            # Set tai_utc_difference
+            min_illumination_time_idx = np.unravel_index(
+                np.argmin(self.illumination_time),
+                self.illumination_time.shape)
+            self.tai_utc_difference = \
+                self.illumination_time_tai[min_illumination_time_idx] \
+                - self.illumination_time[min_illumination_time_idx]
 
-        # Set leap second
-        if pixc.leap_second == products.EMPTY_LEAPSEC:
-            self.leap_second = products.EMPTY_LEAPSEC
-        else:
-            leap_second = datetime.strptime(
-                pixc.leap_second, products.LEAPSEC_FORMAT_STR)
-            if leap_second < start_time or leap_second > end_time:
+            # Set leap second
+            if pixc.leap_second == products.EMPTY_LEAPSEC:
                 self.leap_second = products.EMPTY_LEAPSEC
             else:
-                self.leap_second = leap_second.strftime(
-                    products.LEAPSEC_FORMAT_STR)
+                leap_second = datetime.strptime(
+                    pixc.leap_second, products.LEAPSEC_FORMAT_STR)
+                if leap_second < start_time or leap_second > end_time:
+                    self.leap_second = products.EMPTY_LEAPSEC
+                else:
+                    self.leap_second = leap_second.strftime(
+                        products.LEAPSEC_FORMAT_STR)
 
         LOGGER.info("building product")
         return self.build_product(polygon_points=polygon_points)

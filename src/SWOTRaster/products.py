@@ -28,6 +28,7 @@ DATETIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
 LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
 EMPTY_LEAPSEC = "0000-00-00T00:00:00Z"
+EMPTY_TAI_UTC_DIFF = 0
 
 # define constants for each summary quality value
 QUAL_IND_GOOD = 0
@@ -1352,10 +1353,12 @@ class RasterUTM(ProductTesterMixIn, Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
-        # Set the time coverage start and end
+        # Set the time coverage start and end based on illumination time
         if np.all(self.illumination_time.mask):
             self.time_coverage_start = EMPTY_DATETIME
             self.time_coverage_end = EMPTY_DATETIME
+            self.tai_utc_difference = EMPTY_TAI_UTC_DIFF
+            self.leap_second = EMPTY_LEAPSEC
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -1367,6 +1370,26 @@ class RasterUTM(ProductTesterMixIn, Product):
                 + end_illumination_time)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
+
+            # Set tai_utc_difference
+            min_illumination_time_idx = np.unravel_index(
+                np.argmin(self.illumination_time),
+                self.illumination_time.shape)
+            self.VARIABLES['illumination_time']['tai_utc_difference'] = \
+                self.illumination_time_tai[min_illumination_time_idx] \
+                - self.illumination_time[min_illumination_time_idx]
+
+            # Set leap second
+            if self.VARIABLES['illumination_time']['leap_second'] \
+               != EMPTY_LEAPSEC:
+                leap_second = datetime.strptime(
+                    self.VARIABLES['illumination_time']['leap_second'],
+                    LEAPSEC_FORMAT_STR)
+                if leap_second < start_time or leap_second > end_time:
+                    self.leap_second = EMPTY_LEAPSEC
+                else:
+                    self.leap_second = leap_second.strftime(LEAPSEC_FORMAT_STR)
+
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
