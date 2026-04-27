@@ -7,9 +7,9 @@ Author (s): Alexander Corben (JPL)
 '''
 
 import logging
+import datetime
 import collections.abc
 import multiprocessing
-from datetime import datetime
 from functools import partial
 from itertools import groupby, chain, compress
 
@@ -605,12 +605,12 @@ class RasterProcessor():
         else:
             start_illumination_time = np.nanmin(self.illumination_time)
             end_illumination_time = np.nanmax(self.illumination_time)
-            start_time = datetime.utcfromtimestamp(
+            start_time = datetime.datetime.fromtimestamp(
                 (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
-                + start_illumination_time)
-            end_time = datetime.utcfromtimestamp(
+                + start_illumination_time, datetime.UTC)
+            end_time = datetime.datetime.fromtimestamp(
                 (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
-                + end_illumination_time)
+                + end_illumination_time, datetime.UTC)
             self.time_coverage_start = start_time.strftime(
                 products.DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(
@@ -627,7 +627,7 @@ class RasterProcessor():
         if pixc.leap_second == products.EMPTY_LEAPSEC:
             self.leap_second = products.EMPTY_LEAPSEC
         else:
-            leap_second = datetime.strptime(
+            leap_second = datetime.datetime.strptime(
                 pixc.leap_second, products.LEAPSEC_FORMAT_STR)
             if leap_second < start_time or leap_second > end_time:
                 self.leap_second = products.EMPTY_LEAPSEC
@@ -1196,7 +1196,7 @@ class RasterProcessor():
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
-        current_datetime = datetime.utcnow()
+        current_datetime = datetime.datetime.now(datetime.UTC)
         product.history = \
             "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z : Creation".format(
                 current_datetime.year, current_datetime.month,

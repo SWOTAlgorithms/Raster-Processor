@@ -7,9 +7,9 @@ Author(s): Alexander Corben
 '''
 
 import logging
+import datetime
 import textwrap
 import operator as op
-from datetime import datetime
 from collections import OrderedDict as odict
 
 import numpy as np
@@ -22,8 +22,8 @@ from SWOTRaster import raster_crs
 
 VERSION_ID = 'V1.4.1'
 
-UNIX_EPOCH = datetime(1970, 1, 1)
-SWOT_EPOCH = datetime(2000, 1, 1)
+UNIX_EPOCH = datetime.datetime(1970, 1, 1)
+SWOT_EPOCH = datetime.datetime(2000, 1, 1)
 DATETIME_FORMAT_STR = '%Y-%m-%dT%H:%M:%S.%fZ'
 LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
@@ -104,8 +104,8 @@ def datetime_str_comp(d0, d1, comp=op.le,
         return False
     if d1 is None or d1.lower() == 'none' or d1 == empty_value:
         return True
-    _d0 = datetime.strptime(d0, format_str)
-    _d1 = datetime.strptime(d1, format_str)
+    _d0 = datetime.datetime.strptime(d0, format_str)
+    _d1 = datetime.datetime.strptime(d1, format_str)
     return comp(_d0, _d1)
 
 
@@ -1359,12 +1359,12 @@ class RasterUTM(ProductTesterMixIn, Product):
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-            start_time = datetime.utcfromtimestamp(
+            start_time = datetime.datetime.fromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
-                + start_illumination_time)
-            end_time = datetime.utcfromtimestamp(
+                + start_illumination_time, datetime.UTC)
+            end_time = datetime.datetime.fromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
-                + end_illumination_time)
+                + end_illumination_time, datetime.UTC)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
 
@@ -1637,12 +1637,12 @@ class RasterGeo(ProductTesterMixIn, Product):
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-            start_time = datetime.utcfromtimestamp(
+            start_time = datetime.datetime.fromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
-                + start_illumination_time)
-            end_time = datetime.utcfromtimestamp(
+                + start_illumination_time, datetime.UTC)
+            end_time = datetime.datetime.fromtimestamp(
                 (SWOT_EPOCH-UNIX_EPOCH).total_seconds()
-                + end_illumination_time)
+                + end_illumination_time, datetime.UTC)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
 
@@ -1947,7 +1947,7 @@ class ScenePixc(Product):
 
         # Overwrite the alongtrack extent attributes if others are better
         def _strptime(d0, format_str=DATETIME_FORMAT_STR):
-            return datetime.strptime(d0, format_str)
+            return datetime.datetime.strptime(d0, format_str)
 
         for this_side in ['L', 'R']:
             other_side_mask = np.char.upper(
