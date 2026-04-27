@@ -628,7 +628,8 @@ class RasterProcessor():
             self.leap_second = products.EMPTY_LEAPSEC
         else:
             leap_second = datetime.datetime.strptime(
-                pixc.leap_second, products.LEAPSEC_FORMAT_STR)
+                pixc.leap_second, products.LEAPSEC_FORMAT_STR).replace(
+                    tzinfo=datetime.UTC)
             if leap_second < start_time or leap_second > end_time:
                 self.leap_second = products.EMPTY_LEAPSEC
             else:
