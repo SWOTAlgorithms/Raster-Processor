@@ -7,9 +7,9 @@ Author (s): Alexander Corben (JPL)
 '''
 
 import logging
+import datetime
 import collections.abc
 import multiprocessing
-from datetime import datetime
 from functools import partial
 from itertools import groupby, chain, compress
 
@@ -605,12 +605,12 @@ class RasterProcessor():
         if not np.all(self.illumination_time.mask):
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
-            start_time = datetime.utcfromtimestamp(
+            start_time = datetime.datetime.fromtimestamp(
                 (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
-                + start_illumination_time)
-            end_time = datetime.utcfromtimestamp(
+                + start_illumination_time, datetime.UTC)
+            end_time = datetime.datetime.fromtimestamp(
                 (products.SWOT_EPOCH - products.UNIX_EPOCH).total_seconds()
-                + end_illumination_time)
+                + end_illumination_time, datetime.UTC)
             self.time_coverage_start = start_time.strftime(
                 products.DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(
@@ -624,10 +624,10 @@ class RasterProcessor():
                 - self.illumination_time[min_illumination_time_idx]
 
             if pixc.leap_second != products.EMPTY_LEAPSEC:
-                leap_second_time = datetime.strptime(
-                    pixc.leap_second, products.LEAPSEC_FORMAT_STR)
-                if leap_second_time >= start_time \
-                   and leap_second_time <= end_time:
+                leap_second_time = datetime.datetime.strptime(
+                    pixc.leap_second, products.LEAPSEC_FORMAT_STR).replace(
+                        tzinfo=datetime.UTC)
+                if start_time <= leap_second_time <= end_time:
                     self.leap_second = pixc.leap_second
 
         LOGGER.info("building product")
@@ -1191,7 +1191,7 @@ class RasterProcessor():
             raise RasterUsageException(
                 'Unknown projection type: {}'.format(self.projection_type))
 
-        current_datetime = datetime.utcnow()
+        current_datetime = datetime.datetime.now(datetime.UTC)
         product.history = \
             "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z : Creation".format(
                 current_datetime.year, current_datetime.month,

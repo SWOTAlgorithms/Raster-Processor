@@ -7,9 +7,9 @@ Author(s): Alexander Corben
 
 '''
 import logging
+import datetime
 import multiprocessing
 from functools import partial
-from datetime import datetime
 
 import bottleneck
 import numpy as np
@@ -193,7 +193,8 @@ def get_azimuth_offsets(scene_pixc, max_offset, tile_mask=None):
 
     # Sort tiles by granule start time
     all_tiles_time_granule_start = np.array(
-        [datetime.strptime(time_granule_start, products.DATETIME_FORMAT_STR)
+        [datetime.datetime.strptime(
+            time_granule_start, products.DATETIME_FORMAT_STR)
          for time_granule_start
          in scene_pixc['pixel_cloud']['tile_time_granule_start']])
     sort_idx = np.argsort(all_tiles_time_granule_start[tile_mask])
