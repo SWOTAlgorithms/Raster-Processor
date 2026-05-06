@@ -1597,14 +1597,14 @@ class RasterGeo(ProductTesterMixIn, Product):
                 mapping_tmp[i].append([])
 
         i_tmp = np.round(
-            (pixc_lats - self.latitude_min)/self.resolution).astype(int)
+            (pixc_lats - self.latitude_min) / self.resolution).astype(int)
 
         # Handle longitude wrap
         lons_diff = pixc_lons - self.longitude_min
         wrapped_mask = lons_diff < -180
         j_tmp = np.round(lons_diff / self.resolution).astype(int)
         j_tmp[wrapped_mask] = np.round(
-            (lons_diff[wrapped_mask] + 360)/self.resolution).astype(int)
+            (lons_diff[wrapped_mask] + 360) / self.resolution).astype(int)
 
         idx_mask = np.logical_and.reduce((
             i_tmp >= 0, i_tmp < self.dimensions['latitude'],
@@ -1760,7 +1760,7 @@ class ScenePixc(Product):
         scene_pixc.cycle_number = pixc_tile.cycle_number
         scene_pixc.pass_number = pixc_tile.pass_number
         scene_pixc.scene_number = np.ceil(
-            pixc_tile.tile_number/NONOVERLAP_TILES_PER_SIDE).astype('i2')
+            pixc_tile.tile_number / NONOVERLAP_TILES_PER_SIDE).astype('i2')
         scene_pixc.time_granule_start = pixc_tile.time_granule_start
         scene_pixc.time_granule_end = pixc_tile.time_granule_end
         scene_pixc.time_coverage_start = pixc_tile.time_coverage_start
