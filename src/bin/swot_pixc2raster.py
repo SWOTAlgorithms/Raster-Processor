@@ -213,7 +213,7 @@ def main():
     product.crid = args.crid
     product.pge_name = PGE_NAME
     product.pge_version = VERSION_ID
-    product.product_version = '{:02}'.format(args.product_counter)
+    product.product_version = f'{args.product_counter:02}'
     product.xref_l2_hr_pixc_files = os.path.basename(args.pixc_file)
     product.xref_l2_hr_pixcvec_files = os.path.basename(args.pixcvec_file)
     product.xref_param_l2_hr_raster_file = os.path.basename(
@@ -236,8 +236,11 @@ def load_runtime_config(runtime_config_file):
     return load_config(runtime_config_file, string_params=string_params)
 
 
-def load_config(config_file, string_params=[]):
+def load_config(config_file, string_params=None):
     """ Loads rdf config file into dict """
+    if string_params is None:
+        string_params = []
+
     cfg = RDF.RDF()
     cfg.rdfParse(config_file)
     cfg = dict(cfg)

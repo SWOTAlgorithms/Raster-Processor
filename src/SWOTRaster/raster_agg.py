@@ -228,7 +228,7 @@ def aggregate_water_area(
             pixel_area = raster_crs.wgs84_px_area(px_lat, resolution)
         else:
             raise RasterUsageException(
-                'Unknown projection type: {}'.format(projection_type))
+                f'Unknown projection type: {projection_type}')
 
         water_frac = water_area/pixel_area
         water_frac_u = water_area_u/pixel_area

@@ -57,7 +57,7 @@ def smooth_slant_plane(
     LOGGER.info('Smoothing %s in slant plane', var_name)
     if method not in ['simple', 'composite', 'composite_with_sus_classes']:
         raise RasterUsageException(
-            'Unknown slant plane smoothing method: {}'.format(method))
+            f'Unknown slant plane smoothing method: {method}')
 
     # If all input pixels are masked, return fully masked array
     var = scene_pixc['pixel_cloud'][var_name]

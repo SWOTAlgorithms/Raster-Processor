@@ -71,7 +71,7 @@ def main():
                 args.raster_file)
     else:
         raise RasterUsageException(
-            'Unknown projection type: {}'.format(projection_type))
+            f'Unknown projection type: {projection_type}')
 
     geolocator = GeolocRaster(pixc_prod, alg_cfg)
     geolocator.set_new_height_from_raster(raster_prod)

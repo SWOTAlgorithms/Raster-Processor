@@ -75,7 +75,7 @@ class RasterProcessor():
             self.utm_conversion_max_chunk_size = utm_conversion_max_chunk_size
         else:
             raise RasterUsageException(
-                'Unknown projection type: {}'.format(self.projection_type))
+                f'Unknown projection type: {self.projection_type}')
 
         self.padding = padding
         self.height_agg_method = height_agg_method
@@ -676,7 +676,7 @@ class RasterProcessor():
             proj_center_y = self.output_crs.GetProjParm('false_northing')
         else:
             raise RasterUsageException(
-                'Unknown projection type: {}'.format(self.projection_type))
+                f'Unknown projection type: {self.projection_type}')
 
         # Get the coordinate limits
         x_min = np.min(poly_edge_x)
@@ -1189,14 +1189,16 @@ class RasterProcessor():
                 product = products.RasterGeo()
         else:
             raise RasterUsageException(
-                'Unknown projection type: {}'.format(self.projection_type))
+                f'Unknown projection type: {self.projection_type}')
 
         current_datetime = datetime.datetime.now(datetime.UTC)
         product.history = \
-            "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z : Creation".format(
-                current_datetime.year, current_datetime.month,
-                current_datetime.day, current_datetime.hour,
-                current_datetime.minute, current_datetime.second)
+            (f'{current_datetime.year:04d}-'
+             f'{current_datetime.month:02d}-'
+             f'{current_datetime.day:02d}T'
+             f'{current_datetime.hour:02d}:'
+             f'{current_datetime.minute:02d}:'
+             f'{current_datetime.second:02d}Z : Creation')
         product.cycle_number = self.cycle_number
         product.pass_number = self.pass_number
         product.scene_number = self.scene_number
@@ -1204,8 +1206,7 @@ class RasterProcessor():
         # Sort tile level attributes based on swath side first,
         # then the rest of the name (i.e. side_cycle_pass_tile)
         sort_idx = np.argsort(
-            ['{}_{:03d}_{}'.format(
-                tile_name[-1].lower(), tile_cycle, tile_name[:-1])
+            [f'{tile_name[-1].lower()}_{tile_cycle:03d}_{tile_name[:-1]}'
              for tile_cycle, tile_name in zip(
                      self.tile_cycle_numbers, self.tile_names)])
         product.tile_numbers = self.tile_numbers[sort_idx]
@@ -1257,7 +1258,7 @@ class RasterProcessor():
             product['latitude'] = self.y_vec
         else:
             raise RasterUsageException(
-                'Unknown projection type: {}'.format(self.projection_type))
+                f'Unknown projection type: {self.projection_type}')
 
         product.VARIABLES['crs']['crs_wkt'] = coordinate_system.ExportToWkt()
         product.VARIABLES['crs']['spatial_ref'] = \

@@ -84,7 +84,8 @@ def textjoin(text):
 def int2hexattr(val):
     """ Convert an int to an attribute string
         with both the decimal int value and 32-bit hex word """
-    return "{0} ({1})".format(val, int2hex(val, 8, upper=True))
+    hex_val = int2hex(val, 8, upper=True)
+    return f'{val} ({hex_val})'
 
 
 def int2hex(val, pad_sz, upper=False):
@@ -92,7 +93,7 @@ def int2hex(val, pad_sz, upper=False):
     fmt = 'x'
     if upper:
         fmt = 'X'
-    return '0x{0:0{1}{2}}'.format(val, pad_sz, fmt)
+    return f'0x{val:0{pad_sz}{fmt}}'
 
 
 def datetime_str_comp(d0, d1, comp=op.le,

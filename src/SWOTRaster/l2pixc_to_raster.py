@@ -153,8 +153,7 @@ class L2PixcToRaster():
             self.use_improved_geoloc = True
         else:
             raise RasterUsageException(
-                'Invalid height_constrained_geoloc_source: {}'.format(
-                    hc_geoloc_source))
+                f'Invalid height_constrained_geoloc_source: {hc_geoloc_source}')
 
         if self.algorithmic_config['write_internal_files']:
             if self.scratch_dir is None:

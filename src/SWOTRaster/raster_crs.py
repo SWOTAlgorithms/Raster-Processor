@@ -107,7 +107,7 @@ def mgrs_band_shift(mgrs_band, shift, longitude):
 def hemisphere_from_mgrs_band(mgrs_band):
     """ Gets the hemisphere from an MGRS band """
     if not is_mgrs_band_valid(mgrs_band):
-        raise ValueError("Invalid MGRS Band: {}".format(mgrs_band))
+        raise ValueError(f'Invalid MGRS Band: {mgrs_band}')
     if mgrs_band >= 'N':
         return 'N'
     return 'S'
@@ -116,14 +116,14 @@ def hemisphere_from_mgrs_band(mgrs_band):
 def utm_zone_identifier(utm_zone, hemisphere):
     """ Gets the EPGS identifier for the UTM zone """
     if not is_utm_zone_valid(utm_zone):
-        raise ValueError("Invalid UTM Zone: {}".format(utm_zone))
+        raise ValueError(f'Invalid UTM Zone: {utm_zone}')
 
     if hemisphere == 'N':
         hemisphere_id = "6"
     elif hemisphere == 'S':
         hemisphere_id = "7"
     else:
-        raise ValueError("Invalid hemisphere: {}".format(hemisphere))
+        raise ValueError(f'Invalid hemisphere: {hemisphere}')
 
     identifier = "32" + hemisphere_id + str(utm_zone).zfill(2)
     return int(identifier)
@@ -132,9 +132,9 @@ def utm_zone_identifier(utm_zone, hemisphere):
 def utm_crs(utm_zone, mgrs_band):
     """ Gets a UTM Coordinate Reference System """
     if not is_utm_zone_valid(utm_zone):
-        raise ValueError("Invalid UTM Zone: {}".format(utm_zone))
+        raise ValueError(f'Invalid UTM Zone: {utm_zone}')
     if not is_mgrs_band_valid(mgrs_band):
-        raise ValueError("Invalid MGRS Band: {}".format(mgrs_band))
+        raise ValueError(f'Invalid MGRS Band: {mgrs_band}')
 
     hemisphere = hemisphere_from_mgrs_band(mgrs_band)
     utm_zone_id = utm_zone_identifier(utm_zone, hemisphere)
