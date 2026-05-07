@@ -823,7 +823,7 @@ COMMON_VARIABLES = odict([
      ])],
     ['edge_frac',
      odict([['dtype', 'f4'],
-            ['long_name', 'fractional area of water edge'],
+            ['long_name', 'fractional area of edge water'],
             ['grid_mapping', 'crs'],
             ['units', '1'],
             ['valid_min', -1000],
