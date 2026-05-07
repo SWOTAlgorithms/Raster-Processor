@@ -263,39 +263,63 @@ def aggregate_sig0(pixc_sig0, pixc_sig0_uncert, mask, sig0_agg_method='rare'):
     return sig0, sig0_u
 
 
-def aggregate_dark_frac(
+def aggregate_dark_area(
         pixc_classif, pixc_pixel_area, pixc_water_frac, mask,
         interior_water_klasses=AGG_CLASSES['interior_water_klasses'],
         water_edge_klasses=AGG_CLASSES['water_edge_klasses'],
         land_edge_klasses=AGG_CLASSES['land_edge_klasses'],
         dark_water_klasses=AGG_CLASSES['dark_water_klasses'],
         area_agg_method='composite'):
-    """ Aggregate dark water fraction """
+    """ Aggregate dark water area """
     mask = np.logical_and(
         mask, args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
     if np.any(mask):
         pixc_dark_mask = np.logical_and(
             mask, np.isin(pixc_classif, dark_water_klasses))
         if np.any(pixc_dark_mask):
-            dark_area = ag.simple(
-                pixc_pixel_area[pixc_dark_mask], metric='sum')
-            total_area, _ = ag.area_only(
-                pixc_pixel_area, pixc_water_frac, pixc_classif, mask,
+            dark_area, _ = ag.area_only(
+                pixc_pixel_area, pixc_water_frac, pixc_classif, pixc_dark_mask,
                 method=area_agg_method,
                 interior_water_klasses=interior_water_klasses,
                 water_edge_klasses=water_edge_klasses,
                 land_edge_klasses=land_edge_klasses,
                 dark_water_klasses=dark_water_klasses)
-            if total_area == 0:
-                dark_frac = 0
-            else:
-                dark_frac = dark_area/total_area
         else:
-            dark_frac = 0
+            dark_area = 0
     else:
-        dark_frac = np.nan
+        dark_area = np.nan
 
-    return dark_frac
+    return dark_area
+
+
+def aggregate_edge_area(
+        pixc_classif, pixc_pixel_area, pixc_water_frac, mask,
+        interior_water_klasses=AGG_CLASSES['interior_water_klasses'],
+        water_edge_klasses=AGG_CLASSES['water_edge_klasses'],
+        land_edge_klasses=AGG_CLASSES['land_edge_klasses'],
+        dark_water_klasses=AGG_CLASSES['dark_water_klasses'],
+        area_agg_method='composite'):
+    """ Aggregate water edge area """
+    mask = np.logical_and(
+        mask, args_mask(pixc_classif, pixc_pixel_area, pixc_water_frac))
+    if np.any(mask):
+        edge_klasses = np.concatenate((water_edge_klasses, land_edge_klasses))
+        pixc_edge_mask = np.logical_and(
+            mask, np.isin(pixc_classif, edge_klasses))
+        if np.any(pixc_edge_mask):
+            edge_area, _ = ag.area_only(
+                pixc_pixel_area, pixc_water_frac, pixc_classif, pixc_edge_mask,
+                method=area_agg_method,
+                interior_water_klasses=interior_water_klasses,
+                water_edge_klasses=water_edge_klasses,
+                land_edge_klasses=land_edge_klasses,
+                dark_water_klasses=dark_water_klasses)
+        else:
+            edge_area = 0
+    else:
+        edge_area = np.nan
+
+    return edge_area
 
 
 def aggregate_ice_flag(pixc_ice_flag, mask):
