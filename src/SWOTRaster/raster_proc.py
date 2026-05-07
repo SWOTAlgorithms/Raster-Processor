@@ -1191,14 +1191,8 @@ class RasterProcessor():
             raise RasterUsageException(
                 f'Unknown projection type: {self.projection_type}')
 
-        current_datetime = datetime.datetime.now(datetime.UTC)
-        product.history = \
-            (f'{current_datetime.year:04d}-'
-             f'{current_datetime.month:02d}-'
-             f'{current_datetime.day:02d}T'
-             f'{current_datetime.hour:02d}:'
-             f'{current_datetime.minute:02d}:'
-             f'{current_datetime.second:02d}Z : Creation')
+        product.history = datetime.datetime.now(datetime.UTC).strftime(
+            products.CREATION_FORMAT_STR)
         product.cycle_number = self.cycle_number
         product.pass_number = self.pass_number
         product.scene_number = self.scene_number
