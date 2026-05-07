@@ -527,8 +527,8 @@ class RasterProcessor():
                  water_area_pixc_mask, mask=water_area_raster_mask)
 
             LOGGER.info('aggregating dark water fraction')
-            self.dark_frac = self.call_aggregator(
-                partial(raster_agg.aggregate_dark_frac,
+            dark_area = self.call_aggregator(
+                partial(raster_agg.aggregate_dark_area,
                         interior_water_klasses=self.interior_water_classes,
                         water_edge_klasses=self.water_edge_classes,
                         land_edge_klasses=self.land_edge_classes,
@@ -538,6 +538,21 @@ class RasterProcessor():
                 pixc['pixel_cloud']['pixel_area'],
                 pixc['pixel_cloud']['water_frac'],
                 water_area_pixc_mask, mask=water_area_raster_mask)
+            self.dark_frac = dark_area / self.water_area
+
+            LOGGER.info('aggregating water edge fraction')
+            edge_area = self.call_aggregator(
+                partial(raster_agg.aggregate_edge_area,
+                        interior_water_klasses=self.interior_water_classes,
+                        water_edge_klasses=self.water_edge_classes,
+                        land_edge_klasses=self.land_edge_classes,
+                        dark_water_klasses=self.dark_water_classes,
+                        area_agg_method=self.area_agg_method),
+                pixc['pixel_cloud']['classification'],
+                pixc['pixel_cloud']['pixel_area'],
+                pixc['pixel_cloud']['water_frac'],
+                water_area_pixc_mask, mask=water_area_raster_mask)
+            self.edge_frac = edge_area / self.water_area
 
         if not self.skip_sig0:
             LOGGER.info('aggregating sigma0 corrections')
@@ -580,19 +595,6 @@ class RasterProcessor():
                 raster_agg.aggregate_classification,
                 pixc['pixel_cloud']['classification'],
                 all_pixc_mask, mask=all_raster_mask)
-
-            LOGGER.info('aggregating water edge fraction')
-            self.edge_frac = self.call_aggregator(
-                partial(raster_agg.aggregate_edge_frac,
-                        interior_water_klasses=self.interior_water_classes,
-                        water_edge_klasses=self.water_edge_classes,
-                        land_edge_klasses=self.land_edge_classes,
-                        dark_water_klasses=self.dark_water_classes,
-                        area_agg_method=self.area_agg_method),
-                pixc['pixel_cloud']['classification'],
-                pixc['pixel_cloud']['pixel_area'],
-                pixc['pixel_cloud']['water_frac'],
-                water_area_pixc_mask, mask=water_area_raster_mask)
 
         LOGGER.info('aggregating ice flags')
         self.ice_clim_flag = self.call_aggregator(
@@ -1345,6 +1347,7 @@ class RasterProcessor():
                 product['water_frac_uncert'] = self.water_frac_u
                 product['n_water_area_pix'] = self.n_water_area_pix
                 product['dark_frac'] = self.dark_frac
+                product['edge_frac'] = self.edge_frac
 
             if not self.skip_sig0:
                 product['sig0'] = self.sig0
@@ -1369,7 +1372,6 @@ class RasterProcessor():
 
             if self.debug_flag:
                 product['classification'] = self.classification
-                product['edge_frac'] = self.edge_frac
 
         # Crop the product to the desired bounds
         if polygon_points is not None:

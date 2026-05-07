@@ -817,8 +817,23 @@ COMMON_VARIABLES = odict([
             ['valid_max', 10000],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
-                Fraction of pixel water surface area covered by dark
-                water.""")],
+                Fraction of pixel water surface area covered by dark water. The
+                value is typically between 0 and 1 but may occasionally go
+                outside this range due to noise in the estimates.""")],
+     ])],
+    ['edge_frac',
+     odict([['dtype', 'f4'],
+            ['long_name', 'fractional area of water edge'],
+            ['grid_mapping', 'crs'],
+            ['units', '1'],
+            ['valid_min', -1000],
+            ['valid_max', 10000],
+            ['coordinates', '[Raster coordinates]'],
+            ['comment', textjoin("""
+                Fraction of pixel water surface area covered by edge/shoreline
+                water. The value is typically between 0 and 1 but may
+                occasionally go outside this range due to noise in the
+                estimates.""")],
      ])],
     ['ice_clim_flag',
      odict([['dtype', 'u1'],
@@ -1056,18 +1071,6 @@ COMMON_DEBUG_VARIABLES = odict([
             ['coordinates', '[Raster coordinates]'],
             ['comment', 'Flags indicating water detection results.'],
      ])],
-    ['edge_frac',
-     odict([['dtype', 'f4'],
-            ['long_name', 'fractional area of water edge'],
-            ['grid_mapping', 'crs'],
-            ['units', '1'],
-            ['valid_min', -1000],
-            ['valid_max', 10000],
-            ['coordinates', '[Raster coordinates]'],
-            ['comment', textjoin("""
-                Fraction of pixel water surface area covered by water
-                edge.""")],
-     ])],
 ])
 
 
@@ -1236,6 +1239,7 @@ class RasterUTM(ProductTesterMixIn, Product):
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
         ['n_other_pix', COMMON_VARIABLES['n_other_pix'].copy()],
         ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
+        ['edge_frac', COMMON_VARIABLES['edge_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -1527,6 +1531,7 @@ class RasterGeo(ProductTesterMixIn, Product):
         ['n_sig0_pix', COMMON_VARIABLES['n_sig0_pix'].copy()],
         ['n_other_pix', COMMON_VARIABLES['n_other_pix'].copy()],
         ['dark_frac', COMMON_VARIABLES['dark_frac'].copy()],
+        ['edge_frac', COMMON_VARIABLES['edge_frac'].copy()],
         ['ice_clim_flag', COMMON_VARIABLES['ice_clim_flag'].copy()],
         ['ice_dyn_flag', COMMON_VARIABLES['ice_dyn_flag'].copy()],
         ['layover_impact', COMMON_VARIABLES['layover_impact'].copy()],
@@ -1683,9 +1688,8 @@ class RasterUTMDebug(RasterUTM):
                        for key in RasterUTM.VARIABLES})
     VARIABLES.update(odict([
         ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()],
-        ['edge_frac', COMMON_DEBUG_VARIABLES['edge_frac'].copy()],
     ]))
-    for key in ['classification', 'edge_frac']:
+    for key in ['classification']:
         VARIABLES[key]['coordinates'] = 'x y'
         VARIABLES[key]['dimensions'] = odict([['y', 0], ['x', 0]])
 
@@ -1700,9 +1704,8 @@ class RasterGeoDebug(RasterGeo):
                        for key in RasterGeo.VARIABLES})
     VARIABLES.update(odict([
         ['classification', COMMON_DEBUG_VARIABLES['classification'].copy()],
-        ['edge_frac', COMMON_DEBUG_VARIABLES['edge_frac'].copy()],
     ]))
-    for key in ['classification', 'edge_frac']:
+    for key in ['classification']:
         VARIABLES[key]['coordinates'] = 'longitude latitude'
         VARIABLES[key]['dimensions'] = odict([['latitude', 0],
                                               ['longitude', 0]])
