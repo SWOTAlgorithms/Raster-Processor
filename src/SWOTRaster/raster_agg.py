@@ -245,7 +245,6 @@ def aggregate_sig0_corrections(pixc_sig0_cor_atmos_model, mask):
     """ Aggregate sig0 geophysical corrections """
     sig0_cor_atmos_model = simple_masked(
         pixc_sig0_cor_atmos_model, mask, metric='mean')
-
     return sig0_cor_atmos_model
 
 
@@ -324,7 +323,6 @@ def aggregate_layover_impact(
     layover_impact = height_weighted_mean_masked(
         pixc_layover_impact, pixc_phase_noise_std, pixc_dh_dphi, mask,
         height_agg_method=height_agg_method)
-
     return layover_impact
 
 
@@ -597,7 +595,4 @@ def aggregate_sig0_qual(
 def aggregate_classification(pixc_classif, mask):
     """ Aggregate binary classification """
     classification = simple_masked(pixc_classif, mask, metric='mode')
-    try:
-        return classification[0]
-    except TypeError:
-        return np.nan
+    return classification
