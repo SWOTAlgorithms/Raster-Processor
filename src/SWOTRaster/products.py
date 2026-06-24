@@ -867,18 +867,19 @@ COMMON_VARIABLES = odict([
             ['source', 'UNC'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
-                no_ice_cover partial_ice_cover full_ice_cover""")],
+                no_ice_cover uncertain_ice_cover full_ice_cover""")],
             ['flag_values', np.array([0, 1, 2]).astype('u1')],
             ['valid_min', 0],
             ['valid_max', 2],
             ['coordinates', '[Raster coordinates]'],
             ['comment', textjoin("""
                 Dynamic ice cover flag indicating whether the surface is
-                ice-covered on the day of the observation based on
-                analysis of external satellite optical data.  Values of
-                0, 1, and 2 indicate that the pixel is not ice covered,
-                partially ice covered, and fully ice covered,
-                respectively.""")],
+                ice-covered on the day of the observation based on SWOT and/or
+                external optical data. The behavior of this variable may depend
+                on whether the pixel covers a river, a lake, neither, or both.
+                Values of 0, 1, and 2 indicate that the pixel is likely not ice
+                covered, may or may not be partially or fully ice covered, and
+                likely fully ice covered, respectively.""")],
      ])],
     ['layover_impact',
      odict([['dtype', 'f4'],

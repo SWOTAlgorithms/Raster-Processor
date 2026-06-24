@@ -59,6 +59,7 @@ class RasterProcessor():
                  water_frac_bad_thresh_min, water_frac_bad_thresh_max,
                  sig0_bad_thresh_min, sig0_bad_thresh_max,
                  inner_swath_distance_thresh, missing_karin_data_time_thresh,
+                 ice_flag_valid_frac_thresh, ice_flag_value_frac_thresh,
                  utm_zone_adjust=0, mgrs_band_adjust=0,
                  utm_conversion_max_chunk_size=products.DEFAULT_MAX_CHUNK_SIZE,
                  aggregator_max_chunk_size=products.DEFAULT_MAX_CHUNK_SIZE,
@@ -144,6 +145,9 @@ class RasterProcessor():
 
         self.inner_swath_distance_thresh = inner_swath_distance_thresh
         self.missing_karin_data_time_thresh = missing_karin_data_time_thresh
+
+        self.ice_flag_valid_frac_thresh = ice_flag_valid_frac_thresh
+        self.ice_flag_value_frac_thresh = ice_flag_value_frac_thresh
 
         self.skip_wse = skip_wse
         self.skip_area = skip_area
@@ -579,7 +583,7 @@ class RasterProcessor():
                          sig0_uncert_suspect_thresh=
                              self.sig0_uncert_suspect_thresh,
                          num_sig0_pix_suspect_thresh=
-                            self.num_sig0_pix_suspect_thresh,
+                             self.num_sig0_pix_suspect_thresh,
                          near_range_suspect_thresh=
                              self.near_range_suspect_thresh,
                          far_range_suspect_thresh=
@@ -601,12 +605,16 @@ class RasterProcessor():
 
         LOGGER.info('aggregating ice flags')
         self.ice_clim_flag = self.call_aggregator(
-            raster_agg.aggregate_ice_flag,
+            partial(raster_agg.aggregate_ice_flag,
+                    ice_flag_valid_frac_thresh=self.ice_flag_valid_frac_thresh,
+                    ice_flag_value_frac_thresh=self.ice_flag_value_frac_thresh),
             pixc['pixel_cloud']['ice_clim_flag'],
             all_pixc_mask, mask=all_raster_mask)
 
         self.ice_dyn_flag = self.call_aggregator(
-            raster_agg.aggregate_ice_flag,
+            partial(raster_agg.aggregate_ice_flag,
+                    ice_flag_valid_frac_thresh=self.ice_flag_valid_frac_thresh,
+                    ice_flag_value_frac_thresh=self.ice_flag_value_frac_thresh),
             pixc['pixel_cloud']['ice_dyn_flag'],
             all_pixc_mask, mask=all_raster_mask)
 

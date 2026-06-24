@@ -93,7 +93,7 @@ def aggregate_cross_track_and_incidence_angle(
     """ Aggregate cross track and incidence angle """
     cross_track = simple_masked(pixc_cross_track, mask, metric='mean')
     inc = simple_masked(pixc_incidence_angle, mask, metric='mean')
-    n_other_pix = int(ag.simple(mask, metric='sum'))
+    n_other_pix = np.count_nonzero(mask)
     return cross_track, inc, n_other_pix
 
 
@@ -322,17 +322,20 @@ def aggregate_edge_area(
     return edge_area
 
 
-def aggregate_ice_flag(pixc_ice_flag, mask):
+def aggregate_ice_flag(
+        pixc_ice_flag, mask, ice_flag_valid_frac_thresh,
+        ice_flag_value_frac_thresh):
     """ Aggregate ice flag """
     mask = np.logical_and(mask, args_mask(pixc_ice_flag))
-    if np.any(mask):
+    if np.any(mask) \
+       and np.count_nonzero(mask) / np.size(mask) >= ice_flag_valid_frac_thresh:
         valid_ice_flag = pixc_ice_flag[mask]
-        min_flag_val = np.min(valid_ice_flag)
-        if np.all(valid_ice_flag == min_flag_val):
-            # If all flags are the same, then we return that value
-            ice_flag_out = min_flag_val
+        values, counts = np.unique(valid_ice_flag, return_counts=True)
+        over_thresh_mask = counts / np.size(valid_ice_flag) \
+            >= ice_flag_value_frac_thresh
+        if np.count_nonzero(over_thresh_mask) == 1:
+            ice_flag_out = values[over_thresh_mask][0]
         else:
-            # Otherwise, return partial cover value
             ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
     else:
         ice_flag_out = np.nan
@@ -362,7 +365,7 @@ def aggregate_wse_qual(
         # Default to good
         wse_qual = products.QUAL_IND_GOOD
         wse_qual_bitwise = products.QUAL_IND_GOOD
-        n_wse_pix = int(ag.simple(mask, metric='sum'))
+        n_wse_pix = np.count_nonzero(mask)
 
         if np.any(pixc_class_qual[mask] == products.QUAL_IND_SUSPECT):
             wse_qual = max(wse_qual, products.QUAL_IND_SUSPECT)
@@ -446,7 +449,7 @@ def aggregate_water_area_qual(
         # Default to good
         water_area_qual = products.QUAL_IND_GOOD
         water_area_qual_bitwise = products.QUAL_IND_GOOD
-        n_water_area_pix = int(ag.simple(mask, metric='sum'))
+        n_water_area_pix = np.count_nonzero(mask)
 
         if np.any(pixc_class_qual[mask] == products.QUAL_IND_SUSPECT):
             water_area_qual = max(water_area_qual, products.QUAL_IND_SUSPECT)
@@ -537,7 +540,7 @@ def aggregate_sig0_qual(
         # Default to good
         sig0_qual = products.QUAL_IND_GOOD
         sig0_qual_bitwise = products.QUAL_IND_GOOD
-        n_sig0_pix = int(ag.simple(mask, metric='sum'))
+        n_sig0_pix = np.count_nonzero(mask)
 
         if np.any(pixc_sig0_qual[mask] == products.QUAL_IND_SUSPECT):
             sig0_qual = max(sig0_qual, products.QUAL_IND_SUSPECT)
