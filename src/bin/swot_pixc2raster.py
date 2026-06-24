@@ -116,6 +116,10 @@ example algorithmic config parameters:
     inner_swath_distance_thresh                     (-) = 10000
     missing_karin_data_time_thresh                  (-) = 0.1
 
+    # Ice flagging thresholds
+    ice_flag_valid_frac_thresh                      (-) = 0.5
+    ice_flag_value_frac_thresh                      (-) = 0.9
+
 example runtime config parameters:
     raster_resolution           (-) = 100
     output_sampling_grid_type   (-) = utm
