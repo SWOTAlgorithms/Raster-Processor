@@ -27,26 +27,6 @@ ELLIPSOID_SEMI_MINOR_AXIS = ELLIPSOID_SEMI_MAJOR_AXIS*(1-ELLIPSOID_FLATTENING)
 LOGGER = logging.getLogger(__name__)
 
 
-def wgs84_px_area(center_lat, px_size):
-    """ Calculates the area of a pixel by getting the total area between the
-    lat bounds and taking the fraction of that area between the lon bounds """
-    spatial_ref = osr.SpatialReference()
-    spatial_ref.ImportFromEPSG(WGS84_ID)
-    semi_maj = spatial_ref.GetSemiMajor()
-    semi_min = spatial_ref.GetSemiMinor()
-    e = np.sqrt(1 - (semi_min/semi_maj)**2)
-    area_list = []
-    for f in [center_lat + px_size/2, center_lat - px_size/2]:
-        zm = 1 - e*np.sin(np.deg2rad(f))
-        zp = 1 + e*np.sin(np.deg2rad(f))
-        area_list.append(
-            np.pi * semi_min**2 * (
-                2 * np.arctanh(e*np.sin(np.deg2rad(f))) / (2*e) +
-                np.sin(np.deg2rad(f)) / (zp*zm)))
-
-    return px_size / 360. * (area_list[0] - area_list[1])
-
-
 def is_utm_zone_valid(utm_zone):
     """ Checks if a UTM zone is valid """
     return 1 <= utm_zone <= UTM_NUM_ZONES
@@ -173,6 +153,25 @@ def wgs84_crs():
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(WGS84_ID)
     return spatial_ref
+
+
+def wgs84_px_area(center_lat, px_size):
+    """ Calculates the area of a pixel by getting the total area between the
+    lat bounds and taking the fraction of that area between the lon bounds """
+    spatial_ref = wgs84_crs()
+    semi_maj = spatial_ref.GetSemiMajor()
+    semi_min = spatial_ref.GetSemiMinor()
+    e = np.sqrt(1 - (semi_min/semi_maj)**2)
+    area_list = []
+    for f in [center_lat + px_size/2, center_lat - px_size/2]:
+        zm = 1 - e*np.sin(np.deg2rad(f))
+        zp = 1 + e*np.sin(np.deg2rad(f))
+        area_list.append(
+            np.pi * semi_min**2 * (
+                2 * np.arctanh(e*np.sin(np.deg2rad(f))) / (2*e) +
+                np.sin(np.deg2rad(f)) / (zp*zm)))
+
+    return px_size / 360. * (area_list[0] - area_list[1])
 
 
 def is_longitude_wrapped(lons, thresh=180):

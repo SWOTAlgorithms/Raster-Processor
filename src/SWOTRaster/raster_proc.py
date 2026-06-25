@@ -1223,7 +1223,7 @@ class RasterProcessor():
         # Sort tile level attributes based on swath side first,
         # then the rest of the name (i.e. side_cycle_pass_tile)
         sort_idx = np.argsort(
-            [f'{tile_name[-1].lower()}_{tile_cycle:03d}_{tile_name[:-1]}'
+            [f'{tile_name[-1].lower()}_{tile_cycle:03}_{tile_name[:-1]}'
              for tile_cycle, tile_name in zip(
                      self.tile_cycle_numbers, self.tile_names)])
         product.tile_numbers = self.tile_numbers[sort_idx]

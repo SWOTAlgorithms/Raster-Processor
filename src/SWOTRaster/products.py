@@ -1405,7 +1405,6 @@ class RasterUTM(ProductTesterMixIn, Product):
                     self.VARIABLES['illumination_time']['leap_second'] = \
                         EMPTY_LEAPSEC
 
-
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
         LOGGER.info('getting uncorrected height')
@@ -1669,10 +1668,13 @@ class RasterGeo(ProductTesterMixIn, Product):
                 self.variables[var].mask = np.logical_or(
                     self.variables[var].mask, np.logical_not(mask))
 
-        # Set the time coverage start and end
+        # Update time coverage, tai/utc difference and leap seconds
         if np.all(self.illumination_time.mask):
-            start_illumination_time = EMPTY_DATETIME
-            end_illumination_time = EMPTY_DATETIME
+            self.time_coverage_start = EMPTY_DATETIME
+            self.time_coverage_end = EMPTY_DATETIME
+            self.VARIABLES['illumination_time']['tai_utc_difference'] = \
+                EMPTY_TAI_UTC_DIFF
+            self.VARIABLES['illumination_time']['leap_second'] = EMPTY_LEAPSEC
         else:
             start_illumination_time = np.min(self.illumination_time)
             end_illumination_time = np.max(self.illumination_time)
@@ -1684,6 +1686,22 @@ class RasterGeo(ProductTesterMixIn, Product):
                 + end_illumination_time, datetime.UTC)
             self.time_coverage_start = start_time.strftime(DATETIME_FORMAT_STR)
             self.time_coverage_end = end_time.strftime(DATETIME_FORMAT_STR)
+
+            min_illumination_time_idx = np.unravel_index(
+                np.argmin(self.illumination_time),
+                self.illumination_time.shape)
+            self.VARIABLES['illumination_time']['tai_utc_difference'] = \
+                self.illumination_time_tai[min_illumination_time_idx] \
+                - self.illumination_time[min_illumination_time_idx]
+
+            if self.VARIABLES['illumination_time']['leap_second'] \
+               != EMPTY_LEAPSEC:
+                leap_second_time = datetime.datetime.strptime(
+                    self.VARIABLES['illumination_time']['leap_second'],
+                    LEAPSEC_FORMAT_STR).replace(tzinfo=datetime.UTC)
+                if not (start_time <= leap_second_time <= end_time):
+                    self.VARIABLES['illumination_time']['leap_second'] = \
+                        EMPTY_LEAPSEC
 
     def get_uncorrected_height(self):
         """ Get the height with wse geophysical corrections removed """
