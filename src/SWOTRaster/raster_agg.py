@@ -326,17 +326,21 @@ def aggregate_ice_flag(
         pixc_ice_flag, mask, ice_flag_valid_frac_thresh,
         ice_flag_value_frac_thresh):
     """ Aggregate ice flag """
+    valid_mask = args_mask(pixc_ice_flag)[mask]
     mask = np.logical_and(mask, args_mask(pixc_ice_flag))
-    if np.any(mask) \
-       and np.count_nonzero(mask) / np.size(mask) >= ice_flag_valid_frac_thresh:
-        valid_ice_flag = pixc_ice_flag[mask]
-        values, counts = np.unique(valid_ice_flag, return_counts=True)
-        over_thresh_mask = counts / np.size(valid_ice_flag) \
-            >= ice_flag_value_frac_thresh
-        if np.count_nonzero(over_thresh_mask) == 1:
-            ice_flag_out = values[over_thresh_mask][0]
+    if np.any(mask):
+        valid_frac = np.count_nonzero(valid_mask) / np.size(valid_mask)
+        if valid_frac >= ice_flag_valid_frac_thresh:
+            valid_ice_flag = pixc_ice_flag[mask]
+            values, counts = np.unique(valid_ice_flag, return_counts=True)
+            over_thresh_mask = counts / np.size(valid_ice_flag) \
+                >= ice_flag_value_frac_thresh
+            if np.count_nonzero(over_thresh_mask) == 1:
+                ice_flag_out = values[over_thresh_mask][0]
+            else:
+                ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
         else:
-            ice_flag_out = ICE_FLAG_PARTIAL_COVER_FLAG_VALUE
+            ice_flag_out = np.nan
     else:
         ice_flag_out = np.nan
 
