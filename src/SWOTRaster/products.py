@@ -29,7 +29,7 @@ LEAPSEC_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ'
 CREATION_FORMAT_STR = '%Y-%m-%dT%H:%M:%SZ : Creation'
 EMPTY_DATETIME = "0000-00-00T00:00:00.000000Z"
 EMPTY_LEAPSEC = "0000-00-00T00:00:00Z"
-EMPTY_TAI_UTC_DIFF = 0
+EMPTY_TAI_UTC_DIFF = 0.0
 
 # define constants for each summary quality value
 QUAL_IND_GOOD = 0
