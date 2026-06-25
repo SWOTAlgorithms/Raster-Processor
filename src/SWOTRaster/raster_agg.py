@@ -333,8 +333,8 @@ def aggregate_ice_flag(
         if valid_frac >= ice_flag_valid_frac_thresh:
             valid_ice_flag = pixc_ice_flag[mask]
             values, counts = np.unique(valid_ice_flag, return_counts=True)
-            over_thresh_mask = counts / np.size(valid_ice_flag) \
-                >= ice_flag_value_frac_thresh
+            over_thresh_mask = \
+                counts / np.size(valid_ice_flag) >= ice_flag_value_frac_thresh
             if np.count_nonzero(over_thresh_mask) == 1:
                 ice_flag_out = values[over_thresh_mask][0]
             else:
