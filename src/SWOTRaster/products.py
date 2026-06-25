@@ -864,7 +864,7 @@ COMMON_VARIABLES = odict([
      odict([['dtype', 'u1'],
             ['long_name', 'dynamic ice cover flag'],
             ['standard_name', 'status_flag'],
-            ['source', 'UNC'],
+            ['source', 'Trudel et al. (2026)'],
             ['grid_mapping', 'crs'],
             ['flag_meanings', textjoin("""
                 no_ice_cover uncertain_ice_cover full_ice_cover""")],
